@@ -18,6 +18,12 @@ export function formatTime(date = new Date()): string {
   return date.toLocaleTimeString('tr-TR');
 }
 
+export function formatLotRange(initial: number, final: number): string {
+  const a = Math.round(initial).toLocaleString('tr-TR');
+  const b = Math.round(final).toLocaleString('tr-TR');
+  return initial !== final ? `${a} → ${b}` : b;
+}
+
 export function changePercent(current: number, base: number): number {
   if (!base) return 0;
   return ((current - base) / base) * 100;

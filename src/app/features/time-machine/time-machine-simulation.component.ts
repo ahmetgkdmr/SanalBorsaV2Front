@@ -1,11 +1,31 @@
-import { ChangeDetectionStrategy, Component, effect, input, OnDestroy, signal } from '@angular/core';
-import { SIMULATION_EVENTS, TimeMachineCalc } from '../../core/constants/market.mock';
-import { formatInteger } from '../../core/utils/format.util';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  effect,
+  ElementRef,
+  input,
+  OnDestroy,
+  signal,
+  viewChild,
+} from '@angular/core';
+import { SIMULATION_EVENTS, TimeMachineCalc } from '../../core/models/time-machine.model';
+import { formatInteger, formatLotRange } from '../../core/utils/format.util';
 
 interface YearGrid {
   x: number;
   year: number;
 }
+
+interface ChartPoint {
+  svgX: number;
+  svgY: number;
+  value: number;
+  year: number;
+  month: number;
+  lots: number;
+}
+
+const MONTHS_TR = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
 
 @Component({
   selector: 'app-time-machine-simulation',
@@ -18,47 +38,85 @@ interface YearGrid {
       </div>
       <div class="sim-event">{{ event() }}</div>
 
-      <svg viewBox="0 0 1000 240" preserveAspectRatio="none" aria-hidden="true">
-        @for (g of grid(); track g.year) {
-          <line
-            [attr.x1]="g.x"
-            y1="10"
-            [attr.x2]="g.x"
-            y2="222"
-            stroke="var(--line)"
-            stroke-width="1"
-            opacity="0.5"
+      <div class="chart-wrap">
+        <svg
+          #chartSvg
+          viewBox="0 0 1000 240"
+          preserveAspectRatio="none"
+          (mousemove)="onChartMove($event)"
+          (mouseleave)="clearHover()"
+        >
+          @for (g of grid(); track g.year) {
+            <line
+              [attr.x1]="g.x"
+              y1="10"
+              [attr.x2]="g.x"
+              y2="222"
+              stroke="var(--line)"
+              stroke-width="1"
+              opacity="0.5"
+            />
+            <text
+              [attr.x]="g.x + 4"
+              y="236"
+              fill="var(--muted)"
+              font-size="11"
+              font-family="IBM Plex Mono, monospace"
+            >
+              {{ g.year }}
+            </text>
+          }
+          <path [attr.d]="areaPath()" fill="var(--up)" opacity="0.12" />
+          <path
+            [attr.d]="linePath()"
+            fill="none"
+            stroke="var(--up)"
+            stroke-width="2.5"
+            stroke-linejoin="round"
           />
-          <text
-            [attr.x]="g.x + 4"
-            y="236"
-            fill="var(--muted)"
-            font-size="11"
-            font-family="IBM Plex Mono, monospace"
-          >
-            {{ g.year }}
-          </text>
-        }
-        <path [attr.d]="areaPath()" fill="var(--up)" opacity="0.12" />
-        <path
-          [attr.d]="linePath()"
-          fill="none"
-          stroke="var(--up)"
-          stroke-width="2.5"
-          stroke-linejoin="round"
-        />
-        <circle
-          [attr.cx]="dotX()"
-          [attr.cy]="dotY()"
-          r="5"
-          fill="var(--accent)"
-          stroke="#1a1206"
-          stroke-width="2"
-          [attr.opacity]="dotVisible() ? 1 : 0"
-        />
-      </svg>
+          @if (hoverPoint(); as hp) {
+            <line
+              [attr.x1]="hp.svgX"
+              y1="10"
+              [attr.x2]="hp.svgX"
+              y2="222"
+              stroke="var(--accent)"
+              stroke-width="1"
+              stroke-dasharray="4 4"
+              opacity="0.7"
+            />
+            <circle
+              [attr.cx]="hp.svgX"
+              [attr.cy]="hp.svgY"
+              r="6"
+              fill="var(--accent)"
+              stroke="#1a1206"
+              stroke-width="2"
+            />
+          } @else if (dotVisible()) {
+            <circle
+              [attr.cx]="dotX()"
+              [attr.cy]="dotY()"
+              r="5"
+              fill="var(--accent)"
+              stroke="#1a1206"
+              stroke-width="2"
+            />
+          }
+        </svg>
 
-      <div class="sim-note">Yolculuk kritik yıllarda yavaşlar — grafiği izle 👀</div>
+        @if (hoverTip(); as tip) {
+          <div class="chart-tip" [style.left.%]="tip.leftPct" [style.top.%]="tip.topPct">
+            <div class="tip-date">{{ tip.dateLabel }}</div>
+            <div class="tip-val">{{ tip.valueLabel }}</div>
+            @if (tip.lotsLabel) {
+              <div class="tip-lots">{{ tip.lotsLabel }}</div>
+            }
+          </div>
+        }
+      </div>
+
+      <div class="sim-note">Grafiğin üzerine gel — o anki portföy değerini gör · kritik yıllarda animasyon yavaşlar</div>
       <button class="btn replay" type="button" (click)="start()">↺ Tekrar oynat</button>
     </div>
   `,
@@ -103,10 +161,48 @@ interface YearGrid {
       margin-bottom: 8px;
     }
 
+    .chart-wrap {
+      position: relative;
+    }
+
     svg {
       width: 100%;
       height: 240px;
       display: block;
+      cursor: crosshair;
+    }
+
+    .chart-tip {
+      position: absolute;
+      transform: translate(-50%, calc(-100% - 12px));
+      pointer-events: none;
+      background: #121a2e;
+      border: 1px solid var(--accent);
+      border-radius: 10px;
+      padding: 8px 12px;
+      min-width: 120px;
+      text-align: center;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+      z-index: 2;
+    }
+
+    .tip-date {
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .tip-val {
+      font-size: 15px;
+      font-weight: 800;
+      color: var(--up);
+      margin-top: 2px;
+    }
+
+    .tip-lots {
+      font-size: 11px;
+      color: var(--text);
+      margin-top: 3px;
     }
 
     .sim-note {
@@ -138,8 +234,8 @@ interface YearGrid {
 })
 export class TimeMachineSimulationComponent implements OnDestroy {
   readonly calc = input.required<TimeMachineCalc>();
-  /** Her artışta animasyonu başlatır (parent ilk mount sonrası tetikler). */
   readonly runTrigger = input(0);
+  readonly chartSvg = viewChild<ElementRef<SVGSVGElement>>('chartSvg');
 
   readonly year = signal('—');
   readonly valueHtml = signal('');
@@ -150,7 +246,16 @@ export class TimeMachineSimulationComponent implements OnDestroy {
   readonly dotY = signal(0);
   readonly dotVisible = signal(false);
   readonly grid = signal<YearGrid[]>([]);
+  readonly hoverPoint = signal<ChartPoint | null>(null);
+  readonly hoverTip = signal<{
+    leftPct: number;
+    topPct: number;
+    dateLabel: string;
+    valueLabel: string;
+    lotsLabel: string;
+  } | null>(null);
 
+  private chartPoints: ChartPoint[] = [];
   private animTimer?: ReturnType<typeof setTimeout>;
   private readonly reducedMotion =
     typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -170,18 +275,67 @@ export class TimeMachineSimulationComponent implements OnDestroy {
     this.stop();
   }
 
+  onChartMove(event: MouseEvent): void {
+    if (!this.chartPoints.length) return;
+
+    const svg = this.chartSvg()?.nativeElement;
+    if (!svg) return;
+
+    const rect = svg.getBoundingClientRect();
+    const svgX = ((event.clientX - rect.left) / rect.width) * this.W;
+
+    let bestIdx = 0;
+    let bestDist = Infinity;
+    for (let i = 0; i < this.chartPoints.length; i++) {
+      const dist = Math.abs(this.chartPoints[i].svgX - svgX);
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestIdx = i;
+      }
+    }
+
+    const pt = this.chartPoints[bestIdx];
+    const data = this.calc();
+    this.hoverPoint.set(pt);
+    this.hoverTip.set({
+      leftPct: (pt.svgX / this.W) * 100,
+      topPct: (pt.svgY / this.H) * 100,
+      dateLabel: `${MONTHS_TR[pt.month] ?? ''} ${pt.year}`,
+      valueLabel: `${formatInteger(pt.value)} ₺`,
+      lotsLabel:
+        data.initialLots !== pt.lots
+          ? `${formatLotRange(data.initialLots, pt.lots)} lot`
+          : `${pt.lots.toLocaleString('tr-TR')} lot`,
+    });
+  }
+
+  clearHover(): void {
+    this.hoverPoint.set(null);
+    this.hoverTip.set(null);
+  }
+
   start(): void {
     this.stop();
+    this.clearHover();
     const data = this.calc();
     if (!data.valueSeries.length) return;
 
-    const { series, valueSeries, mode, lots, lotSeries } = data;
+    const { series, valueSeries, lotSeries, initialLots, lots } = data;
     const min = Math.min(...valueSeries);
     const max = Math.max(...valueSeries);
     const range = max - min || 1;
 
     const xAt = (i: number) => (i / (series.length - 1)) * (this.W - 20) + 10;
     const yAt = (v: number) => this.H - 18 - ((v - min) / range) * (this.H - 46);
+
+    this.chartPoints = series.map((p, i) => ({
+      svgX: xAt(i),
+      svgY: yAt(valueSeries[i]),
+      value: valueSeries[i],
+      year: p.year,
+      month: p.month,
+      lots: lotSeries[i] ?? lots,
+    }));
 
     const yearGrids: YearGrid[] = [];
     series.forEach((p, i) => {
@@ -198,6 +352,11 @@ export class TimeMachineSimulationComponent implements OnDestroy {
       if (SIMULATION_EVENTS[p.year]) return 110;
       return 28;
     };
+
+    const lotsLabel = (count: number) =>
+      initialLots !== count
+        ? `${formatLotRange(initialLots, count)} lot`
+        : `${count.toLocaleString('tr-TR')} lot`;
 
     const step = () => {
       if (i >= series.length) {
@@ -218,10 +377,10 @@ export class TimeMachineSimulationComponent implements OnDestroy {
       this.dotVisible.set(true);
       this.year.set(String(p.year));
 
-      const curLots = mode === 'dca' ? (lotSeries[i] ?? lots) : lots;
+      const curLots = lotSeries[i] ?? lots;
       this.valueHtml.set(
         `<span style="color:var(--up)">${formatInteger(valueSeries[i])} ₺</span> ` +
-          `<span style="color:var(--muted);font-size:12px">(${curLots.toLocaleString('tr-TR')} lot)</span>`,
+          `<span style="color:var(--muted);font-size:12px">(${lotsLabel(curLots)})</span>`,
       );
 
       if (SIMULATION_EVENTS[p.year] && lastEventYear !== p.year) {

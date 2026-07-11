@@ -8,10 +8,10 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MINIMUM_WAGE_BY_YEAR } from '../../core/constants/app.constants';
-import { TimeMachineCalc, TimeMachineMode } from '../../core/constants/market.mock';
+import { TimeMachineCalc, TimeMachineMode } from '../../core/models/time-machine.model';
 import { MarketService } from '../../core/services/market.service';
 import { ModalService } from '../../core/services/modal.service';
-import { formatInteger, formatNumber, formatTurkishDate, symbolColor } from '../../core/utils/format.util';
+import { formatInteger, formatNumber, formatTurkishDate, formatLotRange, symbolColor } from '../../core/utils/format.util';
 import { OverlayComponent } from '../../shared/components/overlay/overlay.component';
 import { TimeMachineSimulationComponent } from './time-machine-simulation.component';
 
@@ -121,7 +121,12 @@ import { TimeMachineSimulationComponent } from './time-machine-simulation.compon
                 </div>
                 <div class="stat">
                   <div class="k">LOT</div>
-                  <div class="v mono">{{ r.lots.toLocaleString('tr-TR') }}</div>
+                  <div class="v mono" [class.lot-growth]="r.initialLots !== r.lots">
+                    {{ formatLotRange(r.initialLots, r.lots) }}
+                  </div>
+                  @if (r.initialLots !== r.lots) {
+                    <div class="k sub">bedelsiz / bölünme sonrası</div>
+                  }
                 </div>
                 <div class="stat">
                   <div class="k">BUGÜN</div>
@@ -319,6 +324,16 @@ import { TimeMachineSimulationComponent } from './time-machine-simulation.compon
       }
     }
 
+    .lot-growth {
+      color: var(--prem);
+    }
+
+    .stat .k.sub {
+      margin-top: 4px;
+      font-size: 9px;
+      opacity: 0.75;
+    }
+
     @keyframes tmIn {
       from {
         opacity: 0;
@@ -337,6 +352,7 @@ export class TimeMachineModalComponent {
 
   readonly formatNumber = formatNumber;
   readonly formatInteger = formatInteger;
+  readonly formatLotRange = formatLotRange;
 
   readonly symbol = signal('THYAO');
   date = '2015-06-15';
@@ -351,8 +367,8 @@ export class TimeMachineModalComponent {
   readonly maxDate = new Date().toISOString().slice(0, 10);
 
   readonly stockOptions = computed(() => {
-    const cards = this.market.cards().map((c) => c.symbol);
-    return cards.length ? cards : ['THYAO', 'GARAN', 'AKBNK'];
+    const symbols = this.market.symbolOptions();
+    return symbols.length ? symbols : ['THYAO', 'GARAN', 'AKBNK'];
   });
 
   readonly dateLabel = computed(() => formatTurkishDate(this.date));
@@ -367,7 +383,7 @@ export class TimeMachineModalComponent {
       this.mode() === 'lump'
         ? `o gün tek seferde: <b>${formatInteger(inv)} ₺</b>`
         : `o günden itibaren her ay: <b>${formatInteger(inv)} ₺</b> × ~${totalMonths} ay`;
-    return `${year} asgari ücreti: <b>${formatInteger(wage)} ₺</b> → ${modeTxt} <span style="opacity:.6">(mock veri)</span>`;
+    return `${year} asgari ücreti: <b>${formatInteger(wage)} ₺</b> → ${modeTxt} <span style="opacity:.6">(gerçek fiyat verisi)</span>`;
   });
 
   readonly canSimulate = computed(() => !!this.calc() && !this.calc()!.error && this.calc()!.valueSeries.length > 0);
@@ -377,7 +393,7 @@ export class TimeMachineModalComponent {
       if (this.modals.active() !== 'timeMachine') return;
       const sym = this.modals.stockSymbol();
       if (sym) this.symbol.set(sym);
-      if (!this.market.cards().length) this.market.loadMarket();
+      if (!this.market.symbolOptions().length) this.market.loadMarket();
     });
   }
 
@@ -410,9 +426,33 @@ export class TimeMachineModalComponent {
   calculate(): void {
     this.loading.set(true);
     this.showSim.set(false);
-    const r = this.market.calculateInvestment(this.symbol(), this.date, this.pct(), this.mode());
-    this.calc.set(r);
-    this.loading.set(false);
+    this.market
+      .calculateInvestment(this.symbol(), this.date, this.pct(), this.mode())
+      .subscribe({
+        next: (r) => {
+          this.calc.set(r);
+          this.loading.set(false);
+        },
+        error: () => {
+          this.calc.set({
+            symbol: this.symbol(),
+            mode: this.mode(),
+            invested: 0,
+            currentValue: 0,
+            gainPct: 0,
+            initialLots: 0,
+            lots: 0,
+            buyPrice: 0,
+            currentPrice: 0,
+            series: [],
+            valueSeries: [],
+            lotSeries: [],
+            dateLabel: this.dateLabel(),
+            error: 'Hesaplama başarısız. Backend bağlantısını kontrol et.',
+          });
+          this.loading.set(false);
+        },
+      });
   }
 
   runSim(): void {

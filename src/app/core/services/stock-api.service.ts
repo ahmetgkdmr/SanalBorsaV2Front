@@ -1,10 +1,28 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, map } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { PagedResult } from '../models/paged-result.model';
 import { PriceHistory } from '../models/price-history.model';
 import { Stock, StockDetail } from '../models/stock.model';
+import { TimeMachineCalc, TimeMachineMode } from '../models/time-machine.model';
+
+interface TimeMachineApiResponse {
+  symbol: string;
+  mode: string;
+  invested: number;
+  currentValue: number;
+  gainPct: number;
+  initialLots: number;
+  lots: number;
+  buyPrice: number;
+  currentPrice: number;
+  series: { year: number; month: number; price: number }[];
+  valueSeries: number[];
+  lotSeries: number[];
+  dateLabel: string;
+  error?: string | null;
+}
 
 @Injectable({ providedIn: 'root' })
 export class StockApiService {
@@ -35,5 +53,44 @@ export class StockApiService {
     if (from) params = params.set('from', from);
     if (to) params = params.set('to', to);
     return this.http.get<PriceHistory[]>(`${this.base}/${symbol}/price-history`, { params });
+  }
+
+  calculateTimeMachine(
+    symbol: string,
+    date: string,
+    pct: number,
+    mode: TimeMachineMode,
+  ): Observable<TimeMachineCalc> {
+    const params = new HttpParams()
+      .set('date', date)
+      .set('pct', String(pct))
+      .set('mode', mode);
+
+    return this.http
+      .get<TimeMachineApiResponse>(`${this.base}/${symbol}/time-machine`, { params })
+      .pipe(map((r) => this.mapTimeMachine(r, mode)));
+  }
+
+  private mapTimeMachine(r: TimeMachineApiResponse, mode: TimeMachineMode): TimeMachineCalc {
+    return {
+      symbol: r.symbol,
+      mode,
+      invested: Number(r.invested),
+      currentValue: Number(r.currentValue),
+      gainPct: Number(r.gainPct),
+      initialLots: Number(r.initialLots ?? r.lots),
+      lots: Number(r.lots),
+      buyPrice: Number(r.buyPrice),
+      currentPrice: Number(r.currentPrice),
+      series: (r.series ?? []).map((p) => ({
+        year: p.year,
+        month: p.month,
+        price: Number(p.price),
+      })),
+      valueSeries: (r.valueSeries ?? []).map(Number),
+      lotSeries: (r.lotSeries ?? []).map(Number),
+      dateLabel: r.dateLabel,
+      error: r.error ?? undefined,
+    };
   }
 }

@@ -16,7 +16,7 @@ import { formatNumber, formatTime } from '../../core/utils/format.util';
           <div class="brand-mark">Bİ</div>
           <div>
             <h1>Piyasa Ekranı</h1>
-            <small>BORSA İSTANBUL · DEMO VERİ</small>
+            <small>BORSA İSTANBUL · DB FİYAT + CANLI SİM</small>
           </div>
         </a>
 

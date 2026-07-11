@@ -1,9 +1,11 @@
-import { ChangeDetectionStrategy, Component, inject, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MarketFilter } from '../../core/models/stock.model';
-import { MarketService } from '../../core/services/market.service';
+import { MARKET_PAGE_SIZE, MarketService } from '../../core/services/market.service';
 import { ModalService } from '../../core/services/modal.service';
 import { StockCardComponent } from './components/stock-card/stock-card.component';
+
+type PageItem = number | 'ellipsis';
 
 @Component({
   selector: 'app-market-page',
@@ -29,21 +31,93 @@ import { StockCardComponent } from './components/stock-card/stock-card.component
           class="search"
           type="text"
           placeholder="Hisse ara (ör. THYAO)"
-          [ngModel]="market.search()"
+          [ngModel]="searchInput"
           (ngModelChange)="onSearch($event)"
         />
 
-        <span class="count">{{ market.totalCount() }} hisse</span>
+        <span class="count">{{ market.serverTotalCount() }} hisse</span>
       </div>
 
       @if (market.loading()) {
         <p class="status">Yükleniyor…</p>
+      } @else if (market.error()) {
+        <p class="status error">
+          {{ market.error() }}
+          <button class="retry" type="button" (click)="market.reloadMarket()">Tekrar dene</button>
+        </p>
       } @else {
         <div class="grid">
           @for (card of market.cards(); track card.symbol) {
             <app-stock-card [stock]="card" (selected)="openDetail($event)" />
           }
         </div>
+
+        @if (!market.cards().length) {
+          <p class="status">Bu sayfada gösterilecek hisse yok.</p>
+        }
+
+        <nav class="pager" aria-label="Hisse sayfaları">
+          <p class="pager-meta mono">
+            <span>{{ rangeLabel().from }}–{{ rangeLabel().to }}</span>
+            / {{ rangeLabel().total }} hisse
+            <span class="sep">·</span>
+            Sayfa <b>{{ market.page() }}</b> / <b>{{ market.totalPages() }}</b>
+          </p>
+
+          <div class="pager-btns">
+            <button
+              type="button"
+              class="nav"
+              title="İlk sayfa"
+              [disabled]="market.page() === 1"
+              (click)="market.goToPage(1)"
+            >
+              «
+            </button>
+            <button
+              type="button"
+              class="nav"
+              title="Önceki sayfa"
+              [disabled]="market.page() === 1"
+              (click)="market.goToPage(market.page() - 1)"
+            >
+              ←
+            </button>
+
+            @for (item of pageItems(); track $index) {
+              @if (item === 'ellipsis') {
+                <span class="dots">…</span>
+              } @else {
+                <button
+                  type="button"
+                  [class.cur]="item === market.page()"
+                  (click)="market.goToPage(item)"
+                >
+                  {{ item }}
+                </button>
+              }
+            }
+
+            <button
+              type="button"
+              class="nav"
+              title="Sonraki sayfa"
+              [disabled]="market.page() >= market.totalPages()"
+              (click)="market.goToPage(market.page() + 1)"
+            >
+              →
+            </button>
+            <button
+              type="button"
+              class="nav"
+              title="Son sayfa"
+              [disabled]="market.page() >= market.totalPages()"
+              (click)="market.goToPage(market.totalPages())"
+            >
+              »
+            </button>
+          </div>
+        </nav>
       }
     </section>
   `,
@@ -114,10 +188,77 @@ import { StockCardComponent } from './components/stock-card/stock-card.component
     }
 
     .grid {
-      margin: 18px 0 40px;
+      margin: 18px 0 16px;
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+      grid-template-columns: repeat(5, minmax(0, 1fr));
       gap: 12px;
+    }
+
+    .pager {
+      margin: 20px 0 40px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .pager-meta {
+      font-size: 12.5px;
+      color: var(--muted);
+      margin: 0;
+
+      b {
+        color: var(--text);
+        font-weight: 700;
+      }
+
+      .sep {
+        margin: 0 6px;
+        opacity: 0.5;
+      }
+    }
+
+    .pager-btns {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: center;
+
+      button {
+        min-width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        border: 1px solid var(--line);
+        background: var(--panel);
+        color: var(--text);
+        font-weight: 700;
+        font-size: 13px;
+        cursor: pointer;
+
+        &:disabled {
+          opacity: 0.35;
+          cursor: not-allowed;
+        }
+
+        &.cur {
+          background: var(--accent);
+          color: #1a1206;
+          border-color: var(--accent);
+        }
+
+        &.nav {
+          min-width: 44px;
+        }
+      }
+
+      .dots {
+        min-width: 28px;
+        text-align: center;
+        color: var(--muted);
+        font-weight: 700;
+        user-select: none;
+      }
     }
 
     .status {
@@ -130,9 +271,33 @@ import { StockCardComponent } from './components/stock-card/stock-card.component
       }
     }
 
+    .retry {
+      margin-left: 10px;
+      background: var(--panel2);
+      border: 1px solid var(--line);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 6px 12px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    @media (max-width: 1100px) {
+      .grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 900px) {
+      .grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
+
     @media (max-width: 600px) {
       .grid {
-        grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 10px;
       }
     }
@@ -149,7 +314,22 @@ export class MarketPageComponent implements OnInit {
     { id: 'b100', label: 'BIST 100' },
   ];
 
+  searchInput = '';
   private searchTimer?: ReturnType<typeof setTimeout>;
+
+  readonly rangeLabel = computed(() => {
+    const total = this.market.serverTotalCount();
+    const page = this.market.page();
+    if (!total) return { from: 0, to: 0, total: 0 };
+
+    const from = (page - 1) * MARKET_PAGE_SIZE + 1;
+    const to = Math.min(page * MARKET_PAGE_SIZE, total);
+    return { from, to, total };
+  });
+
+  readonly pageItems = computed(() =>
+    buildPageList(this.market.page(), this.market.totalPages()),
+  );
 
   ngOnInit(): void {
     this.market.loadMarket();
@@ -160,6 +340,7 @@ export class MarketPageComponent implements OnInit {
   }
 
   onSearch(term: string): void {
+    this.searchInput = term;
     clearTimeout(this.searchTimer);
     this.searchTimer = setTimeout(() => {
       this.market.setSearch(term.toLocaleUpperCase('tr-TR').trim());
@@ -169,4 +350,20 @@ export class MarketPageComponent implements OnInit {
   openDetail(symbol: string): void {
     this.modals.openStock(symbol);
   }
+}
+
+function buildPageList(current: number, total: number): PageItem[] {
+  if (total <= 1) return total === 1 ? [1] : [];
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+
+  const items: PageItem[] = [1];
+  if (current > 3) items.push('ellipsis');
+
+  const start = Math.max(2, current - 1);
+  const end = Math.min(total - 1, current + 1);
+  for (let p = start; p <= end; p++) items.push(p);
+
+  if (current < total - 2) items.push('ellipsis');
+  items.push(total);
+  return items;
 }

@@ -12,6 +12,11 @@ export interface Stock {
   earliestDataDate: string | null;
   latestDataDate: string | null;
   needsHistoryRefresh: boolean;
+  lastClose?: number | null;
+  lastOpen?: number | null;
+  previousClose?: number | null;
+  lastVolume?: number | null;
+  sparkline?: number[] | null;
 }
 
 export interface StockDetail extends Stock {
@@ -24,11 +29,13 @@ export interface StockDetail extends Stock {
 
 export interface CorporateAction {
   id: number;
-  type: string;
-  exDate: string;
-  ratio: number | null;
-  amount: number | null;
+  symbol: string;
+  actionType: string;
+  actionTypeName: string;
+  actionDate: string;
+  value: number;
   description: string | null;
+  createdAt: string;
 }
 
 export interface StockCardView extends Stock {

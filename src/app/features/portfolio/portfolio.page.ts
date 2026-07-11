@@ -307,13 +307,13 @@ export class PortfolioPageComponent implements OnInit {
   readonly tradeMsg = signal('');
 
   readonly stockOptions = computed(() => {
-    const fromMarket = this.market.cards().map((c) => c.symbol);
+    const fromMarket = this.market.symbolOptions();
     const fromHoldings = this.portfolio.portfolio().holdings.map((h) => h.symbol);
     return [...new Set([...fromHoldings, ...fromMarket, 'THYAO', 'GARAN'])].sort();
   });
 
   readonly holdings = computed<HoldingRow[]>(() => {
-    this.market.cards();
+    this.market.page();
     return this.portfolio.portfolio().holdings.map((h) => {
       const price = this.market.getPrice(h.symbol) || h.avgCost;
       const value = price * h.lots;

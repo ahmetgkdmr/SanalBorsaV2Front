@@ -151,7 +151,7 @@ export class StockDetailModalComponent {
       const symbol = this.modals.stockSymbol();
       if (this.modals.active() !== 'stockDetail' || !symbol) return;
       this.card.set(this.market.getCard(symbol) ?? null);
-      this.market.cards();
+      this.market.page();
     });
   }
 
