@@ -1,7 +1,7 @@
-import { ChangeDetectionStrategy, Component, inject, OnDestroy, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, effect, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { DEMO_INDICES } from '../../core/constants/app.constants';
 import { AuthService } from '../../core/services/auth.service';
+import { IndexService } from '../../core/services/index.service';
 import { ModalService } from '../../core/services/modal.service';
 import { formatNumber, formatTime } from '../../core/utils/format.util';
 
@@ -16,7 +16,7 @@ import { formatNumber, formatTime } from '../../core/utils/format.util';
           <div class="brand-mark">Bİ</div>
           <div>
             <h1>Piyasa Ekranı</h1>
-            <small>BORSA İSTANBUL · DB FİYAT + CANLI SİM</small>
+            <small>BORSA İSTANBUL · DB FİYAT</small>
           </div>
         </a>
 
@@ -30,7 +30,7 @@ import { formatNumber, formatTime } from '../../core/utils/format.util';
           @if (auth.isLoggedIn()) {
             <span class="user-chip">
               <button class="pill-btn" type="button" routerLink="/portfolio">
-                👤 <b>{{ auth.currentUser()?.username }}</b>
+                👤 <b>{{ auth.currentUser()?.displayName }}</b>
               </button>
               <button class="logout" type="button" (click)="logout()" title="Çıkış">⏻</button>
             </span>
@@ -46,14 +46,29 @@ import { formatNumber, formatTime } from '../../core/utils/format.util';
       </div>
 
       <div class="indices">
-        @for (idx of indices(); track idx.name) {
-          <div class="idx">
+        @for (idx of indices(); track idx.symbol) {
+          <button
+            class="idx"
+            type="button"
+            (click)="openIndexTimeMachine(idx.symbol)"
+            [title]="idx.name + ' · Zaman Makinesi'"
+          >
             <div class="name">{{ idx.name }}</div>
-            <div class="val mono">{{ formatIdx(idx.value, idx.decimals) }}</div>
-            <div class="chg mono" [style.color]="idx.up ? 'var(--up)' : 'var(--down)'">
-              {{ idx.up ? '▲' : '▼' }} %{{ formatNumber(Math.abs(idx.change)) }}
+            <div class="val mono">
+              @if (idx.value > 0) {
+                {{ formatIdx(idx.value, idx.decimals) }}
+              } @else {
+                <span class="loading-val">…</span>
+              }
             </div>
-          </div>
+            <div class="chg mono" [style.color]="idx.up ? 'var(--up)' : 'var(--down)'">
+              @if (idx.value > 0) {
+                {{ idx.up ? '▲' : '▼' }} %{{ formatNumber(Math.abs(idx.change)) }}
+              } @else {
+                <span class="loading-val">yükleniyor</span>
+              }
+            </div>
+          </button>
         }
       </div>
     </header>
@@ -221,6 +236,16 @@ import { formatNumber, formatTime } from '../../core/utils/format.util';
       border: 1px solid var(--line);
       border-radius: var(--radius);
       padding: 14px 16px;
+      text-align: left;
+      cursor: pointer;
+      transition: 0.15s;
+      color: var(--text);
+      font: inherit;
+
+      &:hover {
+        border-color: #37456b;
+        transform: translateY(-1px);
+      }
 
       .name {
         font-size: 12px;
@@ -233,12 +258,19 @@ import { formatNumber, formatTime } from '../../core/utils/format.util';
         font-size: 22px;
         font-weight: 600;
         margin-top: 4px;
+        color: var(--text);
       }
 
       .chg {
         font-size: 13px;
         font-weight: 600;
         margin-top: 2px;
+      }
+
+      .loading-val {
+        color: var(--muted);
+        font-size: 14px;
+        font-weight: 500;
       }
     }
 
@@ -253,37 +285,63 @@ import { formatNumber, formatTime } from '../../core/utils/format.util';
 export class HeaderComponent implements OnInit, OnDestroy {
   readonly auth = inject(AuthService);
   readonly modals = inject(ModalService);
+  private readonly indexService = inject(IndexService);
 
   readonly formatNumber = formatNumber;
   readonly Math = Math;
 
   readonly clock = signal(formatTime());
-  readonly indices = signal(
-    DEMO_INDICES.map((i) => ({
-      ...i,
-      open: i.value,
-      change: 0,
-      up: true,
-    })),
-  );
+  readonly indices = signal<
+    { symbol: string; name: string; value: number; decimals: number; change: number; up: boolean }[]
+  >([]);
 
-  private timer?: ReturnType<typeof setInterval>;
+  private clockTimer?: ReturnType<typeof setInterval>;
 
-  ngOnInit(): void {
-    this.timer = setInterval(() => {
-      this.clock.set(formatTime());
-      this.indices.update((list) =>
-        list.map((i) => {
-          const value = i.value * (1 + (Math.random() - 0.5) * 0.0015);
-          const change = ((value - i.open) / i.open) * 100;
-          return { ...i, value, change, up: change >= 0 };
-        }),
+  constructor() {
+    effect(() => {
+      const quotes = this.indexService.quotes();
+      if (!quotes.length) return;
+      this.indices.set(
+        quotes.map((q) => ({
+          symbol: q.symbol,
+          name: q.displayName,
+          value: q.value,
+          decimals: q.decimals,
+          change: q.changePct,
+          up: q.isUp,
+        })),
       );
-    }, 1400);
+    });
   }
 
+  ngOnInit(): void {
+    this.indexService.loadQuotes();
+
+    this.clockTimer = setInterval(() => {
+      this.clock.set(formatTime());
+    }, 1000);
+
+    // API hazır olana kadar periyodik yeniden dene
+    const retry = setInterval(() => {
+      if (this.indexService.hasLiveData()) {
+        clearInterval(retry);
+        return;
+      }
+      this.indexService.loadQuotes(true);
+    }, 8000);
+
+    this.destroyRetry = () => clearInterval(retry);
+  }
+
+  private destroyRetry?: () => void;
+
   ngOnDestroy(): void {
-    if (this.timer) clearInterval(this.timer);
+    if (this.clockTimer) clearInterval(this.clockTimer);
+    this.destroyRetry?.();
+  }
+
+  openIndexTimeMachine(symbol: string): void {
+    this.modals.openTimeMachine(symbol);
   }
 
   formatIdx(value: number, decimals = 2): string {
@@ -291,6 +349,6 @@ export class HeaderComponent implements OnInit, OnDestroy {
   }
 
   logout(): void {
-    this.auth.logout();
+    this.auth.logout().catch(() => null);
   }
 }

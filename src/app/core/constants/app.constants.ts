@@ -1,17 +1,11 @@
 export interface IndexTicker {
   name: string;
+  symbol: string;
   value: number;
   decimals?: number;
+  change?: number;
+  up?: boolean;
 }
-
-/** Demo endeks verileri — gerçek endeks API'si eklendiğinde değiştirilecek */
-export const DEMO_INDICES: IndexTicker[] = [
-  { name: 'BIST 100', value: 10847.32 },
-  { name: 'BIST 50', value: 9634.18 },
-  { name: 'BIST 30', value: 11592.47 },
-  { name: 'BIST BANKA', value: 14208.65 },
-  { name: 'USD/TRY', value: 41.26, decimals: 4 },
-];
 
 export const STARTING_CASH = 1_000_000;
 export const PREMIUM_PASSWORD = '12345';

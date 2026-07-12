@@ -20,6 +20,7 @@ export interface PortfolioState {
   transactions: PortfolioTransaction[];
 }
 
+/** @deprecated Eski local-auth için — AuthUser kullan. */
 export interface UserSession {
   username: string;
   createdAt: string;

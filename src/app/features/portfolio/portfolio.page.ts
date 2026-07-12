@@ -38,7 +38,7 @@ interface HoldingRow {
         <div class="pf-hero">
           <div class="avatar">{{ avatar() }}</div>
           <div>
-            <h2>{{ auth.currentUser()?.username }}</h2>
+            <h2>{{ auth.currentUser()?.displayName }}</h2>
             <div class="sub">Sanal yatırımcı · başlangıç 1.000.000 ₺</div>
           </div>
           <div class="total">
@@ -339,7 +339,7 @@ export class PortfolioPageComponent implements OnInit {
   }
 
   avatar(): string {
-    const name = this.auth.currentUser()?.username ?? '?';
+    const name = this.auth.currentUser()?.displayName ?? '?';
     return name.slice(0, 1).toUpperCase();
   }
 

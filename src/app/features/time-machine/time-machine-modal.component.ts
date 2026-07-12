@@ -10,8 +10,10 @@ import { FormsModule } from '@angular/forms';
 import { MINIMUM_WAGE_BY_YEAR } from '../../core/constants/app.constants';
 import { TimeMachineCalc, TimeMachineMode } from '../../core/models/time-machine.model';
 import { MarketService } from '../../core/services/market.service';
+import { IndexService } from '../../core/services/index.service';
 import { ModalService } from '../../core/services/modal.service';
 import { formatInteger, formatNumber, formatTurkishDate, formatLotRange, symbolColor } from '../../core/utils/format.util';
+import { isForexSymbol, isIndexSymbol } from '../../core/models/index.model';
 import { OverlayComponent } from '../../shared/components/overlay/overlay.component';
 import { TimeMachineSimulationComponent } from './time-machine-simulation.component';
 
@@ -24,16 +26,23 @@ import { TimeMachineSimulationComponent } from './time-machine-simulation.compon
       <div class="modal">
         <button class="m-close" type="button" (click)="onClose()">✕</button>
         <h2>🕰️ Zaman Makinesi <span class="prem-tag">PREMIUM · şimdilik herkese açık</span></h2>
-        <p class="sub">O tarihte asgari ücretinin bir kısmıyla bu hisseyi alsaydın bugün ne olurdu?</p>
+        <p class="sub">{{ subtitle() }}</p>
 
         <div class="tm-section">
-          <div class="tm-label">HİSSE SEÇ</div>
+          <div class="tm-label">{{ instrumentLabel() }}</div>
           <div class="stock-pick">
             <div class="pick-logo" [style.background]="logoColor()">{{ symbol().slice(0, 2) }}</div>
             <select class="f-input" [ngModel]="symbol()" (ngModelChange)="onSymbolChange($event)">
-              @for (s of stockOptions(); track s) {
-                <option [value]="s">{{ s }}</option>
-              }
+              <optgroup label="Endeks & Döviz">
+                @for (opt of indexOptions(); track opt.symbol) {
+                  <option [value]="opt.symbol">{{ opt.label }}</option>
+                }
+              </optgroup>
+              <optgroup label="Hisseler">
+                @for (s of stockOptions(); track s) {
+                  <option [value]="s">{{ s }}</option>
+                }
+              </optgroup>
             </select>
           </div>
         </div>
@@ -120,11 +129,11 @@ import { TimeMachineSimulationComponent } from './time-machine-simulation.compon
                   <div class="v mono">{{ formatNumber(r.buyPrice) }} ₺</div>
                 </div>
                 <div class="stat">
-                  <div class="k">LOT</div>
+                  <div class="k">{{ lotLabel() }}</div>
                   <div class="v mono" [class.lot-growth]="r.initialLots !== r.lots">
                     {{ formatLotRange(r.initialLots, r.lots) }}
                   </div>
-                  @if (r.initialLots !== r.lots) {
+                  @if (r.initialLots !== r.lots && !isInstrumentMode()) {
                     <div class="k sub">bedelsiz / bölünme sonrası</div>
                   }
                 </div>
@@ -349,10 +358,12 @@ import { TimeMachineSimulationComponent } from './time-machine-simulation.compon
 export class TimeMachineModalComponent {
   readonly modals = inject(ModalService);
   private readonly market = inject(MarketService);
+  private readonly indexService = inject(IndexService);
 
   readonly formatNumber = formatNumber;
   readonly formatInteger = formatInteger;
   readonly formatLotRange = formatLotRange;
+  readonly isInstrumentMode = computed(() => isIndexSymbol(this.symbol()) || isForexSymbol(this.symbol()));
 
   readonly symbol = signal('THYAO');
   date = '2015-06-15';
@@ -369,6 +380,33 @@ export class TimeMachineModalComponent {
   readonly stockOptions = computed(() => {
     const symbols = this.market.symbolOptions();
     return symbols.length ? symbols : ['THYAO', 'GARAN', 'AKBNK'];
+  });
+
+  readonly indexOptions = computed(() =>
+    this.indexService.quotes().map((q) => ({
+      symbol: q.symbol,
+      label: q.displayName,
+    })),
+  );
+
+  readonly instrumentLabel = computed(() =>
+    this.isInstrumentMode() ? 'ENDEKS / DÖVİZ SEÇ' : 'HİSSE SEÇ',
+  );
+
+  readonly subtitle = computed(() => {
+    if (isForexSymbol(this.symbol())) {
+      return 'O tarihte asgari ücretinin bir kısmıyla dolar alsaydın bugün ne olurdu?';
+    }
+    if (isIndexSymbol(this.symbol())) {
+      return 'O tarihte asgari ücretinin bir kısmıyla bu endekse yatırım yapsaydın bugün ne olurdu?';
+    }
+    return 'O tarihte asgari ücretinin bir kısmıyla bu hisseyi alsaydın bugün ne olurdu?';
+  });
+
+  readonly lotLabel = computed(() => {
+    if (isForexSymbol(this.symbol())) return 'USD MİKTARI';
+    if (isIndexSymbol(this.symbol())) return 'BİRİM';
+    return 'LOT';
   });
 
   readonly dateLabel = computed(() => formatTurkishDate(this.date));
@@ -394,6 +432,7 @@ export class TimeMachineModalComponent {
       const sym = this.modals.stockSymbol();
       if (sym) this.symbol.set(sym);
       if (!this.market.symbolOptions().length) this.market.loadMarket();
+      if (!this.indexService.quotes().length) this.indexService.loadQuotes();
     });
   }
 
