@@ -6,6 +6,17 @@ export interface SimulationPoint {
   price: number;
 }
 
+export interface LotEventMarker {
+  year: number;
+  month: number;
+  actionDateLabel: string;
+  actionType: string;
+  label: string;
+  lotsBefore: number;
+  lotsAfter: number;
+  description?: string | null;
+}
+
 export interface TimeMachineCalc {
   symbol: string;
   mode: TimeMachineMode;
@@ -19,6 +30,7 @@ export interface TimeMachineCalc {
   series: SimulationPoint[];
   valueSeries: number[];
   lotSeries: number[];
+  lotEvents: LotEventMarker[];
   dateLabel: string;
   error?: string;
 }

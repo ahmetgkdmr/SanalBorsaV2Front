@@ -12,15 +12,24 @@ import { TimeMachineCalc, TimeMachineMode } from '../../core/models/time-machine
 import { MarketService } from '../../core/services/market.service';
 import { IndexService } from '../../core/services/index.service';
 import { ModalService } from '../../core/services/modal.service';
-import { formatInteger, formatNumber, formatTurkishDate, formatLotRange, symbolColor } from '../../core/utils/format.util';
+import {
+  formatInteger,
+  formatNumber,
+  formatTurkishDate,
+  formatLotRange,
+  symbolColor,
+} from '../../core/utils/format.util';
 import { isForexSymbol, isIndexSymbol } from '../../core/models/index.model';
 import { OverlayComponent } from '../../shared/components/overlay/overlay.component';
+import { DatePickerComponent } from '../../shared/components/date-picker/date-picker.component';
 import { TimeMachineSimulationComponent } from './time-machine-simulation.component';
+
+type InvestMode = 'wage' | 'custom';
 
 @Component({
   selector: 'app-time-machine-modal',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [OverlayComponent, FormsModule, TimeMachineSimulationComponent],
+  imports: [OverlayComponent, FormsModule, TimeMachineSimulationComponent, DatePickerComponent],
   template: `
     <app-overlay [open]="modals.active() === 'timeMachine'" (closed)="onClose()">
       <div class="modal">
@@ -28,6 +37,7 @@ import { TimeMachineSimulationComponent } from './time-machine-simulation.compon
         <h2>🕰️ Zaman Makinesi <span class="prem-tag">PREMIUM · şimdilik herkese açık</span></h2>
         <p class="sub">{{ subtitle() }}</p>
 
+        <!-- ── Sembol seçimi ───────────────────────────────── -->
         <div class="tm-section">
           <div class="tm-label">{{ instrumentLabel() }}</div>
           <div class="stock-pick">
@@ -47,56 +57,83 @@ import { TimeMachineSimulationComponent } from './time-machine-simulation.compon
           </div>
         </div>
 
+        <!-- ── Tarih seçici ───────────────────────────────── -->
         <div class="tm-section">
-          <div class="tm-label">
-            TARİH SEÇ (takvimden gün + yıl) <b>{{ dateLabel() }}</b>
-          </div>
-          <input
-            type="date"
-            class="f-input"
-            [(ngModel)]="date"
-            [min]="minDate"
-            [max]="maxDate"
-            (ngModelChange)="resetCalc()"
+          <div class="tm-label">TARİH SEÇ</div>
+          <app-date-picker
+            [value]="dateStr()"
+            (valueChange)="onDateChange($event)"
+            [minDate]="minDateStr()"
+            [maxDate]="todayStr"
+            [hint]="calendarHint()"
           />
         </div>
 
+        <!-- ── Alım şekli ─────────────────────────────────── -->
         <div class="tm-section">
           <div class="tm-label">ALIM ŞEKLİ</div>
           <div class="seg">
-            <button
-              type="button"
-              [class.active]="mode() === 'lump'"
-              (click)="setMode('lump')"
-            >
-              💰 Tek Seferlik (seçtiğin gün)
+            <button type="button" [class.active]="mode() === 'lump'" (click)="setMode('lump')">
+              💰 Tek Seferlik
             </button>
-            <button
-              type="button"
-              [class.active]="mode() === 'dca'"
-              (click)="setMode('dca')"
-            >
-              📅 Her Ay Düzenli (o günden itibaren)
+            <button type="button" [class.active]="mode() === 'dca'" (click)="setMode('dca')">
+              📅 Her Ay Düzenli
             </button>
           </div>
         </div>
 
+        <!-- ── Yatırım tutarı ─────────────────────────────── -->
         <div class="tm-section">
-          <div class="tm-label">
-            ASGARİ ÜCRETİN YÜZDE KAÇI? <b class="pct-val mono">%{{ pct() }}</b>
+          <div class="tm-label">YATIRIM TUTARI</div>
+          <div class="seg invest-mode-seg">
+            <button type="button" [class.active]="investMode() === 'wage'" (click)="setInvestMode('wage')">
+              🏦 Asgari Ücret Bazlı
+            </button>
+            <button type="button" [class.active]="investMode() === 'custom'" (click)="setInvestMode('custom')">
+              ✏️ Özel Tutar
+            </button>
           </div>
-          <input
-            type="range"
-            min="5"
-            max="100"
-            step="5"
-            [ngModel]="pct()"
-            (ngModelChange)="onPctChange($event)"
-            [style.--fill]="((pct() - 5) / 95 * 100) + '%'"
-          />
-          <div class="wage-info" [innerHTML]="wageInfo()"></div>
+
+          @if (investMode() === 'wage') {
+            <div class="wage-block">
+              <div class="pct-row">
+                <span class="tm-label" style="margin:0">ASGARİ ÜCRETİN YÜZDE KAÇI?</span>
+                <b class="pct-val mono">%{{ pct() }}</b>
+              </div>
+              <input
+                type="range"
+                min="5"
+                max="100"
+                step="5"
+                [ngModel]="pct()"
+                (ngModelChange)="onPctChange($event)"
+                [style.--fill]="((pct() - 5) / 95 * 100) + '%'"
+              />
+              <div class="wage-info" [innerHTML]="wageInfo()"></div>
+            </div>
+          } @else {
+            <div class="custom-block">
+              <div class="custom-input-wrap">
+                <input
+                  type="number"
+                  class="f-input custom-amount-input"
+                  [ngModel]="customAmount()"
+                  (ngModelChange)="onCustomAmountChange($event)"
+                  placeholder="Tutar girin (₺)"
+                  min="1"
+                  step="100"
+                />
+                <span class="currency-badge">₺</span>
+              </div>
+              <div class="wage-info">
+                {{ mode() === 'dca' ? 'Her ay' : 'Tek seferinde' }}
+                <b>{{ formatInteger(customAmount()) }} ₺</b> yatırılacak.
+              </div>
+            </div>
+          }
         </div>
 
+        <!-- ── Aksiyon butonları ──────────────────────────── -->
         <div class="tm-actions">
           <button class="btn btn-main" type="button" (click)="calculate()" [disabled]="loading()">
             {{ loading() ? 'Hesaplanıyor…' : 'Hesapla' }}
@@ -106,10 +143,11 @@ import { TimeMachineSimulationComponent } from './time-machine-simulation.compon
           </button>
         </div>
 
+        <!-- ── Sonuç ──────────────────────────────────────── -->
         @if (calc(); as r) {
           @if (r.error) {
             <div class="result show">
-              <p class="headline">{{ r.error }}</p>
+              <p class="headline err">{{ r.error }}</p>
             </div>
           } @else {
             <div class="result show">
@@ -201,20 +239,14 @@ import { TimeMachineSimulationComponent } from './time-machine-simulation.compon
       gap: 8px;
       flex-wrap: wrap;
 
-      b {
-        color: var(--text);
-        font-size: 13px;
-      }
+      b { color: var(--text); font-size: 13px; }
     }
 
     .stock-pick {
       display: flex;
       gap: 10px;
       align-items: center;
-
-      select {
-        flex: 1;
-      }
+      select { flex: 1; }
     }
 
     .pick-logo {
@@ -230,6 +262,10 @@ import { TimeMachineSimulationComponent } from './time-machine-simulation.compon
       flex: 0 0 auto;
     }
 
+    /* Tarih seçici host genişliği */
+    app-date-picker { display: block; }
+
+    /* ── Segment butonlar ─────────────────────────────────── */
     .seg {
       display: flex;
       gap: 6px;
@@ -253,17 +289,29 @@ import { TimeMachineSimulationComponent } from './time-machine-simulation.compon
         display: flex;
         align-items: center;
         gap: 6px;
+        transition: 0.18s;
 
-        &.active {
-          background: var(--accent);
-          color: #1a1206;
-        }
+        &:hover { color: var(--text); }
+        &.active { background: var(--accent); color: #1a1206; }
       }
     }
 
-    input[type='date'] {
-      color-scheme: dark;
-      width: 100%;
+    .invest-mode-seg { margin-bottom: 14px; }
+
+    /* ── Wage block ──────────────────────────────────────── */
+    .wage-block { margin-top: 2px; }
+
+    .pct-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .pct-val {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text);
     }
 
     input[type='range'] {
@@ -275,19 +323,59 @@ import { TimeMachineSimulationComponent } from './time-machine-simulation.compon
       background: linear-gradient(90deg, var(--accent) var(--fill, 50%), var(--line) var(--fill, 50%));
       outline: none;
       cursor: pointer;
+
+      &::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: var(--accent);
+        cursor: pointer;
+        border: 2px solid var(--bg);
+      }
     }
 
-    .pct-val {
-      font-size: 20px;
+    /* ── Custom amount block ─────────────────────────────── */
+    .custom-block { margin-top: 2px; }
+
+    .custom-input-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .custom-amount-input {
+      width: 100%;
+      font-size: 22px;
       font-weight: 700;
+      padding: 14px 52px 14px 18px;
+      border-radius: 14px;
+      letter-spacing: 0.5px;
+
+      &::-webkit-inner-spin-button,
+      &::-webkit-outer-spin-button { -webkit-appearance: none; }
     }
 
+    .currency-badge {
+      position: absolute;
+      right: 16px;
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--muted);
+      pointer-events: none;
+    }
+
+    /* ── Wage info ────────────────────────────────────────── */
     .wage-info {
       margin-top: 9px;
       font-size: 12px;
       color: var(--muted);
+      line-height: 1.6;
+
+      b { color: var(--text); }
     }
 
+    /* ── Actions ─────────────────────────────────────────── */
     .tm-actions {
       display: flex;
       gap: 10px;
@@ -295,8 +383,7 @@ import { TimeMachineSimulationComponent } from './time-machine-simulation.compon
       flex-wrap: wrap;
     }
 
-    .btn-main,
-    .btn-prem {
+    .btn-main, .btn-prem {
       flex: 1;
       justify-content: center;
       min-width: 140px;
@@ -308,34 +395,26 @@ import { TimeMachineSimulationComponent } from './time-machine-simulation.compon
       transform: none;
     }
 
+    /* ── Sonuç ───────────────────────────────────────────── */
     .result {
       margin-top: 24px;
       border-top: 1px dashed var(--line);
       padding-top: 22px;
 
-      &.show {
-        animation: tmIn 0.3s;
-      }
+      &.show { animation: tmIn 0.3s; }
     }
 
     .headline {
       font-size: 15px;
       line-height: 1.65;
 
-      .big {
-        font-size: 26px;
-        font-weight: 800;
-        color: var(--up);
-      }
+      &.err { color: var(--down); font-size: 13px; }
 
-      .neg {
-        color: var(--down);
-      }
+      .big { font-size: 26px; font-weight: 800; color: var(--up); }
+      .neg { color: var(--down); }
     }
 
-    .lot-growth {
-      color: var(--prem);
-    }
+    .lot-growth { color: var(--prem); }
 
     .stat .k.sub {
       margin-top: 4px;
@@ -344,14 +423,8 @@ import { TimeMachineSimulationComponent } from './time-machine-simulation.compon
     }
 
     @keyframes tmIn {
-      from {
-        opacity: 0;
-        transform: translateY(14px);
-      }
-      to {
-        opacity: 1;
-        transform: none;
-      }
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: none; }
     }
   `,
 })
@@ -363,30 +436,56 @@ export class TimeMachineModalComponent {
   readonly formatNumber = formatNumber;
   readonly formatInteger = formatInteger;
   readonly formatLotRange = formatLotRange;
-  readonly isInstrumentMode = computed(() => isIndexSymbol(this.symbol()) || isForexSymbol(this.symbol()));
+  readonly isInstrumentMode = computed(
+    () => isIndexSymbol(this.symbol()) || isForexSymbol(this.symbol()),
+  );
 
-  readonly symbol = signal('THYAO');
-  date = '2015-06-15';
-  readonly pct = signal(50);
-  readonly mode = signal<TimeMachineMode>('lump');
-  readonly loading = signal(false);
-  readonly calc = signal<TimeMachineCalc | null>(null);
-  readonly showSim = signal(false);
+  readonly symbol    = signal('THYAO');
+  readonly mode      = signal<TimeMachineMode>('lump');
+  readonly pct       = signal(50);
+  readonly investMode = signal<InvestMode>('wage');
+  readonly customAmount = signal(5000);
+  readonly loading   = signal(false);
+  readonly calc      = signal<TimeMachineCalc | null>(null);
+  readonly showSim   = signal(false);
   readonly simTrigger = signal(0);
 
-  readonly minDate = '2010-01-01';
-  readonly maxDate = new Date().toISOString().slice(0, 10);
+  // ── Seçili tarih ─────────────────────────────────────
+  dateStr = signal('2015-01-01');
+  readonly todayStr = new Date().toISOString().slice(0, 10);
 
+  // ── Erken tarih sınırı ───────────────────────────────
+  readonly minDateStr = computed<string>(() => {
+    const sym = this.symbol();
+    if (isIndexSymbol(sym) || isForexSymbol(sym)) {
+      const q = this.indexService.quotes().find((q) => q.symbol === sym);
+      if (q?.earliestDate) return q.earliestDate.slice(0, 10);
+    }
+    const d = this.market.getEarliestDate(sym);
+    return d ? d.slice(0, 10) : '2000-01-01';
+  });
+
+  /** Takvim üstünde gösterilecek hint metni */
+  readonly calendarHint = computed<string>(() => {
+    const sym = this.symbol();
+    const min = this.minDateStr();
+    if (!min) return '';
+    const d = new Date(min + 'T12:00:00');
+    const label = d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
+    return `${sym} için en erken ${label} tarihini seçebilirsiniz.`;
+  });
+
+  readonly dateLabel = computed(() => formatTurkishDate(this.dateStr()));
+  readonly logoColor = computed(() => symbolColor(this.symbol()));
+
+  // ── Stock / index seçenekleri ─────────────────────────
   readonly stockOptions = computed(() => {
     const symbols = this.market.symbolOptions();
     return symbols.length ? symbols : ['THYAO', 'GARAN', 'AKBNK'];
   });
 
   readonly indexOptions = computed(() =>
-    this.indexService.quotes().map((q) => ({
-      symbol: q.symbol,
-      label: q.displayName,
-    })),
+    this.indexService.quotes().map((q) => ({ symbol: q.symbol, label: q.displayName })),
   );
 
   readonly instrumentLabel = computed(() =>
@@ -394,13 +493,11 @@ export class TimeMachineModalComponent {
   );
 
   readonly subtitle = computed(() => {
-    if (isForexSymbol(this.symbol())) {
-      return 'O tarihte asgari ücretinin bir kısmıyla dolar alsaydın bugün ne olurdu?';
-    }
-    if (isIndexSymbol(this.symbol())) {
-      return 'O tarihte asgari ücretinin bir kısmıyla bu endekse yatırım yapsaydın bugün ne olurdu?';
-    }
-    return 'O tarihte asgari ücretinin bir kısmıyla bu hisseyi alsaydın bugün ne olurdu?';
+    if (isForexSymbol(this.symbol()))
+      return 'O tarihte belirlediğin tutarla dolar alsaydın bugün ne olurdu?';
+    if (isIndexSymbol(this.symbol()))
+      return 'O tarihte belirlediğin tutarla bu endekse yatırım yapsaydın bugün ne olurdu?';
+    return 'O tarihte belirlediğin tutarla bu hisseyi alsaydın bugün ne olurdu?';
   });
 
   readonly lotLabel = computed(() => {
@@ -409,30 +506,40 @@ export class TimeMachineModalComponent {
     return 'LOT';
   });
 
-  readonly dateLabel = computed(() => formatTurkishDate(this.date));
-  readonly logoColor = computed(() => symbolColor(this.symbol()));
-
   readonly wageInfo = computed(() => {
-    const year = +this.date.slice(0, 4);
+    const year = +(this.dateStr().slice(0, 4));
+    const month = +(this.dateStr().slice(5, 7));
     const wage = MINIMUM_WAGE_BY_YEAR[year] ?? MINIMUM_WAGE_BY_YEAR[2026];
     const inv = wage * (this.pct() / 100);
-    const totalMonths = (2026 - year) * 12 - new Date(this.date + 'T12:00:00').getMonth();
+    const totalMonths =
+      (new Date().getFullYear() - year) * 12 - (month - 1);
     const modeTxt =
       this.mode() === 'lump'
-        ? `o gün tek seferde: <b>${formatInteger(inv)} ₺</b>`
-        : `o günden itibaren her ay: <b>${formatInteger(inv)} ₺</b> × ~${totalMonths} ay`;
-    return `${year} asgari ücreti: <b>${formatInteger(wage)} ₺</b> → ${modeTxt} <span style="opacity:.6">(gerçek fiyat verisi)</span>`;
+        ? `tek seferde: <b>${formatInteger(inv)} ₺</b>`
+        : `her ay: <b>${formatInteger(inv)} ₺</b> × ~${Math.max(totalMonths, 1)} ay`;
+    return `${year} asgari ücreti: <b>${formatInteger(wage)} ₺</b> → ${modeTxt}`;
   });
 
-  readonly canSimulate = computed(() => !!this.calc() && !this.calc()!.error && this.calc()!.valueSeries.length > 0);
+  readonly canSimulate = computed(
+    () => !!this.calc() && !this.calc()!.error && this.calc()!.valueSeries.length > 0,
+  );
 
   constructor() {
+    // Modal açılınca sembolü ayarla ve tarihi en erken tarihe sıfırla
     effect(() => {
       if (this.modals.active() !== 'timeMachine') return;
       const sym = this.modals.stockSymbol();
       if (sym) this.symbol.set(sym);
       if (!this.market.symbolOptions().length) this.market.loadMarket();
       if (!this.indexService.quotes().length) this.indexService.loadQuotes();
+    });
+
+    // Sembol değişince tarihi min'e sıfırla
+    effect(() => {
+      const min = this.minDateStr();
+      if (min && min !== '2000-01-01') {
+        this.dateStr.set(min);
+      }
     });
   }
 
@@ -446,13 +553,28 @@ export class TimeMachineModalComponent {
     this.resetCalc();
   }
 
+  onDateChange(iso: string): void {
+    this.dateStr.set(iso);
+    this.resetCalc();
+  }
+
   onPctChange(val: number): void {
     this.pct.set(+val);
     this.resetCalc();
   }
 
+  onCustomAmountChange(val: number): void {
+    this.customAmount.set(+val || 0);
+    this.resetCalc();
+  }
+
   setMode(m: TimeMachineMode): void {
     this.mode.set(m);
+    this.resetCalc();
+  }
+
+  setInvestMode(m: InvestMode): void {
+    this.investMode.set(m);
     this.resetCalc();
   }
 
@@ -465,8 +587,14 @@ export class TimeMachineModalComponent {
   calculate(): void {
     this.loading.set(true);
     this.showSim.set(false);
+
+    const amount =
+      this.investMode() === 'custom' && this.customAmount() > 0
+        ? this.customAmount()
+        : undefined;
+
     this.market
-      .calculateInvestment(this.symbol(), this.date, this.pct(), this.mode())
+      .calculateInvestment(this.symbol(), this.dateStr(), this.pct(), this.mode(), amount)
       .subscribe({
         next: (r) => {
           this.calc.set(r);
@@ -486,6 +614,7 @@ export class TimeMachineModalComponent {
             series: [],
             valueSeries: [],
             lotSeries: [],
+            lotEvents: [],
             dateLabel: this.dateLabel(),
             error: 'Hesaplama başarısız. Backend bağlantısını kontrol et.',
           });

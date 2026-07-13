@@ -1,6 +1,5 @@
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { StockCardView } from '../../../../core/models/stock.model';
-import { tierLabel } from '../../../../core/constants/bist-tiers';
 import { formatNumber } from '../../../../core/utils/format.util';
 import { PriceChangeComponent } from '../../../../shared/components/price-change/price-change.component';
 import { SparklineComponent } from '../../../../shared/components/sparkline/sparkline.component';
@@ -11,8 +10,16 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [StockLogoComponent, PriceChangeComponent, SparklineComponent],
   template: `
-    <article class="card" (click)="selected.emit(stock().symbol)">
-      <span class="badge">{{ tierLabel(stock().tier) }}</span>
+    <article
+      class="card"
+      [class.up]="isUp()"
+      [class.down]="!isUp()"
+      (click)="selected.emit(stock().symbol)"
+    >
+      @if (stock().tierBadge) {
+        <span class="badge">{{ stock().tierBadge }}</span>
+      }
+
       <div class="card-top">
         <app-stock-logo [symbol]="stock().symbol" [color]="stock().color" />
         <div>
@@ -20,18 +27,25 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
           <div class="cname">{{ stock().name }}</div>
         </div>
       </div>
+
       <div class="price-row">
         <div class="price mono">{{ formatNumber(stock().close) }} <small>₺</small></div>
         <app-price-change [value]="stock().changePct" />
       </div>
-      <app-sparkline [data]="stock().sparkline" [up]="stock().changePct >= 0" />
+
+      <app-sparkline [data]="stock().sparkline" [up]="isUp()" />
+
       <div class="vol mono">
         <span>Hacim</span>
         <span>{{ formatNumber(stock().volume) }} mn ₺</span>
       </div>
+
+      <!-- Köşe pulse noktası -->
+      <span class="pulse-dot"></span>
     </article>
   `,
   styles: `
+    /* ── temel kart ─────────────────────────────────────────────────────── */
     .card {
       background: var(--panel);
       border: 1px solid var(--line);
@@ -39,15 +53,54 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
       padding: 16px;
       position: relative;
       overflow: hidden;
-      transition: transform 0.15s, border-color 0.15s;
       cursor: pointer;
+      transition: transform 0.15s, border-color 0.2s, box-shadow 0.2s;
 
       &:hover {
         transform: translateY(-2px);
-        border-color: #37456b;
       }
     }
 
+    /* ── yeşil / kırmızı glow pulse ─────────────────────────────────────── */
+    .card.up {
+      border-color: rgba(34, 201, 138, 0.35);
+      animation: glow-up 2.8s ease-in-out infinite;
+    }
+
+    .card.down {
+      border-color: rgba(255, 82, 82, 0.35);
+      animation: glow-down 2.8s ease-in-out infinite;
+    }
+
+    @keyframes glow-up {
+      0%,  100% { box-shadow: 0 0 0px rgba(34, 201, 138, 0);    border-color: rgba(34, 201, 138, 0.25); }
+      50%        { box-shadow: 0 0 12px rgba(34, 201, 138, 0.4); border-color: rgba(34, 201, 138, 0.65); }
+    }
+
+    @keyframes glow-down {
+      0%,  100% { box-shadow: 0 0 0px rgba(255, 82, 82, 0);    border-color: rgba(255, 82, 82, 0.25); }
+      50%        { box-shadow: 0 0 12px rgba(255, 82, 82, 0.4); border-color: rgba(255, 82, 82, 0.65); }
+    }
+
+    /* ── sol üst köşe pulse noktası ──────────────────────────────────────── */
+    .pulse-dot {
+      position: absolute;
+      bottom: 10px;
+      right: 12px;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+
+    .card.up   .pulse-dot { background: var(--up);   animation: dot-pulse 2.8s ease-in-out infinite; }
+    .card.down .pulse-dot { background: var(--down);  animation: dot-pulse 2.8s ease-in-out infinite; }
+
+    @keyframes dot-pulse {
+      0%,  100% { opacity: 0.3; transform: scale(0.8); }
+      50%        { opacity: 1;   transform: scale(1.3); }
+    }
+
+    /* ── diğer elemanlar ─────────────────────────────────────────────────── */
     .badge {
       position: absolute;
       top: 14px;
@@ -109,16 +162,15 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
     }
 
     @media (max-width: 600px) {
-      .cname {
-        max-width: 90px;
-      }
+      .cname { max-width: 90px; }
     }
   `,
 })
 export class StockCardComponent {
-  readonly stock = input.required<StockCardView>();
+  readonly stock   = input.required<StockCardView>();
   readonly selected = output<string>();
 
+  readonly isUp = computed(() => this.stock().changePct >= 0);
+
   readonly formatNumber = formatNumber;
-  readonly tierLabel = tierLabel;
 }

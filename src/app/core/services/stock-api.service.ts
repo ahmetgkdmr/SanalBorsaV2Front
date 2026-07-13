@@ -20,6 +20,16 @@ interface TimeMachineApiResponse {
   series: { year: number; month: number; price: number }[];
   valueSeries: number[];
   lotSeries: number[];
+  lotEvents?: {
+    year: number;
+    month: number;
+    actionDateLabel: string;
+    actionType: string;
+    label: string;
+    lotsBefore: number;
+    lotsAfter: number;
+    description?: string | null;
+  }[];
   dateLabel: string;
   error?: string | null;
 }
@@ -34,12 +44,14 @@ export class StockApiService {
     pageSize?: number;
     search?: string;
     isActive?: boolean;
+    indexFilter?: string;
   } = {}): Observable<PagedResult<Stock>> {
     let httpParams = new HttpParams();
     if (params.page) httpParams = httpParams.set('page', params.page);
     if (params.pageSize) httpParams = httpParams.set('pageSize', params.pageSize);
     if (params.search) httpParams = httpParams.set('search', params.search);
     if (params.isActive !== undefined) httpParams = httpParams.set('isActive', params.isActive);
+    if (params.indexFilter) httpParams = httpParams.set('indexFilter', params.indexFilter);
 
     return this.http.get<PagedResult<Stock>>(this.base, { params: httpParams });
   }
@@ -60,11 +72,15 @@ export class StockApiService {
     date: string,
     pct: number,
     mode: TimeMachineMode,
+    amount?: number,
   ): Observable<TimeMachineCalc> {
-    const params = new HttpParams()
+    let params = new HttpParams()
       .set('date', date)
       .set('pct', String(pct))
       .set('mode', mode);
+
+    if (amount != null && amount > 0)
+      params = params.set('amount', String(amount));
 
     return this.http
       .get<TimeMachineApiResponse>(`${this.base}/${symbol}/time-machine`, { params })
@@ -89,6 +105,16 @@ export class StockApiService {
       })),
       valueSeries: (r.valueSeries ?? []).map(Number),
       lotSeries: (r.lotSeries ?? []).map(Number),
+      lotEvents: (r.lotEvents ?? []).map((e) => ({
+        year: e.year,
+        month: e.month,
+        actionDateLabel: e.actionDateLabel,
+        actionType: e.actionType,
+        label: e.label,
+        lotsBefore: Number(e.lotsBefore),
+        lotsAfter: Number(e.lotsAfter),
+        description: e.description ?? undefined,
+      })),
       dateLabel: r.dateLabel,
       error: r.error ?? undefined,
     };

@@ -9,80 +9,42 @@ export interface IndexQuote {
   isUp: boolean;
   decimals: number;
   latestDate?: string | null;
+  earliestDate?: string | null;
   sparkline: number[];
 }
 
-export const INDEX_SYMBOLS = ['XU100', 'XU030', 'XU050', 'XBANK', 'USDTRY'] as const;
+export const INDEX_SYMBOLS = [
+  'XU100', 'XU030', 'XU050', 'XBANK',
+  'XUTEK', 'XUSIN', 'XUHIZ', 'XUMAL',
+  'XGIDA', 'XKMYA', 'XELKT', 'XTAST',
+  'XMANA', 'XSPOR', 'XKTUM', 'XKURY',
+  'USDTRY',
+] as const;
 
 export type IndexSymbol = (typeof INDEX_SYMBOLS)[number];
 
-/** API yanıt verene kadar header'da gösterilen varsayılan kartlar */
+function mkDefault(symbol: string, displayName: string, exchange: 'INDEX' | 'FX', decimals = 2): IndexQuote {
+  return { symbol, name: displayName, displayName, exchange, value: 0, previousClose: null, changePct: 0, isUp: true, decimals, latestDate: null, sparkline: [] };
+}
+
 export const DEFAULT_INDEX_QUOTES: IndexQuote[] = [
-  {
-    symbol: 'XU100',
-    name: 'BIST 100 Endeksi',
-    displayName: 'BIST 100',
-    exchange: 'INDEX',
-    value: 0,
-    previousClose: null,
-    changePct: 0,
-    isUp: true,
-    decimals: 2,
-    latestDate: null,
-    sparkline: [],
-  },
-  {
-    symbol: 'XU030',
-    name: 'BIST 30 Endeksi',
-    displayName: 'BIST 30',
-    exchange: 'INDEX',
-    value: 0,
-    previousClose: null,
-    changePct: 0,
-    isUp: true,
-    decimals: 2,
-    latestDate: null,
-    sparkline: [],
-  },
-  {
-    symbol: 'XU050',
-    name: 'BIST 50 Endeksi',
-    displayName: 'BIST 50',
-    exchange: 'INDEX',
-    value: 0,
-    previousClose: null,
-    changePct: 0,
-    isUp: true,
-    decimals: 2,
-    latestDate: null,
-    sparkline: [],
-  },
-  {
-    symbol: 'XBANK',
-    name: 'BIST Banka Endeksi',
-    displayName: 'BIST BANKA',
-    exchange: 'INDEX',
-    value: 0,
-    previousClose: null,
-    changePct: 0,
-    isUp: true,
-    decimals: 2,
-    latestDate: null,
-    sparkline: [],
-  },
-  {
-    symbol: 'USDTRY',
-    name: 'USD/TRY Döviz Kuru',
-    displayName: 'USD/TRY',
-    exchange: 'FX',
-    value: 0,
-    previousClose: null,
-    changePct: 0,
-    isUp: true,
-    decimals: 4,
-    latestDate: null,
-    sparkline: [],
-  },
+  mkDefault('XU100',  'BIST 100',        'INDEX'),
+  mkDefault('XU030',  'BIST 30',         'INDEX'),
+  mkDefault('XU050',  'BIST 50',         'INDEX'),
+  mkDefault('XBANK',  'BIST BANKA',      'INDEX'),
+  mkDefault('XUTEK',  'BİST TEKNOLOJİ', 'INDEX'),
+  mkDefault('XUSIN',  'BİST SINAI',      'INDEX'),
+  mkDefault('XUHIZ',  'BİST HİZMETLER', 'INDEX'),
+  mkDefault('XUMAL',  'BİST MALİ',       'INDEX'),
+  mkDefault('XGIDA',  'BİST GIDA',       'INDEX'),
+  mkDefault('XKMYA',  'BİST KİMYA',      'INDEX'),
+  mkDefault('XELKT',  'BİST ELEKTRİK',  'INDEX'),
+  mkDefault('XTAST',  'BİST TAŞ TOPRAK', 'INDEX'),
+  mkDefault('XMANA',  'BİST MALİ A.Ş.', 'INDEX'),
+  mkDefault('XSPOR',  'BİST SPOR',       'INDEX'),
+  mkDefault('XKTUM',  'BİST KATILIM',    'INDEX'),
+  mkDefault('XKURY',  'BİST KUR. YÖN.',  'INDEX'),
+  mkDefault('USDTRY', 'USD/TRY',         'FX', 4),
 ];
 
 export function isIndexSymbol(symbol: string): boolean {

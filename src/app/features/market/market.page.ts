@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { INDEX_TABS } from '../../core/constants/bist-tiers';
 import { MarketFilter } from '../../core/models/stock.model';
 import { MARKET_PAGE_SIZE, MarketService } from '../../core/services/market.service';
 import { ModalService } from '../../core/services/modal.service';
@@ -14,29 +15,43 @@ type PageItem = number | 'ellipsis';
   template: `
     <section class="page">
       <div class="controls">
-        <div class="tabs" role="tablist">
-          @for (tab of tabs; track tab.id) {
-            <button
-              class="tab"
-              type="button"
-              [class.active]="market.filter() === tab.id"
-              (click)="setFilter(tab.id)"
-            >
-              {{ tab.label }}
-            </button>
-          }
+        <div class="tabs-row">
+          <div class="tabs" role="tablist">
+            @for (tab of tabs; track tab.id) {
+              <button
+                class="tab"
+                type="button"
+                [class.active]="market.filter() === tab.id"
+                [attr.data-group]="tab.group ?? null"
+                (click)="setFilter(tab.id)"
+              >
+                {{ tab.label }}
+              </button>
+            }
+          </div>
         </div>
 
-        <input
-          class="search"
-          type="text"
-          placeholder="Hisse ara (ör. THYAO)"
-          [ngModel]="searchInput"
-          (ngModelChange)="onSearch($event)"
-        />
-
-        <span class="count">{{ market.serverTotalCount() }} hisse</span>
+        <div class="search-row">
+          <input
+            class="search"
+            type="text"
+            placeholder="Hisse ara (ör. THYAO)"
+            [ngModel]="searchInput"
+            (ngModelChange)="onSearch($event)"
+          />
+          <span class="count">{{ market.serverTotalCount() }} hisse</span>
+        </div>
       </div>
+
+      @if (market.dataAsOf()) {
+        <div class="data-note">
+          <span>ℹ️</span>
+          <span>
+            Fiyatlar <b>{{ formatDate(market.dataAsOf()!) }}</b> tarihli son kapanış verilerini içermektedir.
+            Grafikler son 28 günlük kapanış fiyatlarına göre oluşturulmuştur.
+          </span>
+        </div>
+      }
 
       @if (market.loading()) {
         <p class="status">Yükleniyor…</p>
@@ -125,18 +140,28 @@ type PageItem = number | 'ellipsis';
     .controls {
       margin-top: 22px;
       display: flex;
-      gap: 12px;
-      align-items: center;
-      flex-wrap: wrap;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    /* Yatay kayan sekme şeridi */
+    .tabs-row {
+      width: 100%;
+      overflow-x: auto;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+      &::-webkit-scrollbar { display: none; }
     }
 
     .tabs {
-      display: flex;
-      gap: 6px;
+      display: inline-flex;
+      gap: 5px;
       background: var(--panel);
       border: 1px solid var(--line);
       padding: 5px;
       border-radius: 12px;
+      white-space: nowrap;
+      min-width: max-content;
     }
 
     .tab {
@@ -144,20 +169,28 @@ type PageItem = number | 'ellipsis';
       background: transparent;
       color: var(--muted);
       font-weight: 700;
-      font-size: 13px;
-      padding: 8px 16px;
+      font-size: 12px;
+      padding: 7px 13px;
       border-radius: 8px;
       cursor: pointer;
       transition: 0.18s;
+      white-space: nowrap;
 
       &:hover {
         color: var(--text);
+        background: rgba(255,255,255,0.05);
       }
 
       &.active {
         background: var(--accent);
         color: #1a1206;
       }
+    }
+
+    .search-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
     }
 
     .search {
@@ -184,7 +217,7 @@ type PageItem = number | 'ellipsis';
     .count {
       font-size: 12px;
       color: var(--muted);
-      margin-left: auto;
+      white-space: nowrap;
     }
 
     .grid {
@@ -261,6 +294,22 @@ type PageItem = number | 'ellipsis';
       }
     }
 
+    .data-note {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+      padding: 8px 14px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      font-size: 11.5px;
+      color: var(--muted);
+      line-height: 1.5;
+
+      b { color: var(--text); font-weight: 600; }
+    }
+
     .status {
       margin: 24px 0;
       color: var(--muted);
@@ -307,12 +356,7 @@ export class MarketPageComponent implements OnInit {
   readonly market = inject(MarketService);
   private readonly modals = inject(ModalService);
 
-  readonly tabs: { id: MarketFilter; label: string }[] = [
-    { id: 'all', label: 'Tümü' },
-    { id: 'b30', label: 'BIST 30' },
-    { id: 'b50', label: 'BIST 50' },
-    { id: 'b100', label: 'BIST 100' },
-  ];
+  readonly tabs = INDEX_TABS;
 
   searchInput = '';
   private searchTimer?: ReturnType<typeof setTimeout>;
@@ -335,7 +379,7 @@ export class MarketPageComponent implements OnInit {
     this.market.loadMarket();
   }
 
-  setFilter(filter: MarketFilter): void {
+  setFilter(filter: string): void {
     this.market.setFilter(filter);
   }
 
@@ -349,6 +393,11 @@ export class MarketPageComponent implements OnInit {
 
   openDetail(symbol: string): void {
     this.modals.openStock(symbol);
+  }
+
+  formatDate(iso: string): string {
+    const d = new Date(iso);
+    return d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
   }
 }
 

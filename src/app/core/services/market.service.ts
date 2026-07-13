@@ -1,12 +1,9 @@
-import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
 import { catchError, map, throwError } from 'rxjs';
 import {
   LiveStockState,
-  matchesStockFilter,
-  tickLiveStocks,
   toStockCard,
 } from '../constants/market.live';
-import { resolveTier } from '../constants/bist-tiers';
 import { MarketFilter, Stock, StockCardView } from '../models/stock.model';
 import { TimeMachineCalc, TimeMachineMode } from '../models/time-machine.model';
 import { symbolColor } from '../utils/format.util';
@@ -16,7 +13,6 @@ export const MARKET_PAGE_SIZE = 50;
 
 @Injectable({ providedIn: 'root' })
 export class MarketService {
-  private readonly destroyRef = inject(DestroyRef);
   private readonly api = inject(StockApiService);
 
   readonly filter = signal<MarketFilter>('all');
@@ -30,15 +26,19 @@ export class MarketService {
   private readonly live = signal<LiveStockState[]>([]);
   private readonly priceCache = signal<Record<string, number>>({});
   private readonly symbolList = signal<string[]>([]);
-  private tickTimer?: ReturnType<typeof setInterval>;
 
-  readonly cards = computed(() =>
-    this.live()
-      .filter((s) => matchesStockFilter(s, this.filter()))
-      .map((s) => toStockCard(s)),
-  );
+  readonly cards = computed(() => this.live().map((s) => toStockCard(s)));
 
   readonly pageCount = computed(() => this.cards().length);
+
+  /** En son veri tarihi — disclaimer için */
+  readonly dataAsOf = computed(() => {
+    const dates = this.live()
+      .map((s) => s.latestDataDate)
+      .filter((d): d is string => !!d);
+    if (!dates.length) return null;
+    return dates.sort().at(-1)!;
+  });
 
   readonly symbolOptions = computed(() => {
     const merged = new Set([...this.symbolList(), ...Object.keys(this.priceCache())]);
@@ -56,12 +56,15 @@ export class MarketService {
     this.loading.set(true);
     this.error.set(null);
 
+    const currentFilter = this.filter();
+
     this.api
       .getStocks({
         page: safePage,
         pageSize: MARKET_PAGE_SIZE,
         search: this.apiSearch() || undefined,
         isActive: true,
+        indexFilter: currentFilter !== 'all' ? currentFilter : undefined,
       })
       .pipe(
         map((result) => {
@@ -73,7 +76,6 @@ export class MarketService {
           this.mergePrices(stocks);
           this.mergeSymbols(stocks.map((s) => s.symbol));
           this.loading.set(false);
-          this.startTick();
         }),
         catchError((err) => {
           this.error.set('Hisse verileri yüklenemedi. Backend çalışıyor mu?');
@@ -90,6 +92,7 @@ export class MarketService {
 
   setFilter(filter: MarketFilter): void {
     this.filter.set(filter);
+    this.loadPage(1);
   }
 
   setSearch(term: string): void {
@@ -115,13 +118,19 @@ export class MarketService {
     return this.symbolOptions();
   }
 
+  /** Yüklenmiş hisseler içinden en erken veri tarihini döner */
+  getEarliestDate(symbol: string): string | null {
+    return this.live().find((s) => s.symbol === symbol)?.earliestDataDate ?? null;
+  }
+
   calculateInvestment(
     symbol: string,
     date: string,
     pct: number,
     mode: TimeMachineMode = 'lump',
+    amount?: number,
   ) {
-    return this.api.calculateTimeMachine(symbol, date, pct, mode);
+    return this.api.calculateTimeMachine(symbol, date, pct, mode, amount);
   }
 
   private mergePrices(stocks: LiveStockState[]): void {
@@ -133,7 +142,9 @@ export class MarketService {
   }
 
   private mergeSymbols(symbols: string[]): void {
-    this.symbolList.update((list) => [...new Set([...list, ...symbols])].sort((a, b) => a.localeCompare(b, 'tr-TR')));
+    this.symbolList.update((list) =>
+      [...new Set([...list, ...symbols])].sort((a, b) => a.localeCompare(b, 'tr-TR')),
+    );
   }
 
   private toLiveState(stock: Stock): LiveStockState {
@@ -147,7 +158,7 @@ export class MarketService {
     return {
       symbol: stock.symbol,
       name: stock.name,
-      tier: resolveTier(stock.symbol),
+      bistIndices: stock.bistIndices ?? [],
       color: symbolColor(stock.symbol),
       basePrice,
       price: basePrice,
@@ -155,26 +166,8 @@ export class MarketService {
       open,
       hist: sparkline,
       volume: (stock.lastVolume ?? 0) / 1_000_000,
+      latestDataDate: stock.latestDataDate ?? null,
+      earliestDataDate: stock.earliestDataDate ?? null,
     };
-  }
-
-  private startTick(): void {
-    if (this.tickTimer) return;
-
-    this.tickTimer = setInterval(() => {
-      this.live.update((stocks) => {
-        const ticked = tickLiveStocks(stocks);
-        this.priceCache.update((cache) => {
-          const next = { ...cache };
-          for (const s of ticked) next[s.symbol] = s.price;
-          return next;
-        });
-        return ticked;
-      });
-    }, 1400);
-
-    this.destroyRef.onDestroy(() => {
-      if (this.tickTimer) clearInterval(this.tickTimer);
-    });
   }
 }

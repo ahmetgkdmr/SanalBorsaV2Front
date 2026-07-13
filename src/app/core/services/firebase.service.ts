@@ -25,6 +25,7 @@ export class FirebaseService {
   private readonly app: FirebaseApp;
   private readonly auth: Auth;
   private confirmationResult: ConfirmationResult | null = null;
+  private recaptchaVerifier: RecaptchaVerifier | null = null;
 
   constructor() {
     this.app  = getApps().length ? getApps()[0] : initializeApp(environment.firebase);
@@ -44,10 +45,26 @@ export class FirebaseService {
    * @param captchaContainerId  DOM element id'si (reCAPTCHA için)
    */
   async sendPhoneOtp(phoneE164: string, captchaContainerId: string): Promise<void> {
-    const recaptcha = new RecaptchaVerifier(this.auth, captchaContainerId, {
+    // Önceki verifier'ı temizle — aynı container'a çift render engelini önler
+    if (this.recaptchaVerifier) {
+      this.recaptchaVerifier.clear();
+      this.recaptchaVerifier = null;
+    }
+
+    this.recaptchaVerifier = new RecaptchaVerifier(this.auth, captchaContainerId, {
       size: 'invisible',
+      callback: () => { /* reCAPTCHA çözüldü */ },
+      'expired-callback': () => {
+        this.recaptchaVerifier?.clear();
+        this.recaptchaVerifier = null;
+      },
     });
-    this.confirmationResult = await signInWithPhoneNumber(this.auth, phoneE164, recaptcha);
+
+    this.confirmationResult = await signInWithPhoneNumber(
+      this.auth,
+      phoneE164,
+      this.recaptchaVerifier,
+    );
   }
 
   /** Gönderilen SMS kodunu doğrular, Firebase ID Token döner. */

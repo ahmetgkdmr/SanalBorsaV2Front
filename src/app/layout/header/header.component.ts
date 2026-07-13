@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, effect, inject, OnDestroy, OnInit, signal } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { IndexService } from '../../core/services/index.service';
@@ -8,7 +9,7 @@ import { formatNumber, formatTime } from '../../core/utils/format.util';
 @Component({
   selector: 'app-header',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink],
+  imports: [RouterLink, NgTemplateOutlet],
   template: `
     <header>
       <div class="topbar">
@@ -45,32 +46,38 @@ import { formatNumber, formatTime } from '../../core/utils/format.util';
         </div>
       </div>
 
-      <div class="indices">
-        @for (idx of indices(); track idx.symbol) {
-          <button
-            class="idx"
-            type="button"
-            (click)="openIndexTimeMachine(idx.symbol)"
-            [title]="idx.name + ' · Zaman Makinesi'"
-          >
-            <div class="name">{{ idx.name }}</div>
-            <div class="val mono">
-              @if (idx.value > 0) {
-                {{ formatIdx(idx.value, idx.decimals) }}
-              } @else {
-                <span class="loading-val">…</span>
-              }
-            </div>
-            <div class="chg mono" [style.color]="idx.up ? 'var(--up)' : 'var(--down)'">
-              @if (idx.value > 0) {
-                {{ idx.up ? '▲' : '▼' }} %{{ formatNumber(Math.abs(idx.change)) }}
-              } @else {
-                <span class="loading-val">yükleniyor</span>
-              }
-            </div>
-          </button>
-        }
+      <!-- Kayan şerit — items ×2 ile seamless loop -->
+      <div class="ticker-wrap">
+        <div class="ticker-track">
+          @for (idx of indices(); track 'a' + idx.symbol) {
+            <ng-container *ngTemplateOutlet="idxChip; context: { $implicit: idx }" />
+          }
+          @for (idx of indices(); track 'b' + idx.symbol) {
+            <ng-container *ngTemplateOutlet="idxChip; context: { $implicit: idx }" />
+          }
+        </div>
       </div>
+
+      <ng-template #idxChip let-idx>
+        <button
+          class="idx-chip"
+          type="button"
+          (click)="openIndexTimeMachine(idx.symbol)"
+          [title]="idx.name + ' · Zaman Makinesi'"
+        >
+          <span class="ic-name">{{ idx.name }}</span>
+          <span class="ic-val mono">
+            @if (idx.value > 0) { {{ formatIdx(idx.value, idx.decimals) }} }
+            @else { <span class="ic-dot">…</span> }
+          </span>
+          @if (idx.value > 0) {
+            <span class="ic-chg mono" [style.color]="idx.up ? 'var(--up)' : 'var(--down)'">
+              {{ idx.up ? '▲' : '▼' }}&nbsp;%{{ formatNumber(Math.abs(idx.change)) }}
+            </span>
+          }
+        </button>
+        <span class="ic-sep">|</span>
+      </ng-template>
     </header>
   `,
   styles: `
@@ -216,62 +223,71 @@ import { formatNumber, formatTime } from '../../core/utils/format.util';
       }
     }
 
-    .indices {
-      display: flex;
-      gap: 12px;
-      margin-top: 18px;
-      overflow-x: auto;
-      padding-bottom: 4px;
-      scrollbar-width: none;
-
-      &::-webkit-scrollbar {
-        display: none;
-      }
+    /* ── kayan şerit ─────────────────────────────────────────────────────── */
+    .ticker-wrap {
+      margin-top: 10px;
+      width: 100%;
+      overflow: hidden;
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      background: rgba(255,255,255,0.02);
     }
 
-    .idx {
-      flex: 0 0 auto;
-      min-width: 190px;
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      padding: 14px 16px;
-      text-align: left;
+    .ticker-track {
+      display: flex;
+      align-items: center;
+      width: max-content;
+      animation: ticker-scroll 70s linear infinite;
+
+      &:hover { animation-play-state: paused; }
+    }
+
+    @keyframes ticker-scroll {
+      0%   { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+
+    .idx-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 14px;
+      background: none;
+      border: none;
       cursor: pointer;
-      transition: 0.15s;
+      white-space: nowrap;
       color: var(--text);
       font: inherit;
+      transition: background 0.15s;
 
-      &:hover {
-        border-color: #37456b;
-        transform: translateY(-1px);
-      }
+      &:hover { background: rgba(255,255,255,0.06); }
+    }
 
-      .name {
-        font-size: 12px;
-        color: var(--muted);
-        font-weight: 700;
-        letter-spacing: 0.6px;
-      }
+    .ic-name {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
 
-      .val {
-        font-size: 22px;
-        font-weight: 600;
-        margin-top: 4px;
-        color: var(--text);
-      }
+    .ic-val {
+      font-size: 13px;
+      font-weight: 700;
+    }
 
-      .chg {
-        font-size: 13px;
-        font-weight: 600;
-        margin-top: 2px;
-      }
+    .ic-chg {
+      font-size: 11px;
+      font-weight: 600;
+    }
 
-      .loading-val {
-        color: var(--muted);
-        font-size: 14px;
-        font-weight: 500;
-      }
+    .ic-dot { color: var(--muted); }
+
+    .ic-sep {
+      color: rgba(255,255,255,0.12);
+      font-size: 14px;
+      padding: 0 2px;
+      user-select: none;
     }
 
     @media (max-width: 600px) {

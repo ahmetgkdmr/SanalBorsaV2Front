@@ -1,11 +1,11 @@
-import { BistTier, StockCardView } from '../models/stock.model';
-import { matchesTierFilter, resolveTier } from './bist-tiers';
+import { StockCardView } from '../models/stock.model';
+import { tierBadge } from './bist-tiers';
 import { changePercent } from '../utils/format.util';
 
 export interface LiveStockState {
   symbol: string;
   name: string;
-  tier: BistTier;
+  bistIndices: string[];
   color: string;
   basePrice: number;
   price: number;
@@ -13,10 +13,8 @@ export interface LiveStockState {
   open: number;
   hist: number[];
   volume: number;
-}
-
-export function matchesStockFilter(stock: LiveStockState, filter: string): boolean {
-  return matchesTierFilter(stock.symbol, filter);
+  latestDataDate: string | null;
+  earliestDataDate: string | null;
 }
 
 export function toStockCard(stock: LiveStockState): StockCardView {
@@ -32,13 +30,14 @@ export function toStockCard(stock: LiveStockState): StockCardView {
     earliestDataDate: null,
     latestDataDate: null,
     needsHistoryRefresh: false,
-    close: stock.price,
+    bistIndices: stock.bistIndices,
+    close: stock.basePrice,
     open: stock.open,
-    changePct: changePercent(stock.price, stock.open),
+    changePct: changePercent(stock.basePrice, stock.prev),
     sparkline: stock.hist,
     volume: stock.volume,
     color: stock.color,
-    tier: stock.tier,
+    tierBadge: tierBadge(stock.bistIndices),
   };
 }
 

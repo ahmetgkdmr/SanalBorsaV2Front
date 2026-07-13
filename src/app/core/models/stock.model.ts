@@ -17,6 +17,7 @@ export interface Stock {
   previousClose?: number | null;
   lastVolume?: number | null;
   sparkline?: number[] | null;
+  bistIndices?: string[] | null;
 }
 
 export interface StockDetail extends Stock {
@@ -45,8 +46,9 @@ export interface StockCardView extends Stock {
   sparkline: number[];
   volume: number;
   color: string;
-  tier: BistTier;
+  /** En yüksek BIST kademesi: "BIST 30" | "BIST 50" | "BIST 100" | "" */
+  tierBadge: string;
 }
 
-export type BistTier = 'b30' | 'b50' | 'b100' | 'all';
-export type MarketFilter = 'all' | 'b30' | 'b50' | 'b100';
+/** Hisse listesi filtre türü — 'all' veya herhangi bir endeks sembolü (XU030, XBANK, ...) */
+export type MarketFilter = string;
