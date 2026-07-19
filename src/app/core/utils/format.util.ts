@@ -19,9 +19,14 @@ export function formatTime(date = new Date()): string {
 }
 
 export function formatLotRange(initial: number, final: number): string {
-  const a = Math.round(initial).toLocaleString('tr-TR');
-  const b = Math.round(final).toLocaleString('tr-TR');
-  return initial !== final ? `${a} → ${b}` : b;
+  const fmt = (n: number) => {
+    if (n >= 100) return Math.round(n).toLocaleString('tr-TR');
+    if (n >= 10) return n.toLocaleString('tr-TR', { maximumFractionDigits: 1 });
+    return n.toLocaleString('tr-TR', { maximumFractionDigits: 2 });
+  };
+  const a = fmt(initial);
+  const b = fmt(final);
+  return Math.abs(initial - final) > 0.0005 ? `${a} → ${b}` : b;
 }
 
 export function changePercent(current: number, base: number): number {

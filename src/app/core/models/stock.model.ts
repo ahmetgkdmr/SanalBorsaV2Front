@@ -18,6 +18,9 @@ export interface Stock {
   lastVolume?: number | null;
   sparkline?: number[] | null;
   bistIndices?: string[] | null;
+  topGainerPeriod?: string | null;
+  topGainerLabel?: string | null;
+  topGainerReturnPct?: number | null;
 }
 
 export interface StockDetail extends Stock {
@@ -48,6 +51,10 @@ export interface StockCardView extends Stock {
   color: string;
   /** En yüksek BIST kademesi: "BIST 30" | "BIST 50" | "BIST 100" | "" */
   tierBadge: string;
+  /** Dönem şampiyonu etiketi */
+  crownLabel?: string | null;
+  crownPeriod?: string | null;
+  crownReturnPct?: number | null;
 }
 
 /** Hisse listesi filtre türü — 'all' veya herhangi bir endeks sembolü (XU030, XBANK, ...) */

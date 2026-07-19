@@ -7,7 +7,7 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { MINIMUM_WAGE_BY_YEAR } from '../../core/constants/app.constants';
+import { getMinimumWage } from '../../core/constants/app.constants';
 import { TimeMachineCalc, TimeMachineMode } from '../../core/models/time-machine.model';
 import { MarketService } from '../../core/services/market.service';
 import { IndexService } from '../../core/services/index.service';
@@ -157,6 +157,15 @@ type InvestMode = 'wage' | 'custom';
                   {{ r.gainPct >= 0 ? '+' : '' }}%{{ formatNumber(r.gainPct) }}
                 </span>
               </p>
+
+              @if (r.storyLines.length) {
+                <div class="story">
+                  @for (line of r.storyLines; track $index) {
+                    <p class="story-line">{{ line }}</p>
+                  }
+                </div>
+              }
+
               <div class="stat-grid">
                 <div class="stat">
                   <div class="k">YATIRILAN</div>
@@ -172,13 +181,27 @@ type InvestMode = 'wage' | 'custom';
                     {{ formatLotRange(r.initialLots, r.lots) }}
                   </div>
                   @if (r.initialLots !== r.lots && !isInstrumentMode()) {
-                    <div class="k sub">bedelsiz / bölünme sonrası</div>
+                    <div class="k sub">başlangıç → bugün</div>
                   }
                 </div>
                 <div class="stat">
                   <div class="k">BUGÜN</div>
                   <div class="v mono">{{ formatNumber(r.currentPrice) }} ₺</div>
                 </div>
+                @if (!isInstrumentMode() && r.dividendsReceived > 0) {
+                  <div class="stat">
+                    <div class="k">TEMETTÜ</div>
+                    <div class="v mono">{{ formatInteger(r.dividendsReceived) }} ₺</div>
+                    <div class="k sub">toplam gelir</div>
+                  </div>
+                  <div class="stat">
+                    <div class="k">GERİ YATIRILAN</div>
+                    <div class="v mono accent">{{ formatInteger(r.dividendsReinvested) }} ₺</div>
+                    @if (r.lotsFromReinvestment > 0) {
+                      <div class="k sub">+{{ formatInteger(r.lotsFromReinvestment) }} lot</div>
+                    }
+                  </div>
+                }
               </div>
             </div>
           }
@@ -414,6 +437,26 @@ type InvestMode = 'wage' | 'custom';
       .neg { color: var(--down); }
     }
 
+    .story {
+      margin: 14px 0 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .story-line {
+      margin: 0;
+      padding: 10px 12px;
+      border-left: 3px solid var(--accent);
+      background: color-mix(in srgb, var(--accent) 8%, transparent);
+      border-radius: 0 10px 10px 0;
+      font-size: 13px;
+      line-height: 1.55;
+      color: var(--text);
+    }
+
+    .stat .v.accent { color: var(--accent); }
+
     .lot-growth { color: var(--prem); }
 
     .stat .k.sub {
@@ -450,8 +493,8 @@ export class TimeMachineModalComponent {
   readonly showSim   = signal(false);
   readonly simTrigger = signal(0);
 
-  // ── Seçili tarih ─────────────────────────────────────
-  dateStr = signal('2015-01-01');
+  // ── Seçili tarih — veri gelince earliest'e snap edilir
+  dateStr = signal('');
   readonly todayStr = new Date().toISOString().slice(0, 10);
 
   // ── Erken tarih sınırı ───────────────────────────────
@@ -460,19 +503,20 @@ export class TimeMachineModalComponent {
     if (isIndexSymbol(sym) || isForexSymbol(sym)) {
       const q = this.indexService.quotes().find((q) => q.symbol === sym);
       if (q?.earliestDate) return q.earliestDate.slice(0, 10);
+      return '';
     }
     const d = this.market.getEarliestDate(sym);
-    return d ? d.slice(0, 10) : '2000-01-01';
+    return d ? d.slice(0, 10) : '';
   });
 
   /** Takvim üstünde gösterilecek hint metni */
   readonly calendarHint = computed<string>(() => {
     const sym = this.symbol();
     const min = this.minDateStr();
-    if (!min) return '';
+    if (!min) return `${sym} için fiyat geçmişi yükleniyor…`;
     const d = new Date(min + 'T12:00:00');
     const label = d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
-    return `${sym} için en erken ${label} tarihini seçebilirsiniz.`;
+    return `${sym} için varsayılan başlangıç: ${label}`;
   });
 
   readonly dateLabel = computed(() => formatTurkishDate(this.dateStr()));
@@ -507,17 +551,24 @@ export class TimeMachineModalComponent {
   });
 
   readonly wageInfo = computed(() => {
-    const year = +(this.dateStr().slice(0, 4));
-    const month = +(this.dateStr().slice(5, 7));
-    const wage = MINIMUM_WAGE_BY_YEAR[year] ?? MINIMUM_WAGE_BY_YEAR[2026];
+    const iso = this.dateStr();
+    if (!iso || iso.length < 7) return 'Asgari ücret için tarih seç…';
+    const year = +iso.slice(0, 4);
+    const month = +iso.slice(5, 7);
+    const wage = getMinimumWage(iso);
     const inv = wage * (this.pct() / 100);
-    const totalMonths =
-      (new Date().getFullYear() - year) * 12 - (month - 1);
+    const totalMonths = (new Date().getFullYear() - year) * 12 - (month - 1);
+    const fmt = (n: number) =>
+      n >= 100 ? formatInteger(n) : n.toLocaleString('tr-TR', { maximumFractionDigits: 2 });
     const modeTxt =
       this.mode() === 'lump'
-        ? `tek seferde: <b>${formatInteger(inv)} ₺</b>`
-        : `her ay: <b>${formatInteger(inv)} ₺</b> × ~${Math.max(totalMonths, 1)} ay`;
-    return `${year} asgari ücreti: <b>${formatInteger(wage)} ₺</b> → ${modeTxt}`;
+        ? `tek seferde: <b>${fmt(inv)} ₺</b>`
+        : `her ay: <b>${fmt(inv)} ₺</b> × ~${Math.max(totalMonths, 1)} ay`;
+    const note =
+      year < 2005
+        ? ` <span style="opacity:.7">(2005 öncesi Yeni TL karşılığı)</span>`
+        : '';
+    return `${year} asgari ücreti: <b>${fmt(wage)} ₺</b>${note} → ${modeTxt}`;
   });
 
   readonly canSimulate = computed(
@@ -534,12 +585,11 @@ export class TimeMachineModalComponent {
       if (!this.indexService.quotes().length) this.indexService.loadQuotes();
     });
 
-    // Sembol değişince tarihi min'e sıfırla
+    // Modal açılınca veya sembol değişince takvimi hissenin ilk fiyat tarihine al
     effect(() => {
+      if (this.modals.active() !== 'timeMachine') return;
       const min = this.minDateStr();
-      if (min && min !== '2000-01-01') {
-        this.dateStr.set(min);
-      }
+      if (min) this.dateStr.set(min);
     });
   }
 
@@ -616,6 +666,11 @@ export class TimeMachineModalComponent {
             lotSeries: [],
             lotEvents: [],
             dateLabel: this.dateLabel(),
+            dividendsReceived: 0,
+            dividendsReinvested: 0,
+            lotsFromReinvestment: 0,
+            cashRemaining: 0,
+            storyLines: [],
             error: 'Hesaplama başarısız. Backend bağlantısını kontrol et.',
           });
           this.loading.set(false);

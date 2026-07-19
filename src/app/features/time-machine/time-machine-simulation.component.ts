@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   effect,
   ElementRef,
   input,
@@ -12,14 +13,17 @@ import { SIMULATION_EVENTS, LotEventMarker, TimeMachineCalc } from '../../core/m
 import { formatInteger, formatLotRange } from '../../core/utils/format.util';
 
 interface YearGrid {
-  x: number;
+  leftPct: number;
   year: number;
 }
 
 interface LotMarkerView {
+  id: string;
   leftPct: number;
+  /** Noktanın grafik içindeki dikey konumu (%), çizgi üzerinde */
   topPct: number;
-  lane: number;
+  /** Üst üste binmesin diye yukarı kaydırma (px birimi CSS'te) */
+  stack: number;
   marker: LotEventMarker;
   shortLabel: string;
   lotLabel: string;
@@ -36,8 +40,11 @@ interface ChartPoint {
 }
 
 const MONTHS_TR = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
+/** SVG sadece çizgi için — metin HTML'de (preserveAspectRatio=none metni ezer) */
 const CHART_W = 1000;
-const CHART_H = 240;
+const CHART_H = 200;
+const PLOT_TOP = 14;
+const PLOT_BOTTOM = 8;
 
 @Component({
   selector: 'app-time-machine-simulation',
@@ -50,119 +57,149 @@ const CHART_H = 240;
       </div>
       <div class="sim-event">{{ event() }}</div>
 
-      <div class="chart-wrap">
-        <svg
-          #chartSvg
-          viewBox="0 0 1000 240"
-          preserveAspectRatio="none"
-          (mousemove)="onChartMove($event)"
-          (mouseleave)="clearHover()"
-        >
-          @for (g of grid(); track g.year) {
-            <line
-              [attr.x1]="g.x"
-              y1="10"
-              [attr.x2]="g.x"
-              y2="222"
-              stroke="var(--line)"
-              stroke-width="1"
-              opacity="0.5"
-            />
-            <text
-              [attr.x]="g.x + 4"
-              y="236"
-              fill="var(--muted)"
-              font-size="11"
-              font-family="IBM Plex Mono, monospace"
-            >
-              {{ g.year }}
-            </text>
-          }
-          <path [attr.d]="areaPath()" fill="var(--up)" opacity="0.12" />
-          <path
-            [attr.d]="linePath()"
-            fill="none"
-            stroke="var(--up)"
-            stroke-width="2.5"
-            stroke-linejoin="round"
-          />
-
-          @if (hoverPoint(); as hp) {
-            <line
-              [attr.x1]="hp.svgX"
-              y1="10"
-              [attr.x2]="hp.svgX"
-              y2="222"
-              stroke="var(--accent)"
-              stroke-width="1"
-              stroke-dasharray="4 4"
-              opacity="0.7"
-            />
-            <circle
-              [attr.cx]="hp.svgX"
-              [attr.cy]="hp.svgY"
-              r="6"
-              fill="var(--accent)"
-              stroke="#1a1206"
-              stroke-width="2"
-            />
-          } @else if (dotVisible()) {
-            <circle
-              [attr.cx]="dotX()"
-              [attr.cy]="dotY()"
-              r="5"
-              fill="var(--accent)"
-              stroke="#1a1206"
-              stroke-width="2"
-            />
-          }
-        </svg>
-
-        @for (m of markerViews(); track m.marker.actionDateLabel + m.marker.label + m.lane) {
-          <div
-            class="lot-marker"
-            [style.left.%]="m.leftPct"
-            [style.--lane]="m.lane"
+      <div class="chart-block">
+        <div class="chart-wrap">
+          <svg
+            #chartSvg
+            viewBox="0 0 1000 200"
+            preserveAspectRatio="none"
+            (mousemove)="onChartMove($event)"
+            (mouseleave)="clearHover()"
           >
-            <div class="lot-marker-line"></div>
-            <div class="lot-marker-badge">
-              <span class="lot-marker-title">{{ m.shortLabel }}</span>
-              <span class="lot-marker-sub">{{ m.lotLabel }}</span>
-            </div>
-            <div class="lot-marker-dot"></div>
-          </div>
-        }
-
-        @if (hoverTip(); as tip) {
-          <div class="chart-tip" [style.left.%]="tip.leftPct" [style.top.%]="tip.topPct">
-            <div class="tip-date">{{ tip.dateLabel }}</div>
-            <div class="tip-val">{{ tip.valueLabel }}</div>
-            @if (tip.lotsLabel) {
-              <div class="tip-lots">{{ tip.lotsLabel }}</div>
+            @for (g of grid(); track g.year) {
+              <line
+                [attr.x1]="(g.leftPct / 100) * 1000"
+                [attr.y1]="plotTop"
+                [attr.x2]="(g.leftPct / 100) * 1000"
+                [attr.y2]="plotBottomY"
+                stroke="var(--line)"
+                stroke-width="1"
+                opacity="0.4"
+              />
             }
-            @if (tip.eventLabel) {
-              <div class="tip-event">{{ tip.eventLabel }}</div>
-            }
-          </div>
-        }
-      </div>
 
-      @if (markerViews().length) {
-        <div class="lot-events">
-          <div class="lot-events-title">Lot artışları ({{ markerViews().length }})</div>
-          @for (m of markerViews(); track m.marker.actionDateLabel + m.marker.label) {
-            <div class="lot-event-item">
-              <span class="lot-event-dot">↑</span>
-              <span class="lot-event-date">{{ m.marker.actionDateLabel }}</span>
-              <span class="lot-event-label">{{ m.marker.label }}</span>
-              <span class="lot-event-lots mono">{{ m.lotLabel }} lot</span>
+            @if (selectedMarker(); as sel) {
+              <line
+                [attr.x1]="(sel.leftPct / 100) * 1000"
+                [attr.y1]="plotTop"
+                [attr.x2]="(sel.leftPct / 100) * 1000"
+                [attr.y2]="plotBottomY"
+                stroke="rgba(240, 192, 64, 0.5)"
+                stroke-width="1.5"
+                stroke-dasharray="3 4"
+              />
+            }
+
+            <path [attr.d]="areaPath()" fill="var(--up)" opacity="0.12" />
+            <path
+              [attr.d]="linePath()"
+              fill="none"
+              stroke="var(--up)"
+              stroke-width="2.5"
+              stroke-linejoin="round"
+            />
+
+            @if (hoverPoint(); as hp) {
+              <line
+                [attr.x1]="hp.svgX"
+                [attr.y1]="plotTop"
+                [attr.x2]="hp.svgX"
+                [attr.y2]="plotBottomY"
+                stroke="var(--accent)"
+                stroke-width="1"
+                stroke-dasharray="4 4"
+                opacity="0.7"
+              />
+              <circle
+                [attr.cx]="hp.svgX"
+                [attr.cy]="hp.svgY"
+                r="5"
+                fill="var(--accent)"
+                stroke="#1a1206"
+                stroke-width="2"
+              />
+            } @else if (dotVisible()) {
+              <circle
+                [attr.cx]="dotX()"
+                [attr.cy]="dotY()"
+                r="4.5"
+                fill="var(--accent)"
+                stroke="#1a1206"
+                stroke-width="2"
+              />
+            }
+          </svg>
+
+          @for (m of markerViews(); track m.id) {
+            <button
+              type="button"
+              class="chart-dot"
+              [class.bonus]="m.marker.actionType === 'BonusIssue'"
+              [class.rights]="m.marker.actionType === 'RightsIssue'"
+              [class.dividend]="m.marker.actionType === 'Dividend'"
+              [class.active]="selectedId() === m.id"
+              [style.left.%]="m.leftPct"
+              [style.top.%]="m.topPct"
+              [style.--stack]="m.stack"
+              [title]="m.marker.actionDateLabel + ' · ' + m.shortLabel"
+              (click)="selectMarker(m.id); $event.stopPropagation()"
+            ></button>
+          }
+
+          @if (hoverTip(); as tip) {
+            <div class="chart-tip" [style.left.%]="tip.leftPct" [style.top.%]="tip.topPct">
+              <div class="tip-date">{{ tip.dateLabel }}</div>
+              <div class="tip-val">{{ tip.valueLabel }}</div>
+              @if (tip.lotsLabel) {
+                <div class="tip-lots">{{ tip.lotsLabel }}</div>
+              }
+              @if (tip.eventLabel) {
+                <div class="tip-event">{{ tip.eventLabel }}</div>
+              }
             </div>
           }
         </div>
+
+        <div class="chart-axis" aria-hidden="false">
+          @for (g of grid(); track g.year) {
+            <span class="axis-year mono" [style.left.%]="g.leftPct">{{ g.year }}</span>
+          }
+        </div>
+      </div>
+
+      @if (markerViews().length) {
+        <div class="rail-legend">
+          <span class="lg bonus">● Bedelsiz</span>
+          <span class="lg rights">● Bedelli</span>
+          <span class="lg dividend">● Temettü</span>
+          <span class="lg hint">Noktaya tıkla → listede bul · log ölçek (2× / 4× farkı görünür)</span>
+        </div>
+
+        <div class="lot-events">
+          <div class="lot-events-title">Şirket olayları ({{ markerViews().length }})</div>
+          <div class="lot-events-body" #eventsList>
+            @for (m of markerViews(); track m.id; let i = $index) {
+              <div
+                class="lot-event-item"
+                [attr.data-event-index]="i"
+                [class.bonus]="m.marker.actionType === 'BonusIssue'"
+                [class.rights]="m.marker.actionType === 'RightsIssue'"
+                [class.dividend]="m.marker.actionType === 'Dividend'"
+                [class.selected]="selectedId() === m.id"
+                (click)="selectMarker(m.id)"
+              >
+                <span class="lot-event-dot">{{ eventDot(m.marker.actionType) }}</span>
+                <span class="lot-event-date">{{ m.marker.actionDateLabel }}</span>
+                <span class="lot-event-label">{{ m.marker.story || m.marker.label }}</span>
+                <span class="lot-event-lots mono">{{ m.lotLabel }}</span>
+              </div>
+            }
+          </div>
+        </div>
       }
 
-      <div class="sim-note">Grafiğin üzerine gel — portföy değerini gör · altın çizgiler lot artışını gösterir</div>
-      <button class="btn replay" type="button" (click)="start()">↺ Tekrar oynat</button>
+      <div class="sim-note">Grafiğin üzerine gel — portföy değerini gör</div>
+      <button class="btn replay" type="button" (click)="start()">Tekrar oynat</button>
     </div>
   `,
   styles: `
@@ -173,7 +210,6 @@ const CHART_H = 240;
       border-radius: 16px;
       padding: 18px;
       animation: tmIn 0.3s;
-
       &.show { display: block; }
     }
 
@@ -197,9 +233,11 @@ const CHART_H = 240;
       margin-bottom: 8px;
     }
 
+    .chart-block { margin-bottom: 4px; }
+
     .chart-wrap {
       position: relative;
-      height: 240px;
+      height: 200px;
     }
 
     svg {
@@ -209,77 +247,52 @@ const CHART_H = 240;
       cursor: crosshair;
     }
 
-    .lot-marker {
+    .chart-dot {
       position: absolute;
-      top: 0;
-      bottom: 18px;
-      width: 0;
-      transform: translateX(-50%);
-      pointer-events: none;
-      z-index: 3;
-    }
-
-    .lot-marker-line {
-      position: absolute;
-      top: calc(28px + var(--lane) * 34px);
-      bottom: 0;
-      left: -1px;
-      width: 2px;
-      background: linear-gradient(
-        180deg,
-        rgba(240, 192, 64, 0.95) 0%,
-        rgba(240, 192, 64, 0.35) 100%
-      );
-      box-shadow: 0 0 8px rgba(240, 192, 64, 0.45);
-    }
-
-    .lot-marker-badge {
-      position: absolute;
-      top: calc(2px + var(--lane) * 34px);
-      left: 50%;
-      transform: translateX(-50%);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 1px;
-      max-width: 110px;
-      padding: 4px 7px;
-      border-radius: 8px;
-      background: rgba(20, 16, 6, 0.92);
-      border: 1px solid rgba(240, 192, 64, 0.85);
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
-      text-align: center;
-      white-space: nowrap;
-    }
-
-    .lot-marker-title {
-      font-size: 9.5px;
-      font-weight: 800;
-      color: #f0c040;
-      line-height: 1.2;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 100px;
-    }
-
-    .lot-marker-sub {
-      font-size: 8.5px;
-      font-weight: 600;
-      color: rgba(255, 255, 255, 0.75);
-      font-family: 'IBM Plex Mono', monospace;
-    }
-
-    .lot-marker-dot {
-      position: absolute;
-      bottom: 0;
-      left: 50%;
-      transform: translate(-50%, 50%);
-      width: 10px;
-      height: 10px;
+      width: 9px;
+      height: 9px;
+      margin: 0;
+      padding: 0;
       border-radius: 50%;
-      background: #f0c040;
-      border: 2px solid #1a1206;
-      box-shadow: 0 0 6px rgba(240, 192, 64, 0.7);
+      border: 1.5px solid #0a0f1c;
+      transform: translate(-50%, calc(-50% - var(--stack) * 11px));
+      cursor: pointer;
+      z-index: 3;
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.15);
+      transition: transform 0.12s ease, box-shadow 0.12s ease;
+
+      &:hover {
+        transform: translate(-50%, calc(-50% - var(--stack) * 11px)) scale(1.35);
+        z-index: 5;
+      }
+
+      &.active {
+        box-shadow: 0 0 0 2px rgba(240, 192, 64, 0.85);
+        z-index: 6;
+      }
+
+      &.bonus { background: #7dd3a0; }
+      &.rights { background: #b388ff; }
+      &.dividend { background: #f0c040; }
+    }
+
+    .chart-axis {
+      position: relative;
+      height: 20px;
+      margin-top: 2px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .axis-year {
+      position: absolute;
+      top: 4px;
+      transform: translateX(-50%);
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--muted);
+      white-space: nowrap;
+      pointer-events: none;
+      user-select: none;
     }
 
     .chart-tip {
@@ -291,9 +304,10 @@ const CHART_H = 240;
       border-radius: 10px;
       padding: 8px 12px;
       min-width: 120px;
+      max-width: 280px;
       text-align: center;
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
-      z-index: 4;
+      z-index: 8;
     }
 
     .tip-date { font-size: 11px; color: var(--muted); font-weight: 600; }
@@ -305,21 +319,49 @@ const CHART_H = 240;
       margin-top: 4px;
       font-weight: 700;
       line-height: 1.35;
+      text-align: left;
     }
 
+    .rail-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 14px;
+      margin: 8px 0 6px;
+      font-size: 10.5px;
+      color: var(--muted);
+    }
+
+    .rail-legend .lg.bonus { color: #7dd3a0; }
+    .rail-legend .lg.rights { color: #b388ff; }
+    .rail-legend .lg.dividend { color: #f0c040; }
+    .rail-legend .lg.hint { margin-left: auto; opacity: 0.75; }
+
     .lot-events {
-      margin-top: 10px;
-      padding: 10px 12px;
-      background: rgba(240, 192, 64, 0.05);
+      margin-top: 6px;
       border: 1px solid rgba(240, 192, 64, 0.25);
       border-radius: 10px;
+      background: rgba(240, 192, 64, 0.05);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
     }
 
     .lot-events-title {
+      flex: 0 0 auto;
       font-size: 11px;
       font-weight: 800;
       color: #f0c040;
-      margin-bottom: 6px;
+      padding: 10px 12px 8px;
+      background: #10182a;
+      border-bottom: 1px solid rgba(240, 192, 64, 0.18);
+    }
+
+    .lot-events-body {
+      flex: 1 1 auto;
+      max-height: 220px;
+      overflow-y: auto;
+      scroll-behavior: smooth;
+      padding: 4px 8px 8px;
     }
 
     .lot-event-item {
@@ -330,16 +372,44 @@ const CHART_H = 240;
         'dot label'
         'dot lots';
       gap: 1px 8px;
-      padding: 6px 0;
+      padding: 8px 8px 8px 10px;
       border-top: 1px solid rgba(255, 255, 255, 0.05);
       font-size: 11px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.15s ease, box-shadow 0.15s ease;
 
-      &:first-of-type { border-top: none; padding-top: 0; }
+      &:first-of-type { border-top: none; }
+      &:hover { background: rgba(255, 255, 255, 0.03); }
+
+      &.selected {
+        background: rgba(240, 192, 64, 0.12);
+        box-shadow: inset 0 0 0 1px rgba(240, 192, 64, 0.55);
+      }
     }
+
+    .lot-event-item.bonus { border-left: 3px solid #7dd3a0; }
+    .lot-event-item.rights { border-left: 3px solid #b388ff; }
+    .lot-event-item.dividend { border-left: 3px solid #f0c040; }
+
+    .lot-event-item.bonus.selected {
+      background: rgba(125, 211, 160, 0.14);
+      box-shadow: inset 0 0 0 1px rgba(125, 211, 160, 0.55);
+    }
+    .lot-event-item.rights.selected {
+      background: rgba(179, 136, 255, 0.14);
+      box-shadow: inset 0 0 0 1px rgba(179, 136, 255, 0.55);
+    }
+    .lot-event-item.dividend.selected { background: rgba(240, 192, 64, 0.16); }
 
     .lot-event-dot { grid-area: dot; color: #f0c040; font-weight: 800; font-size: 13px; }
     .lot-event-date  { grid-area: date; color: var(--muted); font-weight: 600; }
-    .lot-event-label { grid-area: label; color: var(--text); font-weight: 700; }
+    .lot-event-label {
+      grid-area: label;
+      color: var(--text);
+      font-weight: 700;
+      line-height: 1.45;
+    }
     .lot-event-lots  { grid-area: lots; color: #f0c040; font-size: 10.5px; }
 
     .sim-note { font-size: 11px; color: var(--muted); margin-top: 8px; }
@@ -363,6 +433,10 @@ export class TimeMachineSimulationComponent implements OnDestroy {
   readonly calc = input.required<TimeMachineCalc>();
   readonly runTrigger = input(0);
   readonly chartSvg = viewChild<ElementRef<SVGSVGElement>>('chartSvg');
+  readonly eventsList = viewChild<ElementRef<HTMLElement>>('eventsList');
+
+  readonly plotTop = PLOT_TOP;
+  readonly plotBottomY = CHART_H - PLOT_BOTTOM;
 
   readonly year = signal('—');
   readonly valueHtml = signal('');
@@ -374,6 +448,12 @@ export class TimeMachineSimulationComponent implements OnDestroy {
   readonly dotVisible = signal(false);
   readonly grid = signal<YearGrid[]>([]);
   readonly markerViews = signal<LotMarkerView[]>([]);
+  readonly selectedId = signal<string | null>(null);
+  readonly selectedMarker = computed(() => {
+    const id = this.selectedId();
+    if (!id) return null;
+    return this.markerViews().find((m) => m.id === id) ?? null;
+  });
   readonly hoverPoint = signal<ChartPoint | null>(null);
   readonly hoverTip = signal<{
     leftPct: number;
@@ -425,13 +505,15 @@ export class TimeMachineSimulationComponent implements OnDestroy {
     this.hoverTip.set({
       leftPct: (pt.svgX / CHART_W) * 100,
       topPct: (pt.svgY / CHART_H) * 100,
-      dateLabel: `${MONTHS_TR[pt.month] ?? ''} ${pt.year}`,
+      dateLabel: `${monthLabel(pt.month)} ${pt.year}`,
       valueLabel: `${formatInteger(pt.value)} ₺`,
       lotsLabel:
         data.initialLots !== pt.lots
           ? `${formatLotRange(data.initialLots, pt.lots)} lot`
           : `${pt.lots.toLocaleString('tr-TR')} lot`,
-      eventLabel: ev ? `${ev.label} · ${compactLotRange(ev.lotsBefore, ev.lotsAfter)} lot` : '',
+      eventLabel: ev
+        ? (ev.story ?? `${ev.label} · ${compactLotRange(ev.lotsBefore, ev.lotsAfter)} lot`)
+        : '',
     });
   }
 
@@ -440,9 +522,41 @@ export class TimeMachineSimulationComponent implements OnDestroy {
     this.hoverTip.set(null);
   }
 
+  eventDot(actionType: string): string {
+    if (actionType === 'BonusIssue') return '◆';
+    if (actionType === 'RightsIssue') return '◇';
+    if (actionType === 'Dividend') return '●';
+    return '•';
+  }
+
+  selectMarker(id: string): void {
+    this.selectedId.set(id);
+    const list = this.eventsList()?.nativeElement;
+    const idx = this.markerViews().findIndex((m) => m.id === id);
+    if (!list || idx < 0) return;
+
+    requestAnimationFrame(() => {
+      const el = list.querySelector(`[data-event-index="${idx}"]`) as HTMLElement | null;
+      if (!el) return;
+      const listRect = list.getBoundingClientRect();
+      const elRect = el.getBoundingClientRect();
+      const offset = elRect.top - listRect.top - listRect.height / 2 + elRect.height / 2;
+      list.scrollBy({ top: offset, behavior: 'smooth' });
+    });
+
+    const m = this.markerViews()[idx];
+    if (m) {
+      this.event.set(
+        m.marker.story ??
+          `${m.marker.label} (${m.marker.actionDateLabel}) · ${m.lotLabel} lot`,
+      );
+    }
+  }
+
   start(): void {
     this.stop();
     this.clearHover();
+    this.selectedId.set(null);
 
     const data = this.calc();
     if (!data.valueSeries.length) return;
@@ -454,6 +568,7 @@ export class TimeMachineSimulationComponent implements OnDestroy {
 
     const { series, valueSeries, initialLots, lots } = data;
     const { xAt, yAt } = layout;
+    const floorY = CHART_H - PLOT_BOTTOM;
 
     let i = 0;
     let d = '';
@@ -483,7 +598,7 @@ export class TimeMachineSimulationComponent implements OnDestroy {
       d += i === 0 ? `M ${x} ${y}` : ` L ${x} ${y}`;
 
       this.linePath.set(d);
-      this.areaPath.set(`${d} L ${x} ${CHART_H - 18} L 10 ${CHART_H - 18} Z`);
+      this.areaPath.set(`${d} L ${x} ${floorY} L 10 ${floorY} Z`);
       this.dotX.set(x);
       this.dotY.set(y);
       this.dotVisible.set(true);
@@ -503,7 +618,8 @@ export class TimeMachineSimulationComponent implements OnDestroy {
       } else if (curPoint?.lotEvent) {
         const ev = curPoint.lotEvent;
         this.event.set(
-          `📈 ${ev.label} (${ev.actionDateLabel}) · ${compactLotRange(ev.lotsBefore, ev.lotsAfter)} lot`,
+          ev.story ??
+            `${ev.label} (${ev.actionDateLabel}) · ${compactLotRange(ev.lotsBefore, ev.lotsAfter)} lot`,
         );
       } else if (!SIMULATION_EVENTS[p.year]) {
         this.event.set('');
@@ -518,7 +634,9 @@ export class TimeMachineSimulationComponent implements OnDestroy {
           i++;
         }
         this.linePath.set(d);
-        this.areaPath.set(`${d} L ${xAt(series.length - 1)} ${CHART_H - 18} L 10 ${CHART_H - 18} Z`);
+        this.areaPath.set(
+          `${d} L ${xAt(series.length - 1)} ${floorY} L 10 ${floorY} Z`,
+        );
         this.event.set('🏁 Bugüne ulaştın!');
         return;
       }
@@ -538,17 +656,39 @@ export class TimeMachineSimulationComponent implements OnDestroy {
   }
 }
 
+/** Backend ayı 1–12 gönderir */
+function monthLabel(month: number): string {
+  if (month >= 1 && month <= 12) return MONTHS_TR[month - 1];
+  if (month >= 0 && month <= 11) return MONTHS_TR[month];
+  return '';
+}
+
 function buildChartLayout(data: TimeMachineCalc) {
-  const { series, valueSeries, initialLots, lots, mode } = data;
+  const { series, valueSeries, initialLots, lots } = data;
   const lotSeries = normalizeLotSeries(data);
   const lotEvents = resolveLotEvents(series, lotSeries, data);
 
-  const min = Math.min(...valueSeries);
+  const positives = valueSeries.filter((v) => v > 0);
+  const min = positives.length ? Math.min(...positives) : Math.min(...valueSeries);
   const max = Math.max(...valueSeries);
-  const range = max - min || 1;
+  // Log ölçek: aynı oran = aynı dikey mesafe (2× ile 4× farkı net)
+  const useLog = max > 0 && min > 0 && max / Math.max(min, 1e-9) >= 4;
 
-  const xAt = (i: number) => (i / (series.length - 1)) * (CHART_W - 20) + 10;
-  const yAt = (v: number) => CHART_H - 18 - ((v - min) / range) * (CHART_H - 46);
+  const logMin = Math.log10(Math.max(min, 1e-6));
+  const logMax = Math.log10(Math.max(max, 1e-6));
+  const logRange = logMax - logMin || 1;
+  const linRange = max - min || 1;
+  const plotH = CHART_H - PLOT_TOP - PLOT_BOTTOM;
+
+  const xAt = (i: number) =>
+    series.length <= 1 ? CHART_W / 2 : (i / (series.length - 1)) * (CHART_W - 20) + 10;
+
+  const yAt = (v: number) => {
+    const t = useLog
+      ? (Math.log10(Math.max(v, 1e-6)) - logMin) / logRange
+      : (v - min) / linRange;
+    return CHART_H - PLOT_BOTTOM - Math.min(1, Math.max(0, t)) * plotH;
+  };
 
   const eventsByIndex = new Map<number, LotEventMarker>();
   for (const ev of lotEvents) {
@@ -567,38 +707,52 @@ function buildChartLayout(data: TimeMachineCalc) {
   }));
 
   const rawMarkers: LotMarkerView[] = lotEvents
-    .map((marker) => {
+    .map((marker, i) => {
       const idx = series.findIndex((p) => p.year === marker.year && p.month === marker.month);
       if (idx < 0) return null;
+      const svgY = yAt(valueSeries[idx]);
       return {
+        id: `${marker.actionDateLabel}|${marker.actionType}|${marker.label}|${i}`,
         leftPct: (xAt(idx) / CHART_W) * 100,
-        topPct: (yAt(valueSeries[idx]) / CHART_H) * 100,
-        lane: 0,
+        topPct: (svgY / CHART_H) * 100,
+        stack: 0,
         marker,
         shortLabel: shortEventLabel(marker),
         lotLabel: compactLotRange(marker.lotsBefore, marker.lotsAfter),
       };
     })
     .filter((m): m is LotMarkerView => m !== null)
-    .sort((a, b) => a.leftPct - b.leftPct);
+    .sort((a, b) => a.leftPct - b.leftPct || a.topPct - b.topPct);
 
-  assignMarkerLanes(rawMarkers);
+  assignDotStacks(rawMarkers);
 
-  const yearGrids: YearGrid[] = [];
+  // Yıl etiketleri: her yılın ilk noktası (HTML eksende — SVG metni ezilmez)
+  const yearCandidates: YearGrid[] = [];
+  const seenYears = new Set<number>();
   series.forEach((p, i) => {
-    if (p.month === 0) yearGrids.push({ x: xAt(i), year: p.year });
+    if (seenYears.has(p.year)) return;
+    seenYears.add(p.year);
+    yearCandidates.push({ leftPct: (xAt(i) / CHART_W) * 100, year: p.year });
   });
+  const yearStep = yearCandidates.length > 20 ? 2 : 1;
+  const yearGrids = yearCandidates.filter(
+    (g, i) => i === 0 || i === yearCandidates.length - 1 || i % yearStep === 0,
+  );
 
-  return { points, markers: rawMarkers, yearGrids, xAt, yAt };
+  return { points, markers: rawMarkers, yearGrids, xAt, yAt, useLog };
 }
 
-function assignMarkerLanes(markers: LotMarkerView[]): void {
-  const lanes: number[] = [];
+/** Yakın noktaları dikey kaydır — üst üste binmesin */
+function assignDotStacks(markers: LotMarkerView[]): void {
+  const placed: { left: number; stack: number }[] = [];
   for (const m of markers) {
-    let lane = 0;
-    while (lanes[lane] !== undefined && m.leftPct - lanes[lane] < 9) lane++;
-    lanes[lane] = m.leftPct;
-    m.lane = lane;
+    let stack = 0;
+    while (placed.some((p) => Math.abs(p.left - m.leftPct) < 1.6 && p.stack === stack)) {
+      stack++;
+      if (stack > 4) break;
+    }
+    m.stack = stack;
+    placed.push({ left: m.leftPct, stack });
   }
 }
 
@@ -669,7 +823,7 @@ function inferLotEventsFromSeries(
     events.push({
       year: p.year,
       month: p.month,
-      actionDateLabel: `${MONTHS_TR[p.month] ?? ''} ${p.year}`,
+      actionDateLabel: `${monthLabel(p.month)} ${p.year}`,
       actionType: 'Inferred',
       label: ratio >= 1.9 ? `Hisse bölünmesi ×${ratio.toFixed(0)}` : 'Lot artışı',
       lotsBefore: before,
@@ -682,7 +836,7 @@ function inferLotEventsFromSeries(
     events.push({
       year: last.year,
       month: last.month,
-      actionDateLabel: `${MONTHS_TR[last.month] ?? ''} ${last.year}`,
+      actionDateLabel: `${monthLabel(last.month)} ${last.year}`,
       actionType: 'Inferred',
       label: 'Lot artışı',
       lotsBefore: initialLots,
@@ -694,6 +848,9 @@ function inferLotEventsFromSeries(
 }
 
 function shortEventLabel(marker: LotEventMarker): string {
+  if (marker.actionType === 'Dividend') return 'Temettü';
+  if (marker.actionType === 'BonusIssue') return 'Bedelsiz';
+  if (marker.actionType === 'RightsIssue') return 'Bedelli';
   const label = marker.label;
   if (label.length <= 18) return label;
   if (label.includes('bölünmesi')) return label.replace('Hisse bölünmesi', 'Bölünme');
@@ -707,8 +864,8 @@ function compactLotRange(before: number, after: number): string {
 }
 
 function compactNum(n: number): string {
-  const v = Math.round(n);
-  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(v >= 10_000_000 ? 0 : 1)}M`;
-  if (v >= 1_000) return `${(v / 1_000).toFixed(v >= 10_000 ? 0 : 1)}K`;
-  return v.toLocaleString('tr-TR');
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(n >= 10_000 ? 0 : 1)}K`;
+  if (n >= 10) return n.toLocaleString('tr-TR', { maximumFractionDigits: 1 });
+  return n.toLocaleString('tr-TR', { maximumFractionDigits: 2 });
 }

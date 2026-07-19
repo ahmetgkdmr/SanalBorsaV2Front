@@ -5,13 +5,14 @@ import { MarketFilter } from '../../core/models/stock.model';
 import { MARKET_PAGE_SIZE, MarketService } from '../../core/services/market.service';
 import { ModalService } from '../../core/services/modal.service';
 import { StockCardComponent } from './components/stock-card/stock-card.component';
+import { TopGainersCrownComponent } from './components/top-gainers-crown/top-gainers-crown.component';
 
 type PageItem = number | 'ellipsis';
 
 @Component({
   selector: 'app-market-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, StockCardComponent],
+  imports: [FormsModule, StockCardComponent, TopGainersCrownComponent],
   template: `
     <section class="page">
       <div class="controls">
@@ -42,6 +43,8 @@ type PageItem = number | 'ellipsis';
           <span class="count">{{ market.serverTotalCount() }} hisse</span>
         </div>
       </div>
+
+      <app-top-gainers-crown />
 
       @if (market.dataAsOf()) {
         <div class="data-note">

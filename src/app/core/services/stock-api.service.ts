@@ -7,6 +7,29 @@ import { PriceHistory } from '../models/price-history.model';
 import { Stock, StockDetail } from '../models/stock.model';
 import { TimeMachineCalc, TimeMachineMode } from '../models/time-machine.model';
 
+export interface TopGainerItem {
+  period: string;
+  periodLabel: string;
+  rank: number;
+  symbol: string;
+  name: string;
+  returnPct: number;
+  startPrice: number;
+  endPrice: number;
+  startDate: string;
+  endDate: string;
+  lastClose?: number | null;
+  previousClose?: number | null;
+  sparkline?: number[] | null;
+  bistIndices?: string[] | null;
+}
+
+export interface TopGainersResponse {
+  asOfDate: string | null;
+  computedAt: string | null;
+  items: TopGainerItem[];
+}
+
 interface TimeMachineApiResponse {
   symbol: string;
   mode: string;
@@ -29,8 +52,16 @@ interface TimeMachineApiResponse {
     lotsBefore: number;
     lotsAfter: number;
     description?: string | null;
+    cashReceived?: number | null;
+    lotsBought?: number | null;
+    story?: string | null;
   }[];
   dateLabel: string;
+  dividendsReceived?: number;
+  dividendsReinvested?: number;
+  lotsFromReinvestment?: number;
+  cashRemaining?: number;
+  storyLines?: string[] | null;
   error?: string | null;
 }
 
@@ -65,6 +96,10 @@ export class StockApiService {
     if (from) params = params.set('from', from);
     if (to) params = params.set('to', to);
     return this.http.get<PriceHistory[]>(`${this.base}/${symbol}/price-history`, { params });
+  }
+
+  getTopGainers(): Observable<TopGainersResponse> {
+    return this.http.get<TopGainersResponse>(`${this.base}/top-gainers`);
   }
 
   calculateTimeMachine(
@@ -114,8 +149,16 @@ export class StockApiService {
         lotsBefore: Number(e.lotsBefore),
         lotsAfter: Number(e.lotsAfter),
         description: e.description ?? undefined,
+        cashReceived: e.cashReceived != null ? Number(e.cashReceived) : undefined,
+        lotsBought: e.lotsBought != null ? Number(e.lotsBought) : undefined,
+        story: e.story ?? undefined,
       })),
       dateLabel: r.dateLabel,
+      dividendsReceived: Number(r.dividendsReceived ?? 0),
+      dividendsReinvested: Number(r.dividendsReinvested ?? 0),
+      lotsFromReinvestment: Number(r.lotsFromReinvestment ?? 0),
+      cashRemaining: Number(r.cashRemaining ?? 0),
+      storyLines: r.storyLines ?? [],
       error: r.error ?? undefined,
     };
   }

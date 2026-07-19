@@ -15,6 +15,9 @@ export interface LiveStockState {
   volume: number;
   latestDataDate: string | null;
   earliestDataDate: string | null;
+  topGainerPeriod?: string | null;
+  topGainerLabel?: string | null;
+  topGainerReturnPct?: number | null;
 }
 
 export function toStockCard(stock: LiveStockState): StockCardView {
@@ -38,6 +41,9 @@ export function toStockCard(stock: LiveStockState): StockCardView {
     volume: stock.volume,
     color: stock.color,
     tierBadge: tierBadge(stock.bistIndices),
+    crownLabel: stock.topGainerLabel ?? null,
+    crownPeriod: stock.topGainerPeriod ?? null,
+    crownReturnPct: stock.topGainerReturnPct ?? null,
   };
 }
 

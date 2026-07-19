@@ -168,6 +168,9 @@ export class MarketService {
       volume: (stock.lastVolume ?? 0) / 1_000_000,
       latestDataDate: stock.latestDataDate ?? null,
       earliestDataDate: stock.earliestDataDate ?? null,
+      topGainerPeriod: stock.topGainerPeriod ?? null,
+      topGainerLabel: stock.topGainerLabel ?? null,
+      topGainerReturnPct: stock.topGainerReturnPct ?? null,
     };
   }
 }

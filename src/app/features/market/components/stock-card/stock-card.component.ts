@@ -14,19 +14,31 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
       class="card"
       [class.up]="isUp()"
       [class.down]="!isUp()"
+      [class.crown]="!!stock().crownLabel"
       (click)="selected.emit(stock().symbol)"
     >
-      @if (stock().tierBadge) {
+      @if (stock().crownLabel) {
+        <span class="crown-tip" aria-hidden="true">♛</span>
+      } @else if (stock().tierBadge) {
         <span class="badge">{{ stock().tierBadge }}</span>
       }
 
       <div class="card-top">
         <app-stock-logo [symbol]="stock().symbol" [color]="stock().color" />
-        <div>
+        <div class="meta">
           <div class="tick">{{ stock().symbol }}</div>
           <div class="cname">{{ stock().name }}</div>
         </div>
       </div>
+
+      @if (stock().crownLabel) {
+        <div class="crown-ribbon" [attr.data-period]="stock().crownPeriod">
+          <span class="crown-ribbon-text">{{ crownTitle() }}</span>
+          @if (stock().crownReturnPct != null) {
+            <span class="crown-ret">+{{ formatNumber(stock().crownReturnPct!) }}%</span>
+          }
+        </div>
+      }
 
       <div class="price-row">
         <div class="price mono">{{ formatNumber(stock().close) }} <small>₺</small></div>
@@ -54,6 +66,8 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
       position: relative;
       overflow: hidden;
       cursor: pointer;
+      height: 100%;
+      box-sizing: border-box;
       transition: transform 0.15s, border-color 0.2s, box-shadow 0.2s;
 
       &:hover {
@@ -105,6 +119,7 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
       position: absolute;
       top: 14px;
       right: 14px;
+      z-index: 2;
       font-size: 9px;
       font-weight: 700;
       letter-spacing: 0.5px;
@@ -112,6 +127,76 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
       border: 1px solid var(--line);
       padding: 3px 7px;
       border-radius: 100px;
+      max-width: 42%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    .crown-tip {
+      position: absolute;
+      top: 0;
+      left: 3px;
+      z-index: 3;
+      font-size: 22px;
+      line-height: 1;
+      color: #ffd54a;
+      text-shadow:
+        0 0 6px rgba(255, 213, 74, 0.95),
+        0 0 14px rgba(240, 192, 64, 0.7),
+        0 1px 2px rgba(0, 0, 0, 0.55);
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.35));
+      pointer-events: none;
+      animation: crown-pulse 2.2s ease-in-out infinite;
+    }
+
+    @keyframes crown-pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.08); opacity: 0.92; }
+    }
+
+    .crown-ribbon {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin: -2px 0 10px;
+      padding: 5px 8px;
+      border-radius: 8px;
+      background: linear-gradient(90deg, #f0c040, #e8a317);
+      color: #1a1206;
+      box-shadow: 0 2px 8px rgba(240, 192, 64, 0.22);
+    }
+
+    .crown-ribbon[data-period='week'] {
+      background: linear-gradient(90deg, #7dd3a0, #3cb371);
+      color: #062012;
+      box-shadow: 0 2px 8px rgba(60, 179, 113, 0.22);
+    }
+
+    .crown-ribbon[data-period='year'] {
+      background: linear-gradient(90deg, #b388ff, #7c4dff);
+      color: #140a22;
+      box-shadow: 0 2px 8px rgba(124, 77, 255, 0.22);
+    }
+
+    .crown-ribbon-text {
+      font-size: 9.5px;
+      font-weight: 800;
+      line-height: 1.2;
+      min-width: 0;
+    }
+
+    .crown-ret {
+      flex-shrink: 0;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .card.crown {
+      border-color: rgba(240, 192, 64, 0.45);
     }
 
     .card-top {
@@ -119,6 +204,12 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
       align-items: center;
       gap: 11px;
       margin-bottom: 12px;
+      min-width: 0;
+    }
+
+    .meta {
+      min-width: 0;
+      flex: 1;
     }
 
     .tick {
@@ -132,7 +223,7 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      max-width: 140px;
+      max-width: 100%;
     }
 
     .price-row {
@@ -160,10 +251,6 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
       display: flex;
       justify-content: space-between;
     }
-
-    @media (max-width: 600px) {
-      .cname { max-width: 90px; }
-    }
   `,
 })
 export class StockCardComponent {
@@ -171,6 +258,15 @@ export class StockCardComponent {
   readonly selected = output<string>();
 
   readonly isUp = computed(() => this.stock().changePct >= 0);
+
+  readonly crownTitle = computed(() => {
+    switch (this.stock().crownPeriod) {
+      case 'week': return 'Son 1 haftanın en çok kazananı';
+      case 'month': return 'Son 1 ayın en çok kazananı';
+      case 'year': return 'Son 1 yılın en çok kazananı';
+      default: return this.stock().crownLabel ?? '';
+    }
+  });
 
   readonly formatNumber = formatNumber;
 }
