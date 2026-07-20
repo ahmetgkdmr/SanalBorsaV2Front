@@ -1,7 +1,6 @@
 export const environment = {
   production: true,
-  /** Canlıda reverse-proxy / aynı origin için. Ayrı API host’u olursa burayı güncelle. */
-  apiUrl: '/api',
+  apiUrl: 'https://sanalborsav2.onrender.com/api',
 
   firebase: {
     apiKey:            'AIzaSyC_klYwoZvXsxSfDHMxcxzpURGPcFXUMnY',
