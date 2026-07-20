@@ -119,7 +119,7 @@ import { OverlayComponent } from '../../shared/components/overlay/overlay.compon
     }
 
     .pod {
-      background: linear-gradient(160deg, var(--panel), #182036);
+      background: linear-gradient(160deg, var(--panel), var(--panel-grad-end));
       border: 1px solid var(--line);
       border-radius: 18px;
       padding: 20px 16px;

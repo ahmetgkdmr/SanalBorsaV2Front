@@ -1,5 +1,7 @@
-:root {
+:root,
+[data-theme='dark'] {
   --bg: #0d1321;
+  --bg-top: #121a2c;
   --panel: #151c2e;
   --panel2: #1a2338;
   --line: #242f4a;
@@ -12,6 +14,50 @@
   --accent: #f5b944;
   --prem: #b388ff;
   --radius: 14px;
+  --shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  --crown-bg:
+    radial-gradient(ellipse 80% 60% at 10% 0%, rgba(240, 192, 64, 0.18), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 90% 100%, rgba(179, 136, 255, 0.12), transparent 50%),
+    linear-gradient(160deg, #12182a 0%, #0a0f1c 100%);
+  --crown-border: rgba(240, 192, 64, 0.35);
+  --crown-title: #f7e7a8;
+  --font-sans: 'Archivo', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --panel-grad-end: #182036;
+  --header-blur: transparent;
+  --chip-hover: rgba(255, 255, 255, 0.06);
+  --surface-elevated: var(--panel);
+}
+
+/* ── Açık mod ───────────────────────────────────────────────────────────── */
+[data-theme='light'] {
+  --bg: #e8eef6;
+  --bg-top: #f5f8fc;
+  --panel: #ffffff;
+  --panel2: #f0f4fa;
+  --line: #d5dee9;
+  --text: #152033;
+  --muted: #6a7a92;
+  --up: #0f9f6e;
+  --up-bg: rgba(15, 159, 110, 0.1);
+  --down: #e03e5b;
+  --down-bg: rgba(224, 62, 91, 0.1);
+  --accent: #d4921a;
+  --prem: #7c5cbf;
+  --radius: 14px;
+  --shadow: 0 6px 20px rgba(21, 32, 51, 0.08);
+  --crown-bg:
+    radial-gradient(ellipse 80% 60% at 10% 0%, rgba(212, 146, 26, 0.14), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 90% 100%, rgba(124, 92, 191, 0.1), transparent 50%),
+    linear-gradient(160deg, #ffffff 0%, #f3f6fb 100%);
+  --crown-border: rgba(212, 146, 26, 0.35);
+  --crown-title: #8a6410;
+  --font-sans: 'Archivo', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --panel-grad-end: #e8eef6;
+  --header-blur: rgba(245, 248, 252, 0.85);
+  --chip-hover: rgba(21, 32, 51, 0.05);
+  --surface-elevated: #ffffff;
 }
 
 *,
@@ -27,14 +73,28 @@ body {
   min-height: 100%;
 }
 
-body {
+html {
   background: var(--bg);
+}
+
+body {
+  background:
+    radial-gradient(1200px 480px at 50% -120px, var(--bg-top), transparent 70%),
+    var(--bg);
+  background-attachment: fixed;
   color: var(--text);
-  font-family: 'Archivo', sans-serif;
+  font-family: var(--font-sans);
+  transition: background-color 0.35s ease, color 0.25s ease;
+}
+
+[data-theme='light'] body {
+  background:
+    linear-gradient(180deg, var(--bg-top) 0%, var(--bg) 280px),
+    var(--bg);
 }
 
 .mono {
-  font-family: 'IBM Plex Mono', monospace;
+  font-family: var(--font-mono);
 }
 
 a {
@@ -61,7 +121,7 @@ select {
   border: none;
   cursor: pointer;
   padding: 13px 22px;
-  border-radius: 12px;
+  border-radius: calc(var(--radius) - 2px);
   transition: 0.15s;
   display: inline-flex;
   align-items: center;
@@ -80,13 +140,17 @@ select {
 
 .btn-main {
   background: var(--accent);
+  color: #0b1220;
+}
+
+[data-theme='light'] .btn-main {
   color: #1a1206;
 }
 
 .btn-prem {
-  background: linear-gradient(135deg, #7c4dff, #b388ff);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--prem) 75%, #000), var(--prem));
   color: #fff;
-  box-shadow: 0 4px 20px rgba(124, 77, 255, 0.3);
+  box-shadow: 0 4px 20px color-mix(in srgb, var(--prem) 35%, transparent);
 }
 
 .btn-ghost {
@@ -139,7 +203,7 @@ select {
   font-size: 14px;
   font-weight: 600;
   padding: 12px 14px;
-  border-radius: 12px;
+  border-radius: calc(var(--radius) - 2px);
   width: 100%;
 }
 
@@ -152,7 +216,7 @@ select {
 .stat {
   background: var(--panel2);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: calc(var(--radius) - 2px);
   padding: 13px 14px;
 
   .k {
@@ -177,6 +241,10 @@ select {
   color: #160b2b;
   padding: 3px 7px;
   border-radius: 100px;
+}
+
+[data-theme='light'] .prem-tag {
+  color: #fff;
 }
 
 .new-tag {

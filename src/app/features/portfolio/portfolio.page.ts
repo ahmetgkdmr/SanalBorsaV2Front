@@ -134,7 +134,7 @@ interface HoldingRow {
       align-items: center;
       gap: 18px;
       margin-top: 24px;
-      background: linear-gradient(135deg, var(--panel), #182036);
+      background: linear-gradient(135deg, var(--panel), var(--panel-grad-end));
       border: 1px solid var(--line);
       border-radius: 20px;
       padding: 24px;

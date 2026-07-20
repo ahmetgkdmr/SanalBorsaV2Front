@@ -43,11 +43,13 @@ type InvestMode = 'wage' | 'custom';
           <div class="stock-pick">
             <div class="pick-logo" [style.background]="logoColor()">{{ symbol().slice(0, 2) }}</div>
             <select class="f-input" [ngModel]="symbol()" (ngModelChange)="onSymbolChange($event)">
-              <optgroup label="Endeks & Döviz">
-                @for (opt of indexOptions(); track opt.symbol) {
-                  <option [value]="opt.symbol">{{ opt.label }}</option>
-                }
-              </optgroup>
+              @if (forexOptions().length) {
+                <optgroup label="Döviz">
+                  @for (opt of forexOptions(); track opt.symbol) {
+                    <option [value]="opt.symbol">{{ opt.label }}</option>
+                  }
+                </optgroup>
+              }
               <optgroup label="Hisseler">
                 @for (s of stockOptions(); track s) {
                   <option [value]="s">{{ s }}</option>
@@ -55,6 +57,10 @@ type InvestMode = 'wage' | 'custom';
               </optgroup>
             </select>
           </div>
+          <p class="idx-note">
+            BIST endekslerinde Zaman Makinesi yok — endeks bileşimi değişir; temettü / bedelli / bedelsiz
+            hisse bazında yansıtılamaz.
+          </p>
         </div>
 
         <!-- ── Tarih seçici ───────────────────────────────── -->
@@ -270,6 +276,13 @@ type InvestMode = 'wage' | 'custom';
       gap: 10px;
       align-items: center;
       select { flex: 1; }
+    }
+
+    .idx-note {
+      margin: 8px 0 0;
+      font-size: 11.5px;
+      line-height: 1.45;
+      color: var(--muted);
     }
 
     .pick-logo {
@@ -528,25 +541,25 @@ export class TimeMachineModalComponent {
     return symbols.length ? symbols : ['THYAO', 'GARAN', 'AKBNK'];
   });
 
-  readonly indexOptions = computed(() =>
-    this.indexService.quotes().map((q) => ({ symbol: q.symbol, label: q.displayName })),
+  readonly forexOptions = computed(() =>
+    this.indexService
+      .quotes()
+      .filter((q) => isForexSymbol(q.symbol))
+      .map((q) => ({ symbol: q.symbol, label: q.displayName })),
   );
 
   readonly instrumentLabel = computed(() =>
-    this.isInstrumentMode() ? 'ENDEKS / DÖVİZ SEÇ' : 'HİSSE SEÇ',
+    isForexSymbol(this.symbol()) ? 'DÖVİZ SEÇ' : 'HİSSE SEÇ',
   );
 
   readonly subtitle = computed(() => {
     if (isForexSymbol(this.symbol()))
       return 'O tarihte belirlediğin tutarla dolar alsaydın bugün ne olurdu?';
-    if (isIndexSymbol(this.symbol()))
-      return 'O tarihte belirlediğin tutarla bu endekse yatırım yapsaydın bugün ne olurdu?';
     return 'O tarihte belirlediğin tutarla bu hisseyi alsaydın bugün ne olurdu?';
   });
 
   readonly lotLabel = computed(() => {
     if (isForexSymbol(this.symbol())) return 'USD MİKTARI';
-    if (isIndexSymbol(this.symbol())) return 'BİRİM';
     return 'LOT';
   });
 
@@ -580,7 +593,10 @@ export class TimeMachineModalComponent {
     effect(() => {
       if (this.modals.active() !== 'timeMachine') return;
       const sym = this.modals.stockSymbol();
-      if (sym) this.symbol.set(sym);
+      if (sym) {
+        // Endeks seçildiyse hisseye düş (bileşim / temettü yansıtılamaz)
+        this.symbol.set(isIndexSymbol(sym) ? 'THYAO' : sym);
+      }
       if (!this.market.symbolOptions().length) this.market.loadMarket();
       if (!this.indexService.quotes().length) this.indexService.loadQuotes();
     });
@@ -599,6 +615,7 @@ export class TimeMachineModalComponent {
   }
 
   onSymbolChange(sym: string): void {
+    if (isIndexSymbol(sym)) return;
     this.symbol.set(sym);
     this.resetCalc();
   }
@@ -635,6 +652,33 @@ export class TimeMachineModalComponent {
   }
 
   calculate(): void {
+    if (isIndexSymbol(this.symbol())) {
+      this.calc.set({
+        symbol: this.symbol(),
+        mode: this.mode(),
+        invested: 0,
+        currentValue: 0,
+        gainPct: 0,
+        initialLots: 0,
+        lots: 0,
+        buyPrice: 0,
+        currentPrice: 0,
+        series: [],
+        valueSeries: [],
+        lotSeries: [],
+        lotEvents: [],
+        dateLabel: this.dateLabel(),
+        dividendsReceived: 0,
+        dividendsReinvested: 0,
+        lotsFromReinvestment: 0,
+        cashRemaining: 0,
+        storyLines: [],
+        error:
+          'Endeksler için Zaman Makinesi desteklenmiyor. Endeks bileşimi değişir; temettü / bedelli / bedelsiz hisse bazında yansıtılamaz. Bir hisse veya döviz seç.',
+      });
+      return;
+    }
+
     this.loading.set(true);
     this.showSim.set(false);
 

@@ -75,6 +75,10 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
       }
     }
 
+    :host-context([data-theme='light']) .card {
+      box-shadow: var(--shadow);
+    }
+
     /* ── yeşil / kırmızı glow pulse ─────────────────────────────────────── */
     .card.up {
       border-color: rgba(34, 201, 138, 0.35);

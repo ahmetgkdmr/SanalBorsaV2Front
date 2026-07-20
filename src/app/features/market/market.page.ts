@@ -162,7 +162,7 @@ type PageItem = number | 'ellipsis';
       background: var(--panel);
       border: 1px solid var(--line);
       padding: 5px;
-      border-radius: 12px;
+      border-radius: calc(var(--radius) - 2px);
       white-space: nowrap;
       min-width: max-content;
     }
@@ -181,12 +181,12 @@ type PageItem = number | 'ellipsis';
 
       &:hover {
         color: var(--text);
-        background: rgba(255,255,255,0.05);
+        background: var(--chip-hover);
       }
 
       &.active {
         background: var(--accent);
-        color: #1a1206;
+        color: #0b1220;
       }
     }
 
@@ -202,7 +202,7 @@ type PageItem = number | 'ellipsis';
       max-width: 320px;
       background: var(--panel);
       border: 1px solid var(--line);
-      border-radius: 12px;
+      border-radius: calc(var(--radius) - 2px);
       padding: 11px 16px;
       color: var(--text);
       font-size: 13px;
@@ -215,6 +215,10 @@ type PageItem = number | 'ellipsis';
         outline: 2px solid var(--accent);
         outline-offset: -1px;
       }
+    }
+
+    :host-context([data-theme='light']) .search {
+      box-shadow: var(--shadow);
     }
 
     .count {

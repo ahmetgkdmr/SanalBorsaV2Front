@@ -59,12 +59,9 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
       margin: 18px 0 8px;
       padding: 16px;
       border-radius: 18px;
-      border: 1px solid rgba(240, 192, 64, 0.35);
-      background:
-        radial-gradient(ellipse 80% 60% at 10% 0%, rgba(240, 192, 64, 0.18), transparent 55%),
-        radial-gradient(ellipse 70% 50% at 90% 100%, rgba(179, 136, 255, 0.12), transparent 50%),
-        linear-gradient(160deg, #12182a 0%, #0a0f1c 100%);
-      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--crown-border);
+      background: var(--crown-bg);
+      box-shadow: var(--shadow);
     }
 
     .crown-head {
@@ -84,7 +81,7 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
       font-size: 17px;
       font-weight: 800;
       letter-spacing: 0.2px;
-      color: #f7e7a8;
+      color: var(--crown-title);
     }
 
     .sub {
@@ -105,12 +102,12 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
 
     .crown-card {
       text-align: left;
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      border: 1px solid var(--line);
       border-radius: 14px;
       padding: 0;
       overflow: hidden;
       cursor: pointer;
-      background: rgba(10, 15, 28, 0.65);
+      background: var(--panel);
       color: var(--text);
       transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 

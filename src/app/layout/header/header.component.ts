@@ -1,9 +1,22 @@
-import { ChangeDetectionStrategy, Component, effect, inject, OnDestroy, OnInit, signal } from '@angular/core';
+import {
+  AfterViewInit,
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  NgZone,
+  OnDestroy,
+  OnInit,
+  ViewChild,
+  effect,
+  inject,
+  signal,
+} from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { IndexService } from '../../core/services/index.service';
 import { ModalService } from '../../core/services/modal.service';
+import { ThemeService, AppTheme } from '../../core/services/theme.service';
 import { formatNumber, formatTime } from '../../core/utils/format.util';
 
 @Component({
@@ -22,6 +35,25 @@ import { formatNumber, formatTime } from '../../core/utils/format.util';
         </a>
 
         <div class="top-actions">
+          <div class="theme-switch" role="group" aria-label="Görünüm teması">
+            <button
+              type="button"
+              [class.active]="theme.theme() === 'dark'"
+              (click)="setTheme('dark')"
+              title="Koyu mod"
+            >
+              Koyu
+            </button>
+            <button
+              type="button"
+              [class.active]="theme.theme() === 'light'"
+              (click)="setTheme('light')"
+              title="Açık mod"
+            >
+              Açık
+            </button>
+          </div>
+
           <button class="pill-btn prem" type="button" (click)="modals.openTimeMachine()">
             🕰️ Zaman Makinesi <span class="prem-tag">PREMIUM</span>
           </button>
@@ -46,25 +78,20 @@ import { formatNumber, formatTime } from '../../core/utils/format.util';
         </div>
       </div>
 
-      <!-- Kayan şerit — items ×2 ile seamless loop -->
+      <!-- Kayan şerit — items ×2 ile seamless loop (hover’da durmaz, tıklanmaz) -->
       <div class="ticker-wrap">
-        <div class="ticker-track">
-          @for (idx of indices(); track 'a' + idx.symbol) {
+        <div class="ticker-track" #tickerTrack>
+          @for (idx of indices(); track 'a-' + idx.symbol) {
             <ng-container *ngTemplateOutlet="idxChip; context: { $implicit: idx }" />
           }
-          @for (idx of indices(); track 'b' + idx.symbol) {
+          @for (idx of indices(); track 'b-' + idx.symbol) {
             <ng-container *ngTemplateOutlet="idxChip; context: { $implicit: idx }" />
           }
         </div>
       </div>
 
       <ng-template #idxChip let-idx>
-        <button
-          class="idx-chip"
-          type="button"
-          (click)="openIndexTimeMachine(idx.symbol)"
-          [title]="idx.name + ' · Zaman Makinesi'"
-        >
+        <span class="idx-chip" [title]="idx.name">
           <span class="ic-name">{{ idx.name }}</span>
           <span class="ic-val mono">
             @if (idx.value > 0) { {{ formatIdx(idx.value, idx.decimals) }} }
@@ -75,7 +102,7 @@ import { formatNumber, formatTime } from '../../core/utils/format.util';
               {{ idx.up ? '▲' : '▼' }}&nbsp;%{{ formatNumber(Math.abs(idx.change)) }}
             </span>
           }
-        </button>
+        </span>
         <span class="ic-sep">|</span>
       </ng-template>
     </header>
@@ -106,13 +133,50 @@ import { formatNumber, formatTime } from '../../core/utils/format.util';
       width: 40px;
       height: 40px;
       border-radius: 10px;
-      background: linear-gradient(135deg, #f5b944, #e8632c);
+      background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #e8632c));
       display: flex;
       align-items: center;
       justify-content: center;
       font-weight: 800;
       font-size: 15px;
-      color: #1a1206;
+      color: #0b1220;
+    }
+
+    .theme-switch {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px;
+      gap: 2px;
+      border-radius: 100px;
+      border: 1px solid var(--line);
+      background: var(--panel2);
+    }
+
+    .theme-switch button {
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font-size: 11.5px;
+      font-weight: 700;
+      padding: 7px 11px;
+      border-radius: 100px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .theme-switch button:hover {
+      color: var(--text);
+    }
+
+    .theme-switch button.active {
+      background: var(--panel);
+      color: var(--text);
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+    }
+
+    :host-context([data-theme='light']) .theme-switch button.active {
+      box-shadow: 0 1px 4px rgba(21, 32, 51, 0.08);
     }
 
     .brand h1 {
@@ -185,22 +249,35 @@ import { formatNumber, formatTime } from '../../core/utils/format.util';
 
       &:hover {
         transform: translateY(-1px);
-        border-color: #37456b;
+        border-color: color-mix(in srgb, var(--text) 22%, var(--line));
+        background: var(--chip-hover);
       }
 
       &.prem {
-        border-color: var(--prem);
-        background: linear-gradient(135deg, rgba(179, 136, 255, 0.18), rgba(179, 136, 255, 0.05));
+        border-color: color-mix(in srgb, var(--prem) 55%, var(--line));
+        background: linear-gradient(
+          135deg,
+          color-mix(in srgb, var(--prem) 22%, transparent),
+          color-mix(in srgb, var(--prem) 6%, transparent)
+        );
       }
 
       &.port {
-        border-color: var(--up);
-        background: linear-gradient(135deg, rgba(34, 201, 138, 0.16), rgba(34, 201, 138, 0.04));
+        border-color: color-mix(in srgb, var(--up) 55%, var(--line));
+        background: linear-gradient(
+          135deg,
+          color-mix(in srgb, var(--up) 18%, transparent),
+          color-mix(in srgb, var(--up) 4%, transparent)
+        );
       }
 
       &.gold {
-        border-color: var(--accent);
-        background: linear-gradient(135deg, rgba(245, 185, 68, 0.16), rgba(245, 185, 68, 0.04));
+        border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+        background: linear-gradient(
+          135deg,
+          color-mix(in srgb, var(--accent) 18%, transparent),
+          color-mix(in srgb, var(--accent) 4%, transparent)
+        );
       }
     }
 
@@ -230,21 +307,21 @@ import { formatNumber, formatTime } from '../../core/utils/format.util';
       overflow: hidden;
       border-top: 1px solid var(--line);
       border-bottom: 1px solid var(--line);
-      background: rgba(255,255,255,0.02);
+      background: color-mix(in srgb, var(--text) 3%, transparent);
+      border-radius: 0;
+    }
+
+    :host-context([data-theme='light']) .ticker-wrap {
+      background: color-mix(in srgb, var(--panel) 70%, transparent);
     }
 
     .ticker-track {
       display: flex;
       align-items: center;
       width: max-content;
-      animation: ticker-scroll 70s linear infinite;
-
-      &:hover { animation-play-state: paused; }
-    }
-
-    @keyframes ticker-scroll {
-      0%   { transform: translateX(0); }
-      100% { transform: translateX(-50%); }
+      will-change: transform;
+      transform: translate3d(0, 0, 0);
+      backface-visibility: hidden;
     }
 
     .idx-chip {
@@ -252,15 +329,11 @@ import { formatNumber, formatTime } from '../../core/utils/format.util';
       align-items: center;
       gap: 6px;
       padding: 7px 14px;
-      background: none;
-      border: none;
-      cursor: pointer;
       white-space: nowrap;
       color: var(--text);
       font: inherit;
-      transition: background 0.15s;
-
-      &:hover { background: rgba(255,255,255,0.06); }
+      user-select: none;
+      pointer-events: none;
     }
 
     .ic-name {
@@ -274,11 +347,16 @@ import { formatNumber, formatTime } from '../../core/utils/format.util';
     .ic-val {
       font-size: 13px;
       font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      min-width: 6.5ch;
+      text-align: right;
     }
 
     .ic-chg {
       font-size: 11px;
       font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      min-width: 5.5ch;
     }
 
     .ic-dot { color: var(--muted); }
@@ -296,12 +374,22 @@ import { formatNumber, formatTime } from '../../core/utils/format.util';
         padding-right: 14px;
       }
     }
+
+    @media (prefers-reduced-motion: reduce) {
+      .ticker-track {
+        transform: none !important;
+      }
+    }
   `,
 })
-export class HeaderComponent implements OnInit, OnDestroy {
+export class HeaderComponent implements OnInit, AfterViewInit, OnDestroy {
+  @ViewChild('tickerTrack', { static: true }) tickerTrack!: ElementRef<HTMLElement>;
+
   readonly auth = inject(AuthService);
   readonly modals = inject(ModalService);
+  readonly theme = inject(ThemeService);
   private readonly indexService = inject(IndexService);
+  private readonly zone = inject(NgZone);
 
   readonly formatNumber = formatNumber;
   readonly Math = Math;
@@ -312,32 +400,62 @@ export class HeaderComponent implements OnInit, OnDestroy {
   >([]);
 
   private clockTimer?: ReturnType<typeof setInterval>;
+  private destroyRetry?: () => void;
+  private rafId = 0;
+  private lastTs = 0;
+  private offsetPx = 0;
+  private loopWidth = 0;
+  private readonly speedPxPerSec = 42;
+  private reduceMotion = false;
 
   constructor() {
     effect(() => {
       const quotes = this.indexService.quotes();
       if (!quotes.length) return;
-      this.indices.set(
-        quotes.map((q) => ({
-          symbol: q.symbol,
-          name: q.displayName,
-          value: q.value,
-          decimals: q.decimals,
-          change: q.changePct,
-          up: q.isUp,
-        })),
-      );
+
+      const next = quotes.map((q) => ({
+        symbol: q.symbol,
+        name: q.displayName,
+        value: q.value,
+        decimals: q.decimals,
+        change: q.changePct,
+        up: q.isUp,
+      }));
+
+      const prev = this.indices();
+      const sameShape =
+        prev.length === next.length && prev.every((p, i) => p.symbol === next[i].symbol);
+
+      // Aynı sembol setiyse yalnızca değerleri güncelle — DOM yapısı sabit kalsın
+      if (sameShape) {
+        let changed = false;
+        for (let i = 0; i < next.length; i++) {
+          const a = prev[i];
+          const b = next[i];
+          if (a.value !== b.value || a.change !== b.change || a.up !== b.up || a.name !== b.name) {
+            changed = true;
+            break;
+          }
+        }
+        if (!changed) return;
+      }
+
+      this.indices.set(next);
+      // Genişlik değişebilir; bir sonraki frame’de ölç
+      queueMicrotask(() => this.measureLoop());
     });
   }
 
   ngOnInit(): void {
+    this.reduceMotion =
+      typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
     this.indexService.loadQuotes();
 
     this.clockTimer = setInterval(() => {
       this.clock.set(formatTime());
     }, 1000);
 
-    // API hazır olana kadar periyodik yeniden dene
     const retry = setInterval(() => {
       if (this.indexService.hasLiveData()) {
         clearInterval(retry);
@@ -349,22 +467,61 @@ export class HeaderComponent implements OnInit, OnDestroy {
     this.destroyRetry = () => clearInterval(retry);
   }
 
-  private destroyRetry?: () => void;
+  ngAfterViewInit(): void {
+    this.measureLoop();
+    if (!this.reduceMotion) {
+      this.zone.runOutsideAngular(() => this.startTicker());
+    }
+  }
 
   ngOnDestroy(): void {
     if (this.clockTimer) clearInterval(this.clockTimer);
     this.destroyRetry?.();
-  }
-
-  openIndexTimeMachine(symbol: string): void {
-    this.modals.openTimeMachine(symbol);
+    if (this.rafId) cancelAnimationFrame(this.rafId);
   }
 
   formatIdx(value: number, decimals = 2): string {
     return formatNumber(value, decimals);
   }
 
+  setTheme(theme: AppTheme): void {
+    this.theme.setTheme(theme);
+  }
+
   logout(): void {
     this.auth.logout().catch(() => null);
+  }
+
+  private measureLoop(): void {
+    const el = this.tickerTrack?.nativeElement;
+    if (!el) return;
+    // İki kopya yan yana → loop genişliği yarısı
+    this.loopWidth = el.scrollWidth / 2;
+    if (this.loopWidth > 0 && this.offsetPx >= this.loopWidth) {
+      this.offsetPx = this.offsetPx % this.loopWidth;
+      el.style.transform = `translate3d(${-this.offsetPx}px, 0, 0)`;
+    }
+  }
+
+  private startTicker(): void {
+    const step = (ts: number) => {
+      const el = this.tickerTrack?.nativeElement;
+      if (el) {
+        if (!this.loopWidth) this.measureLoop();
+
+        if (this.loopWidth > 0) {
+          if (!this.lastTs) this.lastTs = ts;
+          const dt = Math.min((ts - this.lastTs) / 1000, 0.05);
+          this.lastTs = ts;
+          this.offsetPx += this.speedPxPerSec * dt;
+          if (this.offsetPx >= this.loopWidth) {
+            this.offsetPx -= this.loopWidth;
+          }
+          el.style.transform = `translate3d(${-this.offsetPx}px, 0, 0)`;
+        }
+      }
+      this.rafId = requestAnimationFrame(step);
+    };
+    this.rafId = requestAnimationFrame(step);
   }
 }

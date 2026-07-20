@@ -47,10 +47,11 @@ export const DEFAULT_INDEX_QUOTES: IndexQuote[] = [
   mkDefault('USDTRY', 'USD/TRY',         'FX', 4),
 ];
 
-export function isIndexSymbol(symbol: string): boolean {
-  return INDEX_SYMBOLS.includes(symbol as IndexSymbol);
-}
-
 export function isForexSymbol(symbol: string): boolean {
   return symbol === 'USDTRY';
+}
+
+/** BIST endeks sembolleri (USDTRY hariç). Endeks bileşimi değişir; TM için uygun değil. */
+export function isIndexSymbol(symbol: string): boolean {
+  return symbol !== 'USDTRY' && INDEX_SYMBOLS.includes(symbol as IndexSymbol);
 }
