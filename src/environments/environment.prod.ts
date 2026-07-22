@@ -1,6 +1,7 @@
 export const environment = {
   production: true,
   apiUrl: 'https://sanalborsav2.onrender.com/api',
+  hubUrl: 'https://sanalborsav2.onrender.com/hubs/crypto',
 
   firebase: {
     apiKey:            'AIzaSyC_klYwoZvXsxSfDHMxcxzpURGPcFXUMnY',

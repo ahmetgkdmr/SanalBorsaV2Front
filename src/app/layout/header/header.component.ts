@@ -15,6 +15,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { IndexService } from '../../core/services/index.service';
+import { MarketTypeService } from '../../core/services/market-type.service';
 import { ModalService } from '../../core/services/modal.service';
 import { ThemeService, AppTheme } from '../../core/services/theme.service';
 import { formatNumber, formatTime } from '../../core/utils/format.util';
@@ -27,10 +28,16 @@ import { formatNumber, formatTime } from '../../core/utils/format.util';
     <header>
       <div class="topbar">
         <a class="brand" routerLink="/" title="Ana ekran">
-          <div class="brand-mark">Bİ</div>
+          <div class="brand-mark">{{ marketType.type() === 'crypto' ? '₿' : 'Bİ' }}</div>
           <div>
             <h1>Piyasa Ekranı</h1>
-            <small>BORSA İSTANBUL · DB FİYAT</small>
+            <small>
+              @if (marketType.type() === 'crypto') {
+                KRİPTO · BINANCE SPOT
+              } @else {
+                BORSA İSTANBUL · DB FİYAT
+              }
+            </small>
           </div>
         </a>
 
@@ -388,6 +395,7 @@ export class HeaderComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly auth = inject(AuthService);
   readonly modals = inject(ModalService);
   readonly theme = inject(ThemeService);
+  readonly marketType = inject(MarketTypeService);
   private readonly indexService = inject(IndexService);
   private readonly zone = inject(NgZone);
 

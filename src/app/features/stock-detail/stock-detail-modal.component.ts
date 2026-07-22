@@ -46,8 +46,8 @@ import { StockLogoComponent } from '../../shared/components/stock-logo/stock-log
           @if (auth.isLoggedIn()) {
             <div class="trade" style="margin-top: 16px">
               <input class="f-input mono" type="number" min="1" [(ngModel)]="lots" />
-              <button class="btn btn-buy" type="button" (click)="buy()">AL</button>
-              <button class="btn btn-sell" type="button" (click)="sell()">SAT</button>
+              <button class="btn btn-buy" type="button" [disabled]="busy()" (click)="buy()">AL</button>
+              <button class="btn btn-sell" type="button" [disabled]="busy()" (click)="sell()">SAT</button>
             </div>
             @if (msg()) {
               <div class="trade-msg" [style.color]="msg().startsWith('✓') ? 'var(--up)' : 'var(--down)'">
@@ -133,12 +133,14 @@ export class StockDetailModalComponent {
   readonly formatNumber = formatNumber;
   readonly card = signal<StockCardView | null>(null);
   readonly msg = signal('');
+  readonly busy = signal(false);
   lots = 10;
 
   constructor() {
     effect(() => {
       if (this.modals.active() !== 'stockDetail') {
         this.card.set(null);
+        this.msg.set('');
         return;
       }
       const symbol = this.modals.stockSymbol();
@@ -155,23 +157,27 @@ export class StockDetailModalComponent {
     });
   }
 
-  buy(): void {
+  async buy(): Promise<void> {
     const d = this.card();
-    if (!d) return;
-    const err = this.portfolio.buy(d.symbol, this.lots, d.close);
+    if (!d || this.busy()) return;
+    this.busy.set(true);
+    const err = await this.portfolio.buy(d.symbol, this.lots, d.close);
     this.msg.set(err ?? `✓ ${this.lots} lot alındı.`);
+    this.busy.set(false);
   }
 
-  sell(): void {
+  async sell(): Promise<void> {
     const d = this.card();
-    if (!d) return;
-    const err = this.portfolio.sell(d.symbol, this.lots, d.close);
+    if (!d || this.busy()) return;
+    this.busy.set(true);
+    const err = await this.portfolio.sell(d.symbol, this.lots, d.close);
     this.msg.set(err ?? `✓ ${this.lots} lot satıldı.`);
+    this.busy.set(false);
   }
 
   openTimeMachine(): void {
     const symbol = this.card()?.symbol;
     this.modals.close();
-    if (symbol) this.modals.openTimeMachine(symbol);
+    if (symbol) this.modals.openTimeMachine(symbol, 'bist');
   }
 }

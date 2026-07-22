@@ -1,23 +1,35 @@
+export type MarketType = 'bist' | 'crypto';
+
 export interface PortfolioHolding {
   symbol: string;
-  lots: number;
+  marketType: MarketType;
+  quantity: number;
   avgCost: number;
+  /** @deprecated alias for quantity (BIST UI) */
+  lots?: number;
 }
 
 export interface PortfolioTransaction {
   id: string;
   symbol: string;
+  marketType: MarketType;
   side: 'buy' | 'sell';
-  lots: number;
+  quantity: number;
   price: number;
   total: number;
+  fillBreakdownJson?: string | null;
   at: string;
+  /** @deprecated */
+  lots?: number;
 }
 
 export interface PortfolioState {
-  cash: number;
+  cashTry: number;
+  cashUsd: number;
   holdings: PortfolioHolding[];
   transactions: PortfolioTransaction[];
+  /** @deprecated alias */
+  cash?: number;
 }
 
 /** @deprecated Eski local-auth için — AuthUser kullan. */

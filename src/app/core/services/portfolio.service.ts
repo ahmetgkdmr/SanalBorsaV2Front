@@ -1,94 +1,104 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { STARTING_CASH } from '../constants/app.constants';
-import { PortfolioState, PortfolioTransaction } from '../models/portfolio.model';
+import { firstValueFrom } from 'rxjs';
+import { PortfolioState } from '../models/portfolio.model';
+import { CryptoFillPreview } from '../models/crypto.model';
 import { AuthService } from './auth.service';
-
-const PORTFOLIO_PREFIX = 'sb_portfolio_';
+import { PortfolioApiService } from './portfolio-api.service';
 
 @Injectable({ providedIn: 'root' })
 export class PortfolioService {
-  private readonly auth  = inject(AuthService);
+  private readonly auth = inject(AuthService);
+  private readonly api = inject(PortfolioApiService);
+
   private readonly state = signal<PortfolioState>(this.emptyState());
+  private readonly loading = signal(false);
+  private readonly error = signal<string | null>(null);
 
   readonly portfolio = this.state.asReadonly();
+  readonly isLoading = this.loading.asReadonly();
+  readonly lastError = this.error.asReadonly();
+
+  readonly cashTry = computed(() => this.state().cashTry);
+  readonly cashUsd = computed(() => this.state().cashUsd);
 
   constructor() {
-    this.loadForUser();
+    // Login olunca backend'den çek
+    queueMicrotask(() => {
+      if (this.auth.isLoggedIn()) void this.reload();
+    });
   }
 
-  reload(): void {
-    this.loadForUser();
-  }
-
-  private loadForUser(): void {
-    const user = this.auth.currentUser();
-    if (!user) {
+  async reload(): Promise<void> {
+    if (!this.auth.isLoggedIn() || !this.auth.getAccessToken()) {
       this.state.set(this.emptyState());
       return;
     }
-    const key = PORTFOLIO_PREFIX + user.id;
-    const raw = localStorage.getItem(key);
-    if (raw) {
-      this.state.set(JSON.parse(raw) as PortfolioState);
-    } else {
-      // İlk giriş: backend'den gelen portfolioCash ile başla
-      this.state.set({ cash: user.portfolioCash ?? STARTING_CASH, holdings: [], transactions: [] });
+    this.loading.set(true);
+    this.error.set(null);
+    try {
+      const p = await firstValueFrom(this.api.get());
+      this.state.set(p);
+    } catch (e) {
+      this.error.set(e instanceof Error ? e.message : 'Portföy yüklenemedi.');
+      this.state.set(this.emptyState());
+    } finally {
+      this.loading.set(false);
     }
   }
 
-  buy(symbol: string, lots: number, price: number): string | null {
-    const total = lots * price;
-    const s     = structuredClone(this.state());
-    if (total > s.cash) return 'Yetersiz bakiye.';
-
-    s.cash -= total;
-    const existing = s.holdings.find((h) => h.symbol === symbol);
-    if (existing) {
-      const newLots  = existing.lots + lots;
-      existing.avgCost = (existing.avgCost * existing.lots + total) / newLots;
-      existing.lots    = newLots;
-    } else {
-      s.holdings.push({ symbol, lots, avgCost: price });
+  /** BIST al — fiyat backend'de belirlenir. */
+  async buy(symbol: string, lots: number, _price?: number): Promise<string | null> {
+    if (!this.auth.isLoggedIn()) return 'Giriş yapmalısın.';
+    try {
+      const p = await firstValueFrom(this.api.buyBist(symbol, lots));
+      this.state.set(p);
+      return null;
+    } catch (e) {
+      return e instanceof Error ? e.message : 'Alım başarısız.';
     }
-    s.transactions.unshift(this.tx('buy', symbol, lots, price, total));
-    this.persist(s);
-    return null;
   }
 
-  sell(symbol: string, lots: number, price: number): string | null {
-    const s       = structuredClone(this.state());
-    const holding = s.holdings.find((h) => h.symbol === symbol);
-    if (!holding || holding.lots < lots) return 'Yeterli lot yok.';
-
-    const total   = lots * price;
-    holding.lots -= lots;
-    if (holding.lots === 0)
-      s.holdings = s.holdings.filter((h) => h.symbol !== symbol);
-
-    s.cash += total;
-    s.transactions.unshift(this.tx('sell', symbol, lots, price, total));
-    this.persist(s);
-    return null;
+  /** BIST sat. */
+  async sell(symbol: string, lots: number, _price?: number): Promise<string | null> {
+    if (!this.auth.isLoggedIn()) return 'Giriş yapmalısın.';
+    try {
+      const p = await firstValueFrom(this.api.sellBist(symbol, lots));
+      this.state.set(p);
+      return null;
+    } catch (e) {
+      return e instanceof Error ? e.message : 'Satış başarısız.';
+    }
   }
 
-  private persist(state: PortfolioState): void {
-    const user = this.auth.currentUser();
-    if (!user) return;
-    localStorage.setItem(PORTFOLIO_PREFIX + user.id, JSON.stringify(state));
-    this.state.set(state);
-  }
-
-  private tx(
-    side: 'buy' | 'sell',
+  async buyCrypto(
     symbol: string,
-    lots: number,
-    price: number,
-    total: number,
-  ): PortfolioTransaction {
-    return { id: crypto.randomUUID(), symbol, side, lots, price, total, at: new Date().toISOString() };
+    opts: { quoteUsd?: number; quantity?: number },
+  ): Promise<{ error: string | null; fill?: CryptoFillPreview }> {
+    if (!this.auth.isLoggedIn()) return { error: 'Giriş yapmalısın.' };
+    try {
+      const r = await firstValueFrom(this.api.buyCrypto(symbol, opts));
+      this.state.set(r.portfolio);
+      return { error: null, fill: r.fill };
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : 'Alım başarısız.' };
+    }
+  }
+
+  async sellCrypto(
+    symbol: string,
+    quantity: number,
+  ): Promise<{ error: string | null; fill?: CryptoFillPreview }> {
+    if (!this.auth.isLoggedIn()) return { error: 'Giriş yapmalısın.' };
+    try {
+      const r = await firstValueFrom(this.api.sellCrypto(symbol, quantity));
+      this.state.set(r.portfolio);
+      return { error: null, fill: r.fill };
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : 'Satış başarısız.' };
+    }
   }
 
   private emptyState(): PortfolioState {
-    return { cash: 0, holdings: [], transactions: [] };
+    return { cashTry: 0, cashUsd: 0, cash: 0, holdings: [], transactions: [] };
   }
 }

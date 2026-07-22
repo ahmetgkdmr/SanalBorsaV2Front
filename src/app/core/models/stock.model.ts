@@ -55,6 +55,13 @@ export interface StockCardView extends Stock {
   crownLabel?: string | null;
   crownPeriod?: string | null;
   crownReturnPct?: number | null;
+  /**
+   * Kart kenar rengi için yön.
+   * true/false verilirse changePct yerine bu kullanılır (kripto tick).
+   */
+  tickUp?: boolean | null;
+  /** Binance PRICE_FILTER tickSize ondalık hanesi */
+  priceDecimals?: number | null;
 }
 
 /** Hisse listesi filtre türü — 'all' veya herhangi bir endeks sembolü (XU030, XBANK, ...) */

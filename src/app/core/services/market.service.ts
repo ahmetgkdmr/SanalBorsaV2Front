@@ -129,8 +129,9 @@ export class MarketService {
     pct: number,
     mode: TimeMachineMode = 'lump',
     amount?: number,
+    marketType: 'bist' | 'crypto' = 'bist',
   ) {
-    return this.api.calculateTimeMachine(symbol, date, pct, mode, amount);
+    return this.api.calculateTimeMachine(symbol, date, pct, mode, amount, marketType);
   }
 
   private mergePrices(stocks: LiveStockState[]): void {

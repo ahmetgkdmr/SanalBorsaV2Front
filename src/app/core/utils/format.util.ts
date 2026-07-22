@@ -5,6 +5,49 @@ export function formatNumber(value: number, decimals = 2): string {
   });
 }
 
+/**
+ * Binance PRICE_FILTER tickSize'a göre format.
+ * decimals verilmezse fiyata göre kademeli fallback.
+ */
+export function formatCryptoPrice(value: number, decimals?: number | null): string {
+  if (!Number.isFinite(value)) return '—';
+
+  if (decimals != null && decimals >= 0) {
+    const d = Math.min(12, Math.max(0, Math.floor(decimals)));
+    return value.toLocaleString('tr-TR', {
+      useGrouping: true,
+      minimumFractionDigits: d,
+      maximumFractionDigits: d,
+    });
+  }
+
+  const abs = Math.abs(value);
+  let maxFrac: number;
+  if (abs >= 1_000) maxFrac = 2;
+  else if (abs >= 100) maxFrac = 3;
+  else if (abs >= 1) maxFrac = 4;
+  else if (abs >= 0.1) maxFrac = 5;
+  else if (abs >= 0.01) maxFrac = 6;
+  else if (abs >= 0.001) maxFrac = 7;
+  else if (abs >= 0.0001) maxFrac = 8;
+  else maxFrac = 10;
+
+  return value.toLocaleString('tr-TR', {
+    useGrouping: true,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: maxFrac,
+  });
+}
+
+export function formatPrice(
+  value: number,
+  currency: string = 'TRY',
+  decimals?: number | null,
+): string {
+  if (currency === 'USD' || currency === '$') return formatCryptoPrice(value, decimals);
+  return formatNumber(value, 2);
+}
+
 export function formatInteger(value: number): string {
   return Math.round(value).toLocaleString('tr-TR');
 }

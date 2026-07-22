@@ -108,11 +108,13 @@ export class StockApiService {
     pct: number,
     mode: TimeMachineMode,
     amount?: number,
+    marketType: 'bist' | 'crypto' = 'bist',
   ): Observable<TimeMachineCalc> {
     let params = new HttpParams()
       .set('date', date)
       .set('pct', String(pct))
-      .set('mode', mode);
+      .set('mode', mode)
+      .set('marketType', marketType);
 
     if (amount != null && amount > 0)
       params = params.set('amount', String(amount));

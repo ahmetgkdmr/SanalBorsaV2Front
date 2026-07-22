@@ -12,6 +12,7 @@ import { TimeMachineCalc, TimeMachineMode } from '../../core/models/time-machine
 import { MarketService } from '../../core/services/market.service';
 import { IndexService } from '../../core/services/index.service';
 import { ModalService } from '../../core/services/modal.service';
+import { CryptoApiService } from '../../core/services/crypto-api.service';
 import {
   formatInteger,
   formatNumber,
@@ -488,6 +489,7 @@ export class TimeMachineModalComponent {
   readonly modals = inject(ModalService);
   private readonly market = inject(MarketService);
   private readonly indexService = inject(IndexService);
+  private readonly cryptoApi = inject(CryptoApiService);
 
   readonly formatNumber = formatNumber;
   readonly formatInteger = formatInteger;
@@ -511,8 +513,15 @@ export class TimeMachineModalComponent {
   readonly todayStr = new Date().toISOString().slice(0, 10);
 
   // ── Erken tarih sınırı ───────────────────────────────
+  private readonly cryptoEarliest = signal<string | null>(null);
+
+  readonly isCryptoTm = computed(() => this.modals.timeMachineMarket() === 'crypto');
+
   readonly minDateStr = computed<string>(() => {
     const sym = this.symbol();
+    if (this.isCryptoTm()) {
+      return (this.cryptoEarliest() ?? '').slice(0, 10);
+    }
     if (isIndexSymbol(sym) || isForexSymbol(sym)) {
       const q = this.indexService.quotes().find((q) => q.symbol === sym);
       if (q?.earliestDate) return q.earliestDate.slice(0, 10);
@@ -553,6 +562,8 @@ export class TimeMachineModalComponent {
   );
 
   readonly subtitle = computed(() => {
+    if (this.isCryptoTm())
+      return 'O tarihte belirlediğin USD tutarla bu coini alsaydın bugün ne olurdu?';
     if (isForexSymbol(this.symbol()))
       return 'O tarihte belirlediğin tutarla dolar alsaydın bugün ne olurdu?';
     return 'O tarihte belirlediğin tutarla bu hisseyi alsaydın bugün ne olurdu?';
@@ -593,12 +604,20 @@ export class TimeMachineModalComponent {
     effect(() => {
       if (this.modals.active() !== 'timeMachine') return;
       const sym = this.modals.stockSymbol();
+      const crypto = this.modals.timeMachineMarket() === 'crypto';
       if (sym) {
-        // Endeks seçildiyse hisseye düş (bileşim / temettü yansıtılamaz)
-        this.symbol.set(isIndexSymbol(sym) ? 'THYAO' : sym);
+        this.symbol.set(crypto ? sym : isIndexSymbol(sym) ? 'THYAO' : sym);
       }
-      if (!this.market.symbolOptions().length) this.market.loadMarket();
-      if (!this.indexService.quotes().length) this.indexService.loadQuotes();
+      if (!crypto && !this.market.symbolOptions().length) this.market.loadMarket();
+      if (!crypto && !this.indexService.quotes().length) this.indexService.loadQuotes();
+      if (crypto && sym) {
+        this.cryptoApi.getMeta(sym).subscribe({
+          next: (m) => this.cryptoEarliest.set(m.earliestDataDate),
+          error: () => this.cryptoEarliest.set(null),
+        });
+        // Kripto için varsayılan: sabit USD tutar
+        this.investMode.set('custom');
+      }
     });
 
     // Modal açılınca veya sembol değişince takvimi hissenin ilk fiyat tarihine al
@@ -688,7 +707,14 @@ export class TimeMachineModalComponent {
         : undefined;
 
     this.market
-      .calculateInvestment(this.symbol(), this.dateStr(), this.pct(), this.mode(), amount)
+      .calculateInvestment(
+        this.symbol(),
+        this.dateStr(),
+        this.pct(),
+        this.mode(),
+        amount,
+        this.isCryptoTm() ? 'crypto' : 'bist',
+      )
       .subscribe({
         next: (r) => {
           this.calc.set(r);

@@ -7,6 +7,7 @@ import {
   saveSession,
   loadSession,
   clearSession,
+  normalizeAuthUser,
 } from '../models/auth.model';
 import { AuthApiService } from './auth-api.service';
 import { FirebaseService } from './firebase.service';
@@ -60,12 +61,13 @@ export class AuthService {
 
   /** Kullanıcı adı/şifreyle demo giriş — geriye dönük uyumluluk için. */
   loginDemo(username: string): void {
-    const user: AuthUser = {
+    const user = normalizeAuthUser({
       id:            crypto.randomUUID(),
       displayName:   username,
       provider:      'google',
-      portfolioCash: 1_000_000,
-    };
+      portfolioCashTry: 1_000_000,
+      portfolioCashUsd: 100_000,
+    });
     const session: AuthSession = {
       user,
       tokens: { accessToken: '', refreshToken: '', expiresAt: '' },
@@ -76,7 +78,7 @@ export class AuthService {
 
   private applyLogin(result: LoginResult): void {
     const session: AuthSession = {
-      user:   result.user,
+      user:   normalizeAuthUser(result.user),
       tokens: {
         accessToken:  result.accessToken,
         refreshToken: result.refreshToken,

@@ -176,7 +176,7 @@ export class LoginModalComponent {
     this.loading.set(true);
     try {
       await this.auth.loginWithGoogle();
-      this.portfolio.reload();
+      await this.portfolio.reload();
       this.modals.close();
     } catch (e: any) {
       this.error.set(e?.message ?? 'Google girişi başarısız.');
@@ -212,7 +212,7 @@ export class LoginModalComponent {
     this.loading.set(true);
     try {
       await this.auth.verifyPhoneOtp(this.otp);
-      this.portfolio.reload();
+      await this.portfolio.reload();
       this.modals.close();
     } catch (e: any) {
       this.error.set(e?.message ?? 'Kod hatalı veya süresi dolmuş.');

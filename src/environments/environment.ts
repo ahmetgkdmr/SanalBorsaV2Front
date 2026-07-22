@@ -2,6 +2,7 @@ export const environment = {
   production: false,
   /** dotnet run (Mac/Linux/Windows). IIS Express için: https://localhost:44356/api */
   apiUrl: 'http://localhost:5042/api',
+  hubUrl: 'http://localhost:5042/hubs/crypto',
 
   firebase: {
     apiKey:            'AIzaSyC_klYwoZvXsxSfDHMxcxzpURGPcFXUMnY',

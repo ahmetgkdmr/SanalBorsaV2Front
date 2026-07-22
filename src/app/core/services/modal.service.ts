@@ -1,11 +1,13 @@
 import { Injectable, signal } from '@angular/core';
 
-export type ModalId = 'timeMachine' | 'login' | 'stockDetail' | 'premium' | null;
+export type ModalId = 'timeMachine' | 'login' | 'stockDetail' | 'cryptoDetail' | 'premium' | null;
+export type TimeMachineMarket = 'bist' | 'crypto';
 
 @Injectable({ providedIn: 'root' })
 export class ModalService {
   readonly active = signal<ModalId>(null);
   readonly stockSymbol = signal<string | null>(null);
+  readonly timeMachineMarket = signal<TimeMachineMarket>('bist');
   readonly premiumUnlocked = signal(
     localStorage.getItem('sb_premium') === '1',
   );
@@ -17,11 +19,19 @@ export class ModalService {
 
   openStock(symbol: string): void {
     this.stockSymbol.set(symbol);
+    this.timeMachineMarket.set('bist');
     this.open('stockDetail');
   }
 
-  openTimeMachine(symbol?: string): void {
+  openCrypto(symbol: string): void {
+    this.stockSymbol.set(symbol);
+    this.timeMachineMarket.set('crypto');
+    this.open('cryptoDetail');
+  }
+
+  openTimeMachine(symbol?: string, market: TimeMachineMarket = 'bist'): void {
     if (symbol) this.stockSymbol.set(symbol);
+    this.timeMachineMarket.set(market);
     this.open('timeMachine');
   }
 

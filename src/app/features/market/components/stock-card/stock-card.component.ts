@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { StockCardView } from '../../../../core/models/stock.model';
-import { formatNumber } from '../../../../core/utils/format.util';
+import { formatNumber, formatPrice } from '../../../../core/utils/format.util';
 import { PriceChangeComponent } from '../../../../shared/components/price-change/price-change.component';
 import { SparklineComponent } from '../../../../shared/components/sparkline/sparkline.component';
 import { StockLogoComponent } from '../../../../shared/components/stock-logo/stock-logo.component';
@@ -41,15 +41,17 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
       }
 
       <div class="price-row">
-        <div class="price mono">{{ formatNumber(stock().close) }} <small>₺</small></div>
+        <div class="price mono">{{ formatPrice(stock().close, stock().currency, stock().priceDecimals) }} <small>{{ currencySymbol() }}</small></div>
         <app-price-change [value]="stock().changePct" />
       </div>
 
-      <app-sparkline [data]="stock().sparkline" [up]="isUp()" />
+      @if (stock().sparkline.length) {
+        <app-sparkline [data]="stock().sparkline" [up]="isUp()" />
+      }
 
       <div class="vol mono">
         <span>Hacim</span>
-        <span>{{ formatNumber(stock().volume) }} mn ₺</span>
+        <span>{{ formatNumber(stock().volume) }} mn {{ currencySymbol() }}</span>
       </div>
 
       <!-- Köşe pulse noktası -->
@@ -57,6 +59,11 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
     </article>
   `,
   styles: `
+    :host {
+      display: block;
+      height: 100%;
+    }
+
     /* ── temel kart ─────────────────────────────────────────────────────── */
     .card {
       background: var(--panel);
@@ -67,8 +74,11 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
       overflow: hidden;
       cursor: pointer;
       height: 100%;
+      min-height: 148px;
       box-sizing: border-box;
       transition: transform 0.15s, border-color 0.2s, box-shadow 0.2s;
+      display: flex;
+      flex-direction: column;
 
       &:hover {
         transform: translateY(-2px);
@@ -79,28 +89,18 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
       box-shadow: var(--shadow);
     }
 
-    /* ── yeşil / kırmızı glow pulse ─────────────────────────────────────── */
+    /* ── yeşil / kırmızı sabit kenar (yanıp sönmez) ─────────────────────── */
     .card.up {
-      border-color: rgba(34, 201, 138, 0.35);
-      animation: glow-up 2.8s ease-in-out infinite;
+      border-color: rgba(34, 201, 138, 0.55);
+      box-shadow: 0 0 0 1px rgba(34, 201, 138, 0.12);
     }
 
     .card.down {
-      border-color: rgba(255, 82, 82, 0.35);
-      animation: glow-down 2.8s ease-in-out infinite;
+      border-color: rgba(255, 82, 82, 0.55);
+      box-shadow: 0 0 0 1px rgba(255, 82, 82, 0.12);
     }
 
-    @keyframes glow-up {
-      0%,  100% { box-shadow: 0 0 0px rgba(34, 201, 138, 0);    border-color: rgba(34, 201, 138, 0.25); }
-      50%        { box-shadow: 0 0 12px rgba(34, 201, 138, 0.4); border-color: rgba(34, 201, 138, 0.65); }
-    }
-
-    @keyframes glow-down {
-      0%,  100% { box-shadow: 0 0 0px rgba(255, 82, 82, 0);    border-color: rgba(255, 82, 82, 0.25); }
-      50%        { box-shadow: 0 0 12px rgba(255, 82, 82, 0.4); border-color: rgba(255, 82, 82, 0.65); }
-    }
-
-    /* ── sol üst köşe pulse noktası ──────────────────────────────────────── */
+    /* ── sol üst köşe durum noktası ─────────────────────────────────────── */
     .pulse-dot {
       position: absolute;
       bottom: 10px;
@@ -108,15 +108,11 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
       width: 6px;
       height: 6px;
       border-radius: 50%;
+      opacity: 0.9;
     }
 
-    .card.up   .pulse-dot { background: var(--up);   animation: dot-pulse 2.8s ease-in-out infinite; }
-    .card.down .pulse-dot { background: var(--down);  animation: dot-pulse 2.8s ease-in-out infinite; }
-
-    @keyframes dot-pulse {
-      0%,  100% { opacity: 0.3; transform: scale(0.8); }
-      50%        { opacity: 1;   transform: scale(1.3); }
-    }
+    .card.up   .pulse-dot { background: var(--up); }
+    .card.down .pulse-dot { background: var(--down); }
 
     /* ── diğer elemanlar ─────────────────────────────────────────────────── */
     .badge {
@@ -232,14 +228,24 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
 
     .price-row {
       display: flex;
-      align-items: flex-end;
+      align-items: center;
       justify-content: space-between;
-      gap: 8px;
+      gap: 6px;
+      flex-wrap: nowrap;
+      min-height: 34px;
+      height: 34px;
     }
 
     .price {
-      font-size: 21px;
+      flex: 1 1 auto;
+      min-width: 0;
+      font-size: 17px;
       font-weight: 600;
+      line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-variant-numeric: tabular-nums;
 
       small {
         font-size: 11px;
@@ -248,8 +254,13 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
       }
     }
 
+    :host ::ng-deep app-price-change {
+      flex: 0 0 auto;
+    }
+
     .vol {
-      margin-top: 8px;
+      margin-top: auto;
+      padding-top: 8px;
       font-size: 11px;
       color: var(--muted);
       display: flex;
@@ -261,7 +272,14 @@ export class StockCardComponent {
   readonly stock   = input.required<StockCardView>();
   readonly selected = output<string>();
 
-  readonly isUp = computed(() => this.stock().changePct >= 0);
+  readonly isUp = computed(() => {
+    const tick = this.stock().tickUp;
+    if (tick === true || tick === false) return tick;
+    return this.stock().changePct >= 0;
+  });
+  readonly currencySymbol = computed(() =>
+    this.stock().currency === 'USD' ? '$' : '₺',
+  );
 
   readonly crownTitle = computed(() => {
     switch (this.stock().crownPeriod) {
@@ -273,4 +291,5 @@ export class StockCardComponent {
   });
 
   readonly formatNumber = formatNumber;
+  readonly formatPrice = formatPrice;
 }

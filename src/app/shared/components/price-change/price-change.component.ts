@@ -11,10 +11,14 @@ import { formatNumber } from '../../../core/utils/format.util';
   `,
   styles: `
     .chg {
-      font-size: 13px;
+      display: inline-block;
+      font-size: 12px;
       font-weight: 600;
-      padding: 4px 9px;
+      padding: 4px 8px;
       border-radius: 8px;
+      white-space: nowrap;
+      flex-shrink: 0;
+      line-height: 1.2;
 
       &.up {
         color: var(--up);
