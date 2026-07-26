@@ -61,11 +61,10 @@ type AuthStep = 'choose' | 'phone-enter' | 'phone-otp';
                   [(ngModel)]="phoneLocal"
                 />
               </div>
-              <div id="recaptcha-container"></div>
               <button class="btn btn-main" type="button" (click)="onSendOtp()" [disabled]="loading()">
                 @if (loading()) { Gönderiliyor… } @else { Kod Gönder }
               </button>
-              <button class="btn-back" type="button" (click)="step.set('choose')">← Geri</button>
+              <button class="btn-back" type="button" (click)="goBackToChoose()">← Geri</button>
               @if (error()) {
                 <div class="msg-error">{{ error() }}</div>
               }
@@ -87,17 +86,21 @@ type AuthStep = 'choose' | 'phone-enter' | 'phone-otp';
               <button class="btn btn-main" type="button" (click)="onVerifyOtp()" [disabled]="loading()">
                 @if (loading()) { Doğrulanıyor… } @else { Doğrula }
               </button>
-              <button class="btn-back" type="button" (click)="step.set('phone-enter')">← Tekrar Gönder</button>
+              <button class="btn-back" type="button" (click)="goBackToPhoneEnter()">← Tekrar Gönder</button>
               @if (error()) {
                 <div class="msg-error">{{ error() }}</div>
               }
             </div>
           }
         }
+
+        <!-- reCAPTCHA her adımda yeniden oluşturulmasın diye switch dışında sabit tutulur -->
+        <div id="recaptcha-container" aria-hidden="true"></div>
       </div>
     </app-overlay>
   `,
   styles: `
+    #recaptcha-container { position: absolute; width: 0; height: 0; overflow: hidden; }
     .modal {
       max-width: 420px;
       margin: 0 auto;
@@ -171,6 +174,19 @@ export class LoginModalComponent {
   phoneLocal = '';
   otp        = '';
 
+  goBackToChoose(): void {
+    this.auth.clearRecaptcha();
+    this.error.set('');
+    this.step.set('choose');
+  }
+
+  goBackToPhoneEnter(): void {
+    this.auth.clearRecaptcha();
+    this.otp = '';
+    this.error.set('');
+    this.step.set('phone-enter');
+  }
+
   async onGoogle(): Promise<void> {
     this.error.set('');
     this.loading.set(true);
@@ -179,7 +195,7 @@ export class LoginModalComponent {
       await this.portfolio.reload();
       this.modals.close();
     } catch (e: any) {
-      this.error.set(e?.message ?? 'Google girişi başarısız.');
+      this.error.set(this.friendlyAuthError(e, 'Google girişi başarısız.'));
     } finally {
       this.loading.set(false);
     }
@@ -197,7 +213,7 @@ export class LoginModalComponent {
       await this.auth.sendPhoneOtp(phone, 'recaptcha-container');
       this.step.set('phone-otp');
     } catch (e: any) {
-      this.error.set(e?.message ?? 'SMS gönderilemedi.');
+      this.error.set(this.friendlyAuthError(e, 'SMS gönderilemedi.'));
     } finally {
       this.loading.set(false);
     }
@@ -215,9 +231,32 @@ export class LoginModalComponent {
       await this.portfolio.reload();
       this.modals.close();
     } catch (e: any) {
-      this.error.set(e?.message ?? 'Kod hatalı veya süresi dolmuş.');
+      this.error.set(this.friendlyAuthError(e, 'Kod hatalı veya süresi dolmuş.'));
     } finally {
       this.loading.set(false);
     }
+  }
+
+  private friendlyAuthError(e: any, fallback: string): string {
+    const code = e?.code as string | undefined;
+    const msg = (
+      e?.error?.detail ??
+      e?.error?.title ??
+      e?.message ??
+      fallback
+    ) as string;
+
+    if (code === 'auth/billing-not-enabled' || msg.includes('billing-not-enabled')) {
+      return 'Telefon ile SMS için Firebase projesinde Blaze (ücretli) plan gerekir. ' +
+        'Ücretsiz denemek için Firebase Console → Authentication → Phone → ' +
+        '"Phone numbers for testing" bölümüne numaranı ve sabit bir kod ekle.';
+    }
+    if (msg.includes('reCAPTCHA has already been rendered')) {
+      return 'Doğrulama alanı takıldı. Sayfayı yenileyip tekrar dene.';
+    }
+    if (msg.includes('firebase-service-account') || msg.includes('yapılandırılmamış')) {
+      return msg;
+    }
+    return msg || fallback;
   }
 }
