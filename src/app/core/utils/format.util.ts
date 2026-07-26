@@ -52,6 +52,27 @@ export function formatInteger(value: number): string {
   return Math.round(value).toLocaleString('tr-TR');
 }
 
+/**
+ * Yatırım tutarı / bugünkü değer — küçük asgari ücret dönemlerinde
+ * formatInteger(0.13) → "0" olmasın diye ondalık korur.
+ */
+export function formatMoneyAmount(value: number): string {
+  if (!Number.isFinite(value)) return '—';
+  const abs = Math.abs(value);
+  if (abs >= 100) return Math.round(value).toLocaleString('tr-TR');
+  if (abs >= 1) {
+    return value.toLocaleString('tr-TR', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    });
+  }
+  // 0,13 ₺ / 0,27 ₺ gibi
+  return value.toLocaleString('tr-TR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4,
+  });
+}
+
 export function formatTurkishDate(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date;
   return d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
