@@ -21,7 +21,7 @@ import { StockLogoComponent } from '../../shared/components/stock-logo/stock-log
         <div class="modal">
           <button class="m-close" type="button" (click)="modals.close()">✕</button>
           <div class="card-top">
-            <app-stock-logo [symbol]="base()" [color]="color()" />
+            <app-stock-logo [symbol]="base()" [color]="color()" market="crypto" />
             <div>
               <h2>{{ base() }}</h2>
               <div class="sub">{{ symbol() }} · Spot USDT</div>

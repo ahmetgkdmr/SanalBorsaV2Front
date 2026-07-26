@@ -40,11 +40,12 @@ const SORT_OPTIONS: { key: MarketSortKey & CryptoSortKey; label: string }[] = [
         </button>
         <button
           type="button"
-          class="ms-btn"
+          class="ms-btn ms-crypto"
           [class.active]="marketType.type() === 'crypto'"
           (click)="setMarket('crypto')"
         >
           KRİPTO PİYASASI
+          <span class="live-badge" title="Binance spot canlı veri">CANLI VERİ</span>
         </button>
       </div>
 
@@ -218,34 +219,59 @@ const SORT_OPTIONS: { key: MarketSortKey & CryptoSortKey; label: string }[] = [
   `,
   styles: `
     .market-switch {
-      margin-top: 18px;
+      margin-top: 20px;
       display: inline-flex;
-      gap: 4px;
-      background: var(--panel);
+      gap: 2px;
+      background: transparent;
       border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 4px;
+      border-radius: 10px;
+      padding: 3px;
     }
     .ms-btn {
+      position: relative;
       border: none;
       background: transparent;
       color: var(--muted);
-      font-weight: 800;
+      font-weight: 700;
       font-size: 12px;
-      letter-spacing: 0.4px;
-      padding: 10px 16px;
-      border-radius: 9px;
+      letter-spacing: 0.3px;
+      padding: 9px 14px;
+      border-radius: 8px;
       cursor: pointer;
+      transition: color 0.15s, background 0.15s;
       &.active {
         background: var(--accent);
         color: #0b1220;
       }
+      &:not(.active):hover {
+        color: var(--text);
+        background: var(--chip-hover);
+      }
+    }
+    .ms-crypto {
+      padding-right: 18px;
+    }
+    .live-badge {
+      position: absolute;
+      top: -7px;
+      right: -2px;
+      font-size: 8px;
+      font-weight: 800;
+      letter-spacing: 0.4px;
+      line-height: 1;
+      padding: 3px 6px;
+      border-radius: 6px;
+      background: var(--up);
+      color: #04180f;
+      white-space: nowrap;
+      pointer-events: none;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
     }
     .controls {
-      margin-top: 14px;
+      margin-top: 16px;
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 12px;
     }
     .tabs-row {
       width: 100%;
@@ -256,59 +282,103 @@ const SORT_OPTIONS: { key: MarketSortKey & CryptoSortKey; label: string }[] = [
     }
     .tabs {
       display: inline-flex;
-      gap: 5px;
-      background: var(--panel);
-      border: 1px solid var(--line);
-      padding: 5px;
-      border-radius: calc(var(--radius) - 2px);
+      gap: 4px;
+      background: transparent;
+      border: none;
+      padding: 0;
+      border-radius: 0;
       white-space: nowrap;
       min-width: max-content;
     }
+    .tabs:not(.sort-tabs) {
+      gap: 6px;
+      padding-bottom: 0;
+      border-bottom: none;
+    }
     .tab {
-      border: none;
+      border: 1px solid transparent;
       background: transparent;
       color: var(--muted);
-      font-weight: 700;
+      font-weight: 600;
       font-size: 12px;
-      padding: 7px 13px;
-      border-radius: 8px;
+      padding: 7px 12px;
+      border-radius: 100px;
       cursor: pointer;
-      transition: 0.18s;
+      transition: color 0.15s, background 0.15s, border-color 0.15s;
       white-space: nowrap;
-      &:hover { color: var(--text); background: var(--chip-hover); }
-      &.active { background: var(--accent); color: #0b1220; }
+      &:hover {
+        color: var(--text);
+        background: var(--chip-hover);
+      }
+      &.active {
+        background: var(--panel);
+        border-color: var(--accent);
+        color: var(--text);
+        font-weight: 700;
+        box-shadow: none;
+      }
+    }
+    :host-context([data-theme='dark']) .tab.active {
+      background: color-mix(in srgb, var(--accent) 12%, var(--panel));
+      border-color: var(--accent);
+      color: var(--text);
+    }
+    .sort-tabs {
+      gap: 4px;
+      .tab {
+        font-size: 11.5px;
+        font-weight: 600;
+        padding: 6px 11px;
+        border: 1px solid transparent;
+        border-radius: 100px;
+        &.active {
+          background: var(--panel);
+          border-color: var(--accent);
+          box-shadow: none;
+          color: var(--text);
+          font-weight: 700;
+          border-radius: 100px;
+        }
+      }
     }
     .sort-arrow {
-      margin-left: 4px;
-      font-weight: 800;
-      opacity: 0.85;
+      margin-left: 3px;
+      font-weight: 700;
+      opacity: 0.75;
     }
     .search-row { display: flex; gap: 10px; align-items: flex-start; }
     .search-wrap {
       position: relative;
       flex: 1;
       min-width: 200px;
-      max-width: 420px;
+      max-width: 400px;
     }
     .search {
       width: 100%;
       box-sizing: border-box;
-      background: var(--panel); border: 1px solid var(--line);
-      border-radius: calc(var(--radius) - 2px); padding: 11px 16px;
-      color: var(--text); font-size: 13px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 14px;
+      color: var(--text);
+      font-size: 13px;
+      transition: border-color 0.15s;
       &::placeholder { color: var(--muted); }
-      &:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+      &:focus {
+        outline: none;
+        border-color: color-mix(in srgb, var(--accent) 65%, var(--line));
+      }
     }
     .suggest {
       position: absolute;
       z-index: 40;
       left: 0; right: 0; top: calc(100% + 4px);
-      margin: 0; padding: 6px;
+      margin: 0; padding: 4px;
       list-style: none;
       background: var(--panel);
       border: 1px solid var(--line);
       border-radius: 10px;
-      box-shadow: 0 12px 32px rgba(0,0,0,0.35);
+      box-shadow: var(--shadow);
       max-height: 320px;
       overflow: auto;
     }
@@ -317,8 +387,8 @@ const SORT_OPTIONS: { key: MarketSortKey & CryptoSortKey; label: string }[] = [
       grid-template-columns: 1fr auto auto;
       gap: 12px;
       align-items: center;
-      padding: 10px 12px;
-      border-radius: 8px;
+      padding: 9px 11px;
+      border-radius: 7px;
       cursor: pointer;
       font-size: 13px;
       &:hover, &.active { background: var(--chip-hover); }
@@ -327,41 +397,50 @@ const SORT_OPTIONS: { key: MarketSortKey & CryptoSortKey; label: string }[] = [
     .sg-price { color: var(--text); }
     .sg-chg.up { color: var(--up); }
     .sg-chg.down { color: var(--down); }
-    .count { font-size: 12px; color: var(--muted); white-space: nowrap; padding-top: 12px; }
+    .count { font-size: 12px; color: var(--muted); white-space: nowrap; padding-top: 11px; }
     .grid {
-      margin: 18px 0 16px;
+      margin: 16px 0 14px;
       display: grid;
       grid-template-columns: repeat(5, minmax(0, 1fr));
-      gap: 12px;
+      gap: 10px;
       align-items: stretch;
     }
     .mono { font-variant-numeric: tabular-nums; }
     .pager {
-      margin: 20px 0 40px;
-      display: flex; flex-direction: column; align-items: center; gap: 12px;
+      margin: 18px 0 36px;
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
     }
     .pager-meta {
-      font-size: 12.5px; color: var(--muted); margin: 0;
+      font-size: 12px; color: var(--muted); margin: 0;
       b { color: var(--text); font-weight: 700; }
-      .sep { margin: 0 6px; opacity: 0.5; }
+      .sep { margin: 0 6px; opacity: 0.45; }
     }
     .pager-btns {
-      display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: center;
+      display: flex; gap: 4px; align-items: center; flex-wrap: wrap; justify-content: center;
       button {
-        min-width: 40px; height: 40px; border-radius: 10px;
-        border: 1px solid var(--line); background: var(--panel);
-        color: var(--text); font-weight: 700; font-size: 13px; cursor: pointer;
+        min-width: 36px; height: 36px; border-radius: 8px;
+        border: 1px solid var(--line); background: transparent;
+        color: var(--text); font-weight: 600; font-size: 13px; cursor: pointer;
+        transition: background 0.15s, border-color 0.15s;
+        &:hover:not(:disabled):not(.cur) { background: var(--chip-hover); }
         &:disabled { opacity: 0.35; cursor: not-allowed; }
-        &.cur { background: var(--accent); color: #1a1206; border-color: var(--accent); }
-        &.nav { min-width: 44px; }
+        &.cur {
+          background: var(--accent);
+          color: #1a1206;
+          border-color: var(--accent);
+          font-weight: 700;
+        }
+        &.nav { min-width: 40px; }
       }
-      .dots { min-width: 28px; text-align: center; color: var(--muted); font-weight: 700; }
+      .dots { min-width: 24px; text-align: center; color: var(--muted); font-weight: 600; }
     }
     .data-note {
-      display: flex; align-items: center; gap: 8px; margin-top: 10px;
-      padding: 8px 14px; background: rgba(255, 255, 255, 0.04);
-      border: 1px solid var(--line); border-radius: 10px;
-      font-size: 11.5px; color: var(--muted); line-height: 1.5;
+      display: flex; align-items: flex-start; gap: 8px; margin-top: 8px;
+      padding: 0;
+      background: transparent;
+      border: none;
+      border-radius: 0;
+      font-size: 11.5px; color: var(--muted); line-height: 1.45;
       b { color: var(--text); font-weight: 600; }
     }
     .status {
@@ -369,15 +448,15 @@ const SORT_OPTIONS: { key: MarketSortKey & CryptoSortKey; label: string }[] = [
       &.error { color: var(--down); }
     }
     .retry {
-      margin-left: 10px; background: var(--panel2); border: 1px solid var(--line);
+      margin-left: 10px; background: transparent; border: 1px solid var(--line);
       color: var(--text); border-radius: 8px; padding: 6px 12px;
-      cursor: pointer; font-size: 12px; font-weight: 700;
+      cursor: pointer; font-size: 12px; font-weight: 600;
     }
     @media (max-width: 1100px) { .grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
     @media (max-width: 900px) { .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
     @media (max-width: 600px) {
-      .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-      .ms-btn { font-size: 11px; padding: 9px 10px; }
+      .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+      .ms-btn { font-size: 11px; padding: 8px 10px; }
     }
   `,
 })

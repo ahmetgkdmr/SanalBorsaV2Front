@@ -43,7 +43,12 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
               </div>
 
               <div class="body">
-                <app-stock-logo [symbol]="displaySymbol(item)" [color]="color(item)" size="sm" />
+                <app-stock-logo
+                  [symbol]="displaySymbol(item)"
+                  [color]="color(item)"
+                  [market]="marketType()"
+                  size="sm"
+                />
                 <div class="meta">
                   <div class="tick">{{ displaySymbol(item) }}</div>
                   <div class="name">{{ item.name }}</div>
@@ -65,31 +70,32 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
   `,
   styles: `
     .crown-section {
-      margin: 18px 0 8px;
-      padding: 12px 14px;
-      border-radius: 16px;
-      border: 1px solid var(--crown-border);
-      background: var(--crown-bg);
-      box-shadow: var(--shadow);
+      margin: 16px 0 6px;
+      padding: 12px 0 4px;
+      border-radius: 0;
+      border: none;
+      border-top: 1px solid var(--line);
+      background: transparent;
+      box-shadow: none;
     }
 
     .crown-head {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
       margin-bottom: 10px;
     }
 
     .crown-emoji {
-      font-size: 24px;
-      filter: drop-shadow(0 2px 8px rgba(240, 192, 64, 0.55));
+      font-size: 18px;
+      filter: none;
     }
 
     h3 {
       margin: 0;
-      font-size: 15px;
-      font-weight: 800;
-      letter-spacing: 0.2px;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.15px;
       color: var(--crown-title);
     }
 
@@ -124,17 +130,20 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
     .crown-card {
       text-align: left;
       border: 1px solid var(--line);
-      border-radius: 12px;
+      border-radius: 10px;
       background: var(--panel);
       padding: 0;
       overflow: hidden;
       cursor: pointer;
-      transition: transform 0.15s, border-color 0.2s;
+      transition: border-color 0.18s ease, background 0.18s ease;
       display: flex;
       flex-direction: column;
       min-width: 0;
 
-      &:hover { transform: translateY(-2px); }
+      &:hover {
+        border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
+        background: color-mix(in srgb, var(--panel) 92%, var(--panel2));
+      }
     }
 
     .ribbon {
@@ -143,8 +152,8 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
       gap: 5px;
       padding: 5px 8px;
       font-size: 10px;
-      font-weight: 800;
-      letter-spacing: 0.2px;
+      font-weight: 700;
+      letter-spacing: 0.15px;
       background: linear-gradient(90deg, #f0c040, #e8a317);
       color: #1a1206;
     }
@@ -179,7 +188,7 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
     .meta { min-width: 0; }
     .tick {
       font-size: 13px;
-      font-weight: 800;
+      font-weight: 700;
       color: var(--text);
       white-space: nowrap;
       overflow: hidden;
@@ -196,7 +205,7 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
     .ret {
       padding: 2px 10px 6px;
       font-size: 15px;
-      font-weight: 800;
+      font-weight: 700;
       color: var(--up);
     }
 

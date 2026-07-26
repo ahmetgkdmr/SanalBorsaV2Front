@@ -28,7 +28,7 @@ import { StockLogoComponent } from '../../shared/components/stock-logo/stock-log
         <div class="modal">
           <button class="m-close" type="button" (click)="modals.close()">✕</button>
           <div class="card-top">
-            <app-stock-logo [symbol]="d.symbol" [color]="d.color" />
+            <app-stock-logo [symbol]="d.symbol" [color]="d.color" market="bist" />
             <div>
               <h2>{{ d.symbol }}</h2>
               <div class="sub">{{ d.name }}</div>

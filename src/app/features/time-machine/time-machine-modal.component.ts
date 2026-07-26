@@ -41,6 +41,7 @@ import {
 } from '../../core/models/index.model';
 import { OverlayComponent } from '../../shared/components/overlay/overlay.component';
 import { DatePickerComponent } from '../../shared/components/date-picker/date-picker.component';
+import { StockLogoComponent } from '../../shared/components/stock-logo/stock-logo.component';
 import { TimeMachineSimulationComponent } from './time-machine-simulation.component';
 
 type InvestMode = 'wage' | 'custom';
@@ -56,7 +57,13 @@ type PickerOption = {
 @Component({
   selector: 'app-time-machine-modal',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [OverlayComponent, FormsModule, TimeMachineSimulationComponent, DatePickerComponent],
+  imports: [
+    OverlayComponent,
+    FormsModule,
+    TimeMachineSimulationComponent,
+    DatePickerComponent,
+    StockLogoComponent,
+  ],
   template: `
     <app-overlay [open]="modals.active() === 'timeMachine'" (closed)="onClose()">
       <div class="modal">
@@ -68,7 +75,11 @@ type PickerOption = {
         <div class="tm-section">
           <div class="tm-label">{{ instrumentLabel() }}</div>
           <div class="stock-pick">
-            <div class="pick-logo" [style.background]="logoColor()">{{ symbolBadge() }}</div>
+            <app-stock-logo
+              [symbol]="logoSymbol()"
+              [color]="logoColor()"
+              [market]="isCryptoTm() ? 'crypto' : 'bist'"
+            />
             <div class="sym-combo" [class.open]="pickerOpen()">
               <button
                 type="button"
@@ -104,7 +115,12 @@ type PickerOption = {
                         [class.selected]="opt.value === symbol()"
                         (mousedown)="pickSymbol(opt.value)"
                       >
-                        <span class="opt-logo" [style.background]="opt.color">{{ opt.badge }}</span>
+                        <app-stock-logo
+                          [symbol]="opt.value"
+                          [color]="opt.color"
+                          [market]="isCryptoTm() ? 'crypto' : 'bist'"
+                          size="sm"
+                        />
                         <span class="opt-main">
                           <b>{{ opt.title }}</b>
                           @if (opt.subtitle) {
@@ -183,7 +199,17 @@ type PickerOption = {
                 (ngModelChange)="onPctChange($event)"
                 [style.--fill]="((pct() - 5) / 95 * 100) + '%'"
               />
-              <div class="wage-info" [innerHTML]="wageInfo()"></div>
+              <div class="wage-info">
+                @if (wageInfoView(); as w) {
+                  {{ w.year }} asgari ücreti: <b>{{ w.wageLabel }} ₺</b>
+                  @if (w.oldTlNote) {
+                    <span class="wage-note">(2005 öncesi Yeni TL karşılığı)</span>
+                  }
+                  → {{ w.modePrefix }} <b>{{ w.investLabel }} ₺</b>{{ w.modeSuffix }}
+                } @else {
+                  Asgari ücret için tarih seç…
+                }
+              </div>
             </div>
           } @else {
             <div class="custom-block">
@@ -339,9 +365,12 @@ type PickerOption = {
                 @for (l of altList(); track l.symbol) {
                   <li class="alt-item" [attr.data-rank]="l.rank">
                     <span class="alt-rank">{{ l.rank }}</span>
-                    <span class="alt-logo" [style.background]="symbolColor(l.symbol)">
-                      {{ altBadge(l.symbol) }}
-                    </span>
+                    <app-stock-logo
+                      [symbol]="l.symbol"
+                      [color]="symbolColor(l.symbol)"
+                      [market]="altTab()"
+                      size="sm"
+                    />
                     <span class="alt-main">
                       <b>{{ altTitle(l) }}</b>
                       <span class="alt-sub mono">
@@ -587,6 +616,14 @@ type PickerOption = {
       color: #fff;
       font-size: 14px;
       flex: 0 0 auto;
+    }
+
+    .stock-pick app-stock-logo {
+      flex: 0 0 auto;
+    }
+
+    .wage-note {
+      opacity: 0.7;
     }
 
     /* Tarih seçici host genişliği */
@@ -1061,6 +1098,15 @@ export class TimeMachineModalComponent {
   readonly dateLabel = computed(() => formatTurkishDate(this.dateStr()));
   readonly logoColor = computed(() => symbolColor(this.symbol()));
 
+  /** Logo bileşeni için sembol (kripto: base asset) */
+  readonly logoSymbol = computed(() => {
+    const s = this.symbol();
+    if (this.isCryptoTm()) {
+      return s.endsWith('USDT') ? s.slice(0, -4) : s;
+    }
+    return s;
+  });
+
   readonly symbolBadge = computed(() => {
     const s = this.symbol();
     if (this.isCryptoTm()) {
@@ -1177,9 +1223,9 @@ export class TimeMachineModalComponent {
     }
   });
 
-  readonly wageInfo = computed(() => {
+  readonly wageInfoView = computed(() => {
     const iso = this.dateStr();
-    if (!iso || iso.length < 7) return 'Asgari ücret için tarih seç…';
+    if (!iso || iso.length < 7) return null;
     const year = +iso.slice(0, 4);
     const month = +iso.slice(5, 7);
     const wage = getMinimumWage(iso);
@@ -1187,15 +1233,15 @@ export class TimeMachineModalComponent {
     const totalMonths = (new Date().getFullYear() - year) * 12 - (month - 1);
     const fmt = (n: number) =>
       n >= 100 ? formatInteger(n) : n.toLocaleString('tr-TR', { maximumFractionDigits: 2 });
-    const modeTxt =
-      this.mode() === 'lump'
-        ? `tek seferde: <b>${fmt(inv)} ₺</b>`
-        : `her ay: <b>${fmt(inv)} ₺</b> × ~${Math.max(totalMonths, 1)} ay`;
-    const note =
-      year < 2005
-        ? ` <span style="opacity:.7">(2005 öncesi Yeni TL karşılığı)</span>`
-        : '';
-    return `${year} asgari ücreti: <b>${fmt(wage)} ₺</b>${note} → ${modeTxt}`;
+    const lump = this.mode() === 'lump';
+    return {
+      year,
+      wageLabel: fmt(wage),
+      investLabel: fmt(inv),
+      oldTlNote: year < 2005,
+      modePrefix: lump ? 'tek seferde:' : 'her ay:',
+      modeSuffix: lump ? '' : ` × ~${Math.max(totalMonths, 1)} ay`,
+    };
   });
 
   readonly canSimulate = computed(

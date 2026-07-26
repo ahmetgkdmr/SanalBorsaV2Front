@@ -24,7 +24,11 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
       }
 
       <div class="card-top">
-        <app-stock-logo [symbol]="stock().symbol" [color]="stock().color" />
+        <app-stock-logo
+          [symbol]="stock().symbol"
+          [color]="stock().color"
+          [market]="stock().exchange === 'CRYPTO' ? 'crypto' : 'bist'"
+        />
         <div class="meta">
           <div class="tick">{{ stock().symbol }}</div>
           <div class="cname">{{ stock().name }}</div>
@@ -69,37 +73,38 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
       background: var(--panel);
       border: 1px solid var(--line);
       border-radius: var(--radius);
-      padding: 16px;
+      padding: 14px;
       position: relative;
       overflow: hidden;
       cursor: pointer;
       height: 100%;
-      min-height: 148px;
+      min-height: 140px;
       box-sizing: border-box;
-      transition: transform 0.15s, border-color 0.2s, box-shadow 0.2s;
+      transition: border-color 0.18s ease, background 0.18s ease;
       display: flex;
       flex-direction: column;
       container-type: inline-size;
       container-name: stock-card;
 
       &:hover {
-        transform: translateY(-2px);
+        border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
+        background: color-mix(in srgb, var(--panel) 92%, var(--panel2));
       }
     }
 
     :host-context([data-theme='light']) .card {
-      box-shadow: var(--shadow);
+      box-shadow: none;
     }
 
     /* ── yeşil / kırmızı sabit kenar (yanıp sönmez) ─────────────────────── */
     .card.up {
-      border-color: rgba(34, 201, 138, 0.55);
-      box-shadow: 0 0 0 1px rgba(34, 201, 138, 0.12);
+      border-color: color-mix(in srgb, var(--up) 35%, var(--line));
+      box-shadow: none;
     }
 
     .card.down {
-      border-color: rgba(255, 82, 82, 0.55);
-      box-shadow: 0 0 0 1px rgba(255, 82, 82, 0.12);
+      border-color: color-mix(in srgb, var(--down) 35%, var(--line));
+      box-shadow: none;
     }
 
     /* ── sol üst köşe durum noktası ─────────────────────────────────────── */
@@ -107,10 +112,10 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
       position: absolute;
       bottom: 10px;
       right: 12px;
-      width: 6px;
-      height: 6px;
+      width: 5px;
+      height: 5px;
       border-radius: 50%;
-      opacity: 0.9;
+      opacity: 0.7;
     }
 
     .card.up   .pulse-dot { background: var(--up); }
@@ -124,8 +129,8 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
       z-index: 2;
       margin: 0;
       font-size: clamp(6.5px, 5.2cqi, 9px);
-      font-weight: 800;
-      letter-spacing: 0.35px;
+      font-weight: 700;
+      letter-spacing: 0.25px;
       line-height: 1;
       color: var(--muted);
       background: color-mix(in srgb, var(--panel2) 92%, transparent);
@@ -147,9 +152,9 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
       top: 6px;
       left: 8px;
       z-index: 3;
-      font-size: 22px;
+      font-size: 18px;
       line-height: 1;
-      filter: drop-shadow(0 2px 8px rgba(240, 192, 64, 0.55));
+      filter: none;
       pointer-events: none;
     }
 
@@ -160,34 +165,34 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
       gap: 8px;
       margin: -2px 0 10px;
       padding: 5px 8px;
-      border-radius: 8px;
+      border-radius: 7px;
       background: linear-gradient(90deg, #f0c040, #e8a317);
       color: #1a1206;
-      box-shadow: 0 2px 8px rgba(240, 192, 64, 0.22);
+      box-shadow: none;
     }
 
     .crown-ribbon[data-period='week'] {
       background: linear-gradient(90deg, #7dd3a0, #3cb371);
       color: #062012;
-      box-shadow: 0 2px 8px rgba(60, 179, 113, 0.22);
+      box-shadow: none;
     }
 
     .crown-ribbon[data-period='year'] {
       background: linear-gradient(90deg, #b388ff, #7c4dff);
       color: #140a22;
-      box-shadow: 0 2px 8px rgba(124, 77, 255, 0.22);
+      box-shadow: none;
     }
 
     .crown-ribbon[data-period='fiveyear'] {
       background: linear-gradient(90deg, #5bbcff, #2f80ed);
       color: #061018;
-      box-shadow: 0 2px 8px rgba(47, 128, 237, 0.22);
+      box-shadow: none;
     }
 
     .crown-ribbon[data-period='tenyear'] {
       background: linear-gradient(90deg, #ff8fab, #e03e5b);
       color: #1a060c;
-      box-shadow: 0 2px 8px rgba(224, 62, 91, 0.22);
+      box-shadow: none;
     }
 
     .crown-ribbon-text {
@@ -211,8 +216,8 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
     .card-top {
       display: flex;
       align-items: center;
-      gap: 11px;
-      margin-bottom: 12px;
+      gap: 10px;
+      margin-bottom: 10px;
       min-width: 0;
       /* badge köşesi için rezerv — CRYPTO / BIST 100 sembole binmesin */
       padding-right: clamp(3rem, 32cqi, 5.25rem);
@@ -224,12 +229,13 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
     }
 
     .tick {
-      font-weight: 800;
-      font-size: clamp(11px, 7.2cqi, 15px);
+      font-weight: 700;
+      font-size: clamp(11px, 7.2cqi, 14px);
       line-height: 1.2;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      letter-spacing: 0.01em;
     }
 
     .cname {
@@ -279,7 +285,7 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
     :host ::ng-deep app-price-change .chg {
       font-size: clamp(10px, 5.8cqi, 13px);
       padding: clamp(3px, 1.6cqi, 5px) clamp(5px, 2.6cqi, 9px);
-      border-radius: 8px;
+      border-radius: 6px;
     }
 
     /* Dar mobil kartlar — fiyat biraz daha kompakt */

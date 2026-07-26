@@ -1,0 +1,911 @@
+{
+  "downloadedAt": "2026-07-26T18:12:01.956Z",
+  "sources": {
+    "bist": "TradingView s3-symbol-logo (SVG)",
+    "crypto": "CoinCap / cryptocurrency-icons / CoinGecko"
+  },
+  "bist": {
+    "ok": 629,
+    "skip": 0,
+    "fail": 0,
+    "failed": []
+  },
+  "crypto": {
+    "ok": 249,
+    "skip": 0,
+    "fail": 221,
+    "failed": [
+      {
+        "symbol": "VANA"
+      },
+      {
+        "symbol": "ALLO"
+      },
+      {
+        "symbol": "EPIC"
+      },
+      {
+        "symbol": "KAITO"
+      },
+      {
+        "symbol": "RE"
+      },
+      {
+        "symbol": "ESP"
+      },
+      {
+        "symbol": "SYN"
+      },
+      {
+        "symbol": "ORDI"
+      },
+      {
+        "symbol": "U"
+      },
+      {
+        "symbol": "LA"
+      },
+      {
+        "symbol": "QQQB"
+      },
+      {
+        "symbol": "BOME"
+      },
+      {
+        "symbol": "QI"
+      },
+      {
+        "symbol": "XPL"
+      },
+      {
+        "symbol": "NEIRO"
+      },
+      {
+        "symbol": "EUL"
+      },
+      {
+        "symbol": "币安人生"
+      },
+      {
+        "symbol": "ZBT"
+      },
+      {
+        "symbol": "SOXLB"
+      },
+      {
+        "symbol": "HOME"
+      },
+      {
+        "symbol": "JTO"
+      },
+      {
+        "symbol": "VANRY"
+      },
+      {
+        "symbol": "SPCXB"
+      },
+      {
+        "symbol": "WLFI"
+      },
+      {
+        "symbol": "PNUT"
+      },
+      {
+        "symbol": "1000CAT"
+      },
+      {
+        "symbol": "SNDKB"
+      },
+      {
+        "symbol": "GIGGLE"
+      },
+      {
+        "symbol": "HOLO"
+      },
+      {
+        "symbol": "PEOPLE"
+      },
+      {
+        "symbol": "CRCLB"
+      },
+      {
+        "symbol": "DOGS"
+      },
+      {
+        "symbol": "IO"
+      },
+      {
+        "symbol": "OPN"
+      },
+      {
+        "symbol": "PARTI"
+      },
+      {
+        "symbol": "EDU"
+      },
+      {
+        "symbol": "ASTER"
+      },
+      {
+        "symbol": "TNSR"
+      },
+      {
+        "symbol": "PLUME"
+      },
+      {
+        "symbol": "MIRA"
+      },
+      {
+        "symbol": "ERA"
+      },
+      {
+        "symbol": "TOWNS"
+      },
+      {
+        "symbol": "LISTA"
+      },
+      {
+        "symbol": "SCR"
+      },
+      {
+        "symbol": "MUB"
+      },
+      {
+        "symbol": "AIGENSYN"
+      },
+      {
+        "symbol": "HYPER"
+      },
+      {
+        "symbol": "LUNC"
+      },
+      {
+        "symbol": "ENSO"
+      },
+      {
+        "symbol": "BIO"
+      },
+      {
+        "symbol": "TSLAB"
+      },
+      {
+        "symbol": "SAHARA"
+      },
+      {
+        "symbol": "MEGA"
+      },
+      {
+        "symbol": "DRAMB"
+      },
+      {
+        "symbol": "HMSTR"
+      },
+      {
+        "symbol": "W"
+      },
+      {
+        "symbol": "HEMI"
+      },
+      {
+        "symbol": "BROCCOLI714"
+      },
+      {
+        "symbol": "LUMIA"
+      },
+      {
+        "symbol": "ZRO"
+      },
+      {
+        "symbol": "SPK"
+      },
+      {
+        "symbol": "YB"
+      },
+      {
+        "symbol": "1000SATS"
+      },
+      {
+        "symbol": "TURBO"
+      },
+      {
+        "symbol": "SKHYB"
+      },
+      {
+        "symbol": "T"
+      },
+      {
+        "symbol": "BARD"
+      },
+      {
+        "symbol": "CHIP"
+      },
+      {
+        "symbol": "FF"
+      },
+      {
+        "symbol": "HEI"
+      },
+      {
+        "symbol": "HFT"
+      },
+      {
+        "symbol": "XUSD"
+      },
+      {
+        "symbol": "MUBARAK"
+      },
+      {
+        "symbol": "ZKC"
+      },
+      {
+        "symbol": "SXT"
+      },
+      {
+        "symbol": "1MBABYDOGE"
+      },
+      {
+        "symbol": "KORUB"
+      },
+      {
+        "symbol": "GLMR"
+      },
+      {
+        "symbol": "NEWT"
+      },
+      {
+        "symbol": "SAGA"
+      },
+      {
+        "symbol": "NIL"
+      },
+      {
+        "symbol": "INTCB"
+      },
+      {
+        "symbol": "A"
+      },
+      {
+        "symbol": "RONIN"
+      },
+      {
+        "symbol": "OPG"
+      },
+      {
+        "symbol": "NOM"
+      },
+      {
+        "symbol": "TST"
+      },
+      {
+        "symbol": "MANTRA"
+      },
+      {
+        "symbol": "TREE"
+      },
+      {
+        "symbol": "LAZIO"
+      },
+      {
+        "symbol": "GOOGLB"
+      },
+      {
+        "symbol": "GENIUS"
+      },
+      {
+        "symbol": "AIXBT"
+      },
+      {
+        "symbol": "NXPC"
+      },
+      {
+        "symbol": "LINEA"
+      },
+      {
+        "symbol": "ALPINE"
+      },
+      {
+        "symbol": "STO"
+      },
+      {
+        "symbol": "S"
+      },
+      {
+        "symbol": "0G"
+      },
+      {
+        "symbol": "WCT"
+      },
+      {
+        "symbol": "SENT"
+      },
+      {
+        "symbol": "TUT"
+      },
+      {
+        "symbol": "MMT"
+      },
+      {
+        "symbol": "TURTLE"
+      },
+      {
+        "symbol": "ME"
+      },
+      {
+        "symbol": "OPEN"
+      },
+      {
+        "symbol": "RESOLV"
+      },
+      {
+        "symbol": "BANANA"
+      },
+      {
+        "symbol": "BB"
+      },
+      {
+        "symbol": "ARKM"
+      },
+      {
+        "symbol": "PORTO"
+      },
+      {
+        "symbol": "SSV"
+      },
+      {
+        "symbol": "CATI"
+      },
+      {
+        "symbol": "BANANAS31"
+      },
+      {
+        "symbol": "THE"
+      },
+      {
+        "symbol": "CYBER"
+      },
+      {
+        "symbol": "AUCTION"
+      },
+      {
+        "symbol": "KERNEL"
+      },
+      {
+        "symbol": "GPS"
+      },
+      {
+        "symbol": "CITY"
+      },
+      {
+        "symbol": "SOLV"
+      },
+      {
+        "symbol": "PORTAL"
+      },
+      {
+        "symbol": "1000CHEEMS"
+      },
+      {
+        "symbol": "BTTC"
+      },
+      {
+        "symbol": "USDS"
+      },
+      {
+        "symbol": "PIXEL"
+      },
+      {
+        "symbol": "REZ"
+      },
+      {
+        "symbol": "G"
+      },
+      {
+        "symbol": "ORCA"
+      },
+      {
+        "symbol": "MANTA"
+      },
+      {
+        "symbol": "WBETH"
+      },
+      {
+        "symbol": "GUN"
+      },
+      {
+        "symbol": "BICO"
+      },
+      {
+        "symbol": "MITO"
+      },
+      {
+        "symbol": "ZKP"
+      },
+      {
+        "symbol": "VIC"
+      },
+      {
+        "symbol": "ROBO"
+      },
+      {
+        "symbol": "AI"
+      },
+      {
+        "symbol": "BREV"
+      },
+      {
+        "symbol": "SAPIEN"
+      },
+      {
+        "symbol": "SOMI"
+      },
+      {
+        "symbol": "KMNO"
+      },
+      {
+        "symbol": "STG"
+      },
+      {
+        "symbol": "MRVLB"
+      },
+      {
+        "symbol": "SHELL"
+      },
+      {
+        "symbol": "NBISB"
+      },
+      {
+        "symbol": "BLUR"
+      },
+      {
+        "symbol": "AVNT"
+      },
+      {
+        "symbol": "IOTA"
+      },
+      {
+        "symbol": "USUAL"
+      },
+      {
+        "symbol": "EURI"
+      },
+      {
+        "symbol": "OG"
+      },
+      {
+        "symbol": "ALT"
+      },
+      {
+        "symbol": "COOKIE"
+      },
+      {
+        "symbol": "GMX"
+      },
+      {
+        "symbol": "SANTOS"
+      },
+      {
+        "symbol": "XAI"
+      },
+      {
+        "symbol": "AEVO"
+      },
+      {
+        "symbol": "ACX"
+      },
+      {
+        "symbol": "QNTB"
+      },
+      {
+        "symbol": "MAV"
+      },
+      {
+        "symbol": "EWYB"
+      },
+      {
+        "symbol": "MSTRB"
+      },
+      {
+        "symbol": "CGPT"
+      },
+      {
+        "symbol": "AWE"
+      },
+      {
+        "symbol": "NVDAB"
+      },
+      {
+        "symbol": "BMT"
+      },
+      {
+        "symbol": "INIT"
+      },
+      {
+        "symbol": "SIGN"
+      },
+      {
+        "symbol": "COW"
+      },
+      {
+        "symbol": "PROVE"
+      },
+      {
+        "symbol": "DYM"
+      },
+      {
+        "symbol": "COINB"
+      },
+      {
+        "symbol": "C98"
+      },
+      {
+        "symbol": "ORCLB"
+      },
+      {
+        "symbol": "BFUSD"
+      },
+      {
+        "symbol": "USTC"
+      },
+      {
+        "symbol": "ANIME"
+      },
+      {
+        "symbol": "BNSOL"
+      },
+      {
+        "symbol": "VELODROME"
+      },
+      {
+        "symbol": "POLYX"
+      },
+      {
+        "symbol": "HUMA"
+      },
+      {
+        "symbol": "AT"
+      },
+      {
+        "symbol": "2Z"
+      },
+      {
+        "symbol": "C"
+      },
+      {
+        "symbol": "SNXXB"
+      },
+      {
+        "symbol": "AAOIB"
+      },
+      {
+        "symbol": "BIGTIME"
+      },
+      {
+        "symbol": "HAEDAL"
+      },
+      {
+        "symbol": "F"
+      },
+      {
+        "symbol": "DOLO"
+      },
+      {
+        "symbol": "MUUB"
+      },
+      {
+        "symbol": "CETUS"
+      },
+      {
+        "symbol": "IBMB"
+      },
+      {
+        "symbol": "INTWB"
+      },
+      {
+        "symbol": "ASTR"
+      },
+      {
+        "symbol": "SOPH"
+      },
+      {
+        "symbol": "MAGIC"
+      },
+      {
+        "symbol": "GLWB"
+      },
+      {
+        "symbol": "KGST"
+      },
+      {
+        "symbol": "AVGOB"
+      },
+      {
+        "symbol": "AMDB"
+      },
+      {
+        "symbol": "TSMB"
+      },
+      {
+        "symbol": "RKLBB"
+      },
+      {
+        "symbol": "NOKB"
+      },
+      {
+        "symbol": "AXTIB"
+      },
+      {
+        "symbol": "WDCB"
+      },
+      {
+        "symbol": "METAB"
+      },
+      {
+        "symbol": "GNS"
+      },
+      {
+        "symbol": "TQQQB"
+      },
+      {
+        "symbol": "PLTRB"
+      },
+      {
+        "symbol": "MVLLB"
+      },
+      {
+        "symbol": "LITEB"
+      },
+      {
+        "symbol": "CBRSB"
+      },
+      {
+        "symbol": "QCOMB"
+      },
+      {
+        "symbol": "MSFTB"
+      },
+      {
+        "symbol": "CRWVB"
+      },
+      {
+        "symbol": "HOODB"
+      },
+      {
+        "symbol": "ARMB"
+      },
+      {
+        "symbol": "BABAB"
+      },
+      {
+        "symbol": "SPYB"
+      }
+    ]
+  },
+  "cryptoFill": {
+    "at": "2026-07-26T18:13:03.759Z",
+    "filledFromGecko": 0,
+    "filledFromTv": 0,
+    "stillMissing": [
+      "KAITO",
+      "ALLO",
+      "ESP",
+      "RE",
+      "EUL",
+      "EPIC",
+      "QI",
+      "SYN",
+      "U",
+      "ORDI",
+      "LA",
+      "QQQB",
+      "XPL",
+      "NEIRO",
+      "币安人生",
+      "ZBT",
+      "BOME",
+      "SPCXB",
+      "VANA",
+      "HOME",
+      "VANRY",
+      "PNUT",
+      "JTO",
+      "GIGGLE",
+      "1000CAT",
+      "HOLO",
+      "SNDKB",
+      "DOGS",
+      "WLFI",
+      "OPN",
+      "IO",
+      "EDU",
+      "PEOPLE",
+      "SOXLB",
+      "MIRA",
+      "SCR",
+      "TNSR",
+      "CRCLB",
+      "PLUME",
+      "ASTER",
+      "ERA",
+      "PARTI",
+      "MUB",
+      "LISTA",
+      "AIGENSYN",
+      "TOWNS",
+      "ENSO",
+      "MEGA",
+      "HEMI",
+      "TSLAB",
+      "HYPER",
+      "BIO",
+      "ZRO",
+      "LUMIA",
+      "W",
+      "SAHARA",
+      "LUNC",
+      "SPK",
+      "HMSTR",
+      "DRAMB",
+      "BROCCOLI714",
+      "1000SATS",
+      "SKHYB",
+      "YB",
+      "BARD",
+      "CHIP",
+      "FF",
+      "T",
+      "TURBO",
+      "HFT",
+      "HEI",
+      "XUSD",
+      "MUBARAK",
+      "ZKC",
+      "GLMR",
+      "SXT",
+      "1MBABYDOGE",
+      "SAGA",
+      "KORUB",
+      "NIL",
+      "NEWT",
+      "TST",
+      "OPG",
+      "INTCB",
+      "NOM",
+      "RONIN",
+      "A",
+      "LAZIO",
+      "TREE",
+      "GOOGLB",
+      "MANTRA",
+      "GENIUS",
+      "NXPC",
+      "S",
+      "AIXBT",
+      "STO",
+      "WCT",
+      "LINEA",
+      "TUT",
+      "0G",
+      "ALPINE",
+      "MMT",
+      "SENT",
+      "TURTLE",
+      "OPEN",
+      "ME",
+      "BANANA",
+      "RESOLV",
+      "BB",
+      "PORTO",
+      "ARKM",
+      "SSV",
+      "THE",
+      "CYBER",
+      "BANANAS31",
+      "AUCTION",
+      "CATI",
+      "KERNEL",
+      "GPS",
+      "CITY",
+      "SOLV",
+      "BTTC",
+      "REZ",
+      "PORTAL",
+      "ORCA",
+      "1000CHEEMS",
+      "WBETH",
+      "PIXEL",
+      "MANTA",
+      "GUN",
+      "G",
+      "VIC",
+      "USDS",
+      "MITO",
+      "BREV",
+      "ZKP",
+      "ROBO",
+      "AI",
+      "MRVLB",
+      "KMNO",
+      "SOMI",
+      "STG",
+      "BICO",
+      "SAPIEN",
+      "BLUR",
+      "NBISB",
+      "IOTA",
+      "SHELL",
+      "AVNT",
+      "XAI",
+      "OG",
+      "GMX",
+      "EURI",
+      "USUAL",
+      "COOKIE",
+      "SANTOS",
+      "QNTB",
+      "MAV",
+      "ACX",
+      "ALT",
+      "AEVO",
+      "CGPT",
+      "EWYB",
+      "AWE",
+      "MSTRB",
+      "BMT",
+      "NVDAB",
+      "INIT",
+      "COINB",
+      "SIGN",
+      "PROVE",
+      "COW",
+      "DYM",
+      "C98",
+      "BFUSD",
+      "ORCLB",
+      "ANIME",
+      "BNSOL",
+      "POLYX",
+      "USTC",
+      "VELODROME",
+      "2Z",
+      "AT",
+      "HUMA",
+      "C",
+      "SNXXB",
+      "BIGTIME",
+      "AAOIB",
+      "F",
+      "HAEDAL",
+      "DOLO",
+      "MUUB",
+      "CETUS",
+      "SOPH",
+      "INTWB",
+      "IBMB",
+      "ASTR",
+      "GLWB",
+      "KGST",
+      "AVGOB",
+      "AXTIB",
+      "NOKB",
+      "TSMB",
+      "AMDB",
+      "WDCB",
+      "RKLBB",
+      "METAB",
+      "TQQQB",
+      "MAGIC",
+      "GNS",
+      "MVLLB",
+      "PLTRB",
+      "CBRSB",
+      "QCOMB",
+      "MSFTB",
+      "ARMB",
+      "LITEB",
+      "CRWVB",
+      "HOODB",
+      "BABAB",
+      "SPYB"
+    ]
+  }
+}

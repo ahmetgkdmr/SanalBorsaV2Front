@@ -162,7 +162,7 @@ import { MarketTickerComponent } from './market-ticker.component';
 
     .top-actions {
       display: flex;
-      gap: 10px;
+      gap: 8px;
       align-items: center;
       flex-wrap: wrap;
     }
@@ -170,13 +170,13 @@ import { MarketTickerComponent } from './market-ticker.component';
     .live {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 7px;
       font-size: 12px;
       color: var(--muted);
-      background: var(--panel);
+      background: transparent;
       border: 1px solid var(--line);
-      padding: 8px 14px;
-      border-radius: 100px;
+      padding: 7px 11px;
+      border-radius: 9px;
     }
 
     .dot {
@@ -196,20 +196,20 @@ import { MarketTickerComponent } from './market-ticker.component';
       border: 1px solid var(--line);
       background: var(--panel);
       color: var(--text);
-      font-weight: 700;
-      font-size: 13px;
-      padding: 9px 16px;
-      border-radius: 100px;
+      font-weight: 600;
+      font-size: 12.5px;
+      padding: 8px 14px;
+      border-radius: 9px;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
-      gap: 8px;
-      transition: 0.15s;
+      gap: 7px;
+      transition: border-color 0.15s, background 0.15s, transform 0.15s;
       text-decoration: none;
 
       &:hover {
         transform: translateY(-1px);
-        border-color: color-mix(in srgb, var(--text) 22%, var(--line));
+        border-color: color-mix(in srgb, var(--text) 18%, var(--line));
         background: var(--chip-hover);
       }
 
@@ -238,6 +238,15 @@ import { MarketTickerComponent } from './market-ticker.component';
           color-mix(in srgb, var(--accent) 18%, transparent),
           color-mix(in srgb, var(--accent) 4%, transparent)
         );
+      }
+
+      .prem-tag,
+      .new-tag {
+        font-size: 8.5px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        padding: 2px 6px;
+        border-radius: 6px;
       }
     }
 
