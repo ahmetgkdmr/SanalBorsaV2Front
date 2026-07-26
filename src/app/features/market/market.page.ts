@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, OnDestroy, OnInit
 import { FormsModule } from '@angular/forms';
 import { INDEX_TABS } from '../../core/constants/bist-tiers';
 import { StockCardView } from '../../core/models/stock.model';
-import { MARKET_PAGE_SIZE, MarketService } from '../../core/services/market.service';
+import { MARKET_PAGE_SIZE, MarketService, MarketSortKey } from '../../core/services/market.service';
 import {
   CRYPTO_PAGE_SIZE,
   CryptoMarketService,
@@ -16,7 +16,7 @@ import { TopGainersCrownComponent } from './components/top-gainers-crown/top-gai
 
 type PageItem = number | 'ellipsis';
 
-const CRYPTO_SORTS: { key: CryptoSortKey; label: string }[] = [
+const SORT_OPTIONS: { key: MarketSortKey & CryptoSortKey; label: string }[] = [
   { key: 'volume', label: 'Hacim' },
   { key: 'price', label: 'Fiyat' },
   { key: 'change', label: 'Değişim %' },
@@ -65,25 +65,25 @@ const CRYPTO_SORTS: { key: CryptoSortKey; label: string }[] = [
               }
             </div>
           </div>
-        } @else {
-          <div class="tabs-row">
-            <div class="tabs sort-tabs" role="group" aria-label="Sıralama">
-              @for (s of sortOptions; track s.key) {
-                <button
-                  class="tab"
-                  type="button"
-                  [class.active]="crypto.sortKey() === s.key"
-                  (click)="crypto.setSort(s.key)"
-                >
-                  {{ s.label }}
-                  @if (crypto.sortKey() === s.key) {
-                    <span class="sort-arrow">{{ crypto.sortDesc() ? '↓' : '↑' }}</span>
-                  }
-                </button>
-              }
-            </div>
-          </div>
         }
+
+        <div class="tabs-row">
+          <div class="tabs sort-tabs" role="group" aria-label="Sıralama">
+            @for (s of sortOptions; track s.key) {
+              <button
+                class="tab"
+                type="button"
+                [class.active]="activeSortKey() === s.key"
+                (click)="setSort(s.key)"
+              >
+                {{ s.label }}
+                @if (activeSortKey() === s.key) {
+                  <span class="sort-arrow">{{ activeSortDesc() ? '↓' : '↑' }}</span>
+                }
+              </button>
+            }
+          </div>
+        </div>
 
         <div class="search-row">
           <div class="search-wrap">
@@ -141,18 +141,20 @@ const CRYPTO_SORTS: { key: CryptoSortKey; label: string }[] = [
       </div>
 
       @if (marketType.type() === 'bist') {
-        <app-top-gainers-crown />
+        <app-top-gainers-crown marketType="bist" />
 
         @if (market.dataAsOf()) {
           <div class="data-note">
             <span>ℹ️</span>
             <span>
               Fiyatlar <b>{{ formatDate(market.dataAsOf()!) }}</b> tarihli son kapanış verilerini içermektedir.
-              Grafikler son 28 günlük kapanış fiyatlarına göre oluşturulmuştur.
+              Sırala: <b>{{ sortLabel() }}</b> · grafikler son 28 günlük kapanışa göre.
             </span>
           </div>
         }
       } @else {
+        <app-top-gainers-crown marketType="crypto" />
+
         <div class="data-note">
           <span>⚡</span>
           <span>
@@ -386,7 +388,7 @@ export class MarketPageComponent implements OnInit, OnDestroy {
   private readonly modals = inject(ModalService);
 
   readonly tabs = INDEX_TABS;
-  readonly sortOptions = CRYPTO_SORTS;
+  readonly sortOptions = SORT_OPTIONS;
   searchInput = '';
   searchFocused = false;
   suggestIndex = 0;
@@ -394,6 +396,14 @@ export class MarketPageComponent implements OnInit, OnDestroy {
 
   readonly isLoading = computed(() =>
     this.marketType.type() === 'crypto' ? this.crypto.loading() : this.market.loading(),
+  );
+
+  readonly activeSortKey = computed(() =>
+    this.marketType.type() === 'crypto' ? this.crypto.sortKey() : this.market.sortKey(),
+  );
+
+  readonly activeSortDesc = computed(() =>
+    this.marketType.type() === 'crypto' ? this.crypto.sortDesc() : this.market.sortDesc(),
   );
   readonly errorMsg = computed(() =>
     this.marketType.type() === 'crypto' ? this.crypto.error() : this.market.error(),
@@ -422,6 +432,9 @@ export class MarketPageComponent implements OnInit, OnDestroy {
       tierBadge: 'CRYPTO',
       tickUp: c.tickUp,
       priceDecimals: c.priceDecimals,
+      crownLabel: c.crownLabel,
+      crownPeriod: c.crownPeriod,
+      crownReturnPct: c.crownReturnPct,
     }));
   });
 
@@ -455,10 +468,15 @@ export class MarketPageComponent implements OnInit, OnDestroy {
   );
 
   readonly sortLabel = computed(() => {
-    const key = this.crypto.sortKey();
-    const label = CRYPTO_SORTS.find((s) => s.key === key)?.label ?? key;
-    return `${label} ${this.crypto.sortDesc() ? '↓' : '↑'}`;
+    const key = this.activeSortKey();
+    const label = SORT_OPTIONS.find((s) => s.key === key)?.label ?? key;
+    return `${label} ${this.activeSortDesc() ? '↓' : '↑'}`;
   });
+
+  setSort(key: MarketSortKey & CryptoSortKey): void {
+    if (this.marketType.type() === 'crypto') this.crypto.setSort(key);
+    else this.market.setSort(key);
+  }
 
   ngOnInit(): void {
     if (this.marketType.type() === 'crypto') this.crypto.load();

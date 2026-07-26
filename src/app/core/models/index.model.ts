@@ -18,8 +18,25 @@ export const INDEX_SYMBOLS = [
   'XUTEK', 'XUSIN', 'XUHIZ', 'XUMAL',
   'XGIDA', 'XKMYA', 'XELKT', 'XTAST',
   'XMANA', 'XSPOR', 'XKTUM', 'XKURY',
-  'USDTRY',
+  'USDTRY', 'EURTRY', 'GRAMALTIN',
 ] as const;
+
+/** TL bazlı pariteler — hisseye alternatif olarak zaman makinesinde de seçilebilir. */
+export const PARITY_SYMBOLS = ['USDTRY', 'EURTRY', 'GRAMALTIN'] as const;
+
+export type ParitySymbol = (typeof PARITY_SYMBOLS)[number];
+
+export const PARITY_LABELS: Record<ParitySymbol, string> = {
+  USDTRY: 'Dolar',
+  EURTRY: 'Euro',
+  GRAMALTIN: 'Gram Altın',
+};
+
+export const PARITY_ICONS: Record<ParitySymbol, string> = {
+  USDTRY: '💵',
+  EURTRY: '💶',
+  GRAMALTIN: '🥇',
+};
 
 export type IndexSymbol = (typeof INDEX_SYMBOLS)[number];
 
@@ -45,13 +62,15 @@ export const DEFAULT_INDEX_QUOTES: IndexQuote[] = [
   mkDefault('XKTUM',  'BİST KATILIM',    'INDEX'),
   mkDefault('XKURY',  'BİST KUR. YÖN.',  'INDEX'),
   mkDefault('USDTRY', 'USD/TRY',         'FX', 4),
+  mkDefault('EURTRY', 'EUR/TRY',         'FX', 4),
+  mkDefault('GRAMALTIN', 'GRAM ALTIN',   'FX', 2),
 ];
 
 export function isForexSymbol(symbol: string): boolean {
-  return symbol === 'USDTRY';
+  return PARITY_SYMBOLS.includes(symbol as ParitySymbol);
 }
 
-/** BIST endeks sembolleri (USDTRY hariç). Endeks bileşimi değişir; TM için uygun değil. */
+/** BIST endeks sembolleri (pariteler hariç). Endeks bileşimi değişir; TM için uygun değil. */
 export function isIndexSymbol(symbol: string): boolean {
-  return symbol !== 'USDTRY' && INDEX_SYMBOLS.includes(symbol as IndexSymbol);
+  return !isForexSymbol(symbol) && INDEX_SYMBOLS.includes(symbol as IndexSymbol);
 }

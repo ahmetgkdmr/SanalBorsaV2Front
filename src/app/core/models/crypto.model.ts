@@ -48,4 +48,7 @@ export interface CryptoCardView {
   exchange: 'CRYPTO';
   tickUp: boolean;
   priceDecimals: number;
+  crownLabel?: string | null;
+  crownPeriod?: string | null;
+  crownReturnPct?: number | null;
 }

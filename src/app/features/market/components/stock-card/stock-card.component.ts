@@ -18,7 +18,7 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
       (click)="selected.emit(stock().symbol)"
     >
       @if (stock().crownLabel) {
-        <span class="crown-tip" aria-hidden="true">♛</span>
+        <span class="crown-tip" aria-hidden="true">👑</span>
       } @else if (stock().tierBadge) {
         <span class="badge">{{ stock().tierBadge }}</span>
       }
@@ -79,6 +79,8 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
       transition: transform 0.15s, border-color 0.2s, box-shadow 0.2s;
       display: flex;
       flex-direction: column;
+      container-type: inline-size;
+      container-name: stock-card;
 
       &:hover {
         transform: translateY(-2px);
@@ -114,20 +116,26 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
     .card.up   .pulse-dot { background: var(--up); }
     .card.down .pulse-dot { background: var(--down); }
 
-    /* ── diğer elemanlar ─────────────────────────────────────────────────── */
+    /* ── sağ üst köşe badge (CRYPTO / BIST 30 vb.) — sembole çarpmaz ───── */
     .badge {
       position: absolute;
-      top: 14px;
-      right: 14px;
+      top: 0;
+      right: 0;
       z-index: 2;
-      font-size: 9px;
-      font-weight: 700;
-      letter-spacing: 0.5px;
+      margin: 0;
+      font-size: clamp(6.5px, 5.2cqi, 9px);
+      font-weight: 800;
+      letter-spacing: 0.35px;
+      line-height: 1;
       color: var(--muted);
-      border: 1px solid var(--line);
-      padding: 3px 7px;
-      border-radius: 100px;
-      max-width: 42%;
+      background: color-mix(in srgb, var(--panel2) 92%, transparent);
+      border: none;
+      border-left: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      padding: clamp(4px, 2.8cqi, 6px) clamp(7px, 4.5cqi, 11px) clamp(4px, 2.6cqi, 6px)
+        clamp(8px, 5cqi, 12px);
+      border-radius: 0 var(--radius) 0 11px;
+      max-width: min(52%, 8.25rem);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -136,24 +144,13 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
 
     .crown-tip {
       position: absolute;
-      top: 0;
-      left: 3px;
+      top: 6px;
+      left: 8px;
       z-index: 3;
       font-size: 22px;
       line-height: 1;
-      color: #ffd54a;
-      text-shadow:
-        0 0 6px rgba(255, 213, 74, 0.95),
-        0 0 14px rgba(240, 192, 64, 0.7),
-        0 1px 2px rgba(0, 0, 0, 0.55);
-      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.35));
+      filter: drop-shadow(0 2px 8px rgba(240, 192, 64, 0.55));
       pointer-events: none;
-      animation: crown-pulse 2.2s ease-in-out infinite;
-    }
-
-    @keyframes crown-pulse {
-      0%, 100% { transform: scale(1); opacity: 1; }
-      50% { transform: scale(1.08); opacity: 0.92; }
     }
 
     .crown-ribbon {
@@ -181,6 +178,18 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
       box-shadow: 0 2px 8px rgba(124, 77, 255, 0.22);
     }
 
+    .crown-ribbon[data-period='fiveyear'] {
+      background: linear-gradient(90deg, #5bbcff, #2f80ed);
+      color: #061018;
+      box-shadow: 0 2px 8px rgba(47, 128, 237, 0.22);
+    }
+
+    .crown-ribbon[data-period='tenyear'] {
+      background: linear-gradient(90deg, #ff8fab, #e03e5b);
+      color: #1a060c;
+      box-shadow: 0 2px 8px rgba(224, 62, 91, 0.22);
+    }
+
     .crown-ribbon-text {
       font-size: 9.5px;
       font-weight: 800;
@@ -205,6 +214,8 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
       gap: 11px;
       margin-bottom: 12px;
       min-width: 0;
+      /* badge köşesi için rezerv — CRYPTO / BIST 100 sembole binmesin */
+      padding-right: clamp(3rem, 32cqi, 5.25rem);
     }
 
     .meta {
@@ -214,11 +225,15 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
 
     .tick {
       font-weight: 800;
-      font-size: 15px;
+      font-size: clamp(11px, 7.2cqi, 15px);
+      line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .cname {
-      font-size: 11px;
+      font-size: clamp(9.5px, 5.2cqi, 11px);
       color: var(--muted);
       white-space: nowrap;
       overflow: hidden;
@@ -230,41 +245,79 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 6px;
+      gap: clamp(4px, 2cqi, 8px);
       flex-wrap: nowrap;
-      min-height: 34px;
-      height: 34px;
+      min-height: clamp(30px, 16cqi, 40px);
+      height: auto;
+      min-width: 0;
     }
 
     .price {
       flex: 1 1 auto;
       min-width: 0;
-      font-size: 17px;
-      font-weight: 600;
-      line-height: 1.2;
+      /* Kart genişliğine göre: mobilde küçük, full ekranda daha büyük */
+      font-size: clamp(12.5px, 10.5cqi, 22px);
+      font-weight: 700;
+      line-height: 1.15;
       white-space: nowrap;
       overflow: hidden;
-      text-overflow: ellipsis;
+      text-overflow: clip;
       font-variant-numeric: tabular-nums;
 
       small {
-        font-size: 11px;
+        font-size: 0.65em;
         color: var(--muted);
-        font-weight: 400;
+        font-weight: 500;
       }
     }
 
     :host ::ng-deep app-price-change {
       flex: 0 0 auto;
+      max-width: 46%;
+    }
+
+    :host ::ng-deep app-price-change .chg {
+      font-size: clamp(10px, 5.8cqi, 13px);
+      padding: clamp(3px, 1.6cqi, 5px) clamp(5px, 2.6cqi, 9px);
+      border-radius: 8px;
+    }
+
+    /* Dar mobil kartlar — fiyat biraz daha kompakt */
+    @container stock-card (max-width: 180px) {
+      .price {
+        font-size: clamp(11px, 9cqi, 15px);
+        font-weight: 600;
+      }
+
+      :host ::ng-deep app-price-change .chg {
+        font-size: clamp(9px, 5.2cqi, 11px);
+        padding: 2px 5px;
+      }
+    }
+
+    /* Geniş kart / desktop — fiyatı daha baskın göster */
+    @container stock-card (min-width: 220px) {
+      .price {
+        font-size: clamp(17px, 9.5cqi, 24px);
+      }
     }
 
     .vol {
       margin-top: auto;
       padding-top: 8px;
-      font-size: 11px;
+      font-size: clamp(9.5px, 5cqi, 11px);
       color: var(--muted);
       display: flex;
       justify-content: space-between;
+      gap: 8px;
+      min-width: 0;
+
+      span:last-child {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        text-align: right;
+      }
     }
   `,
 })
@@ -286,6 +339,8 @@ export class StockCardComponent {
       case 'week': return 'Son 1 haftanın en çok kazananı';
       case 'month': return 'Son 1 ayın en çok kazananı';
       case 'year': return 'Son 1 yılın en çok kazananı';
+      case 'fiveyear': return 'Son 5 yılın en çok kazananı';
+      case 'tenyear': return 'Son 10 yılın en çok kazananı';
       default: return this.stock().crownLabel ?? '';
     }
   });

@@ -1,18 +1,27 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  ElementRef,
+  HostListener,
   computed,
   effect,
   inject,
   signal,
+  viewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { getMinimumWage } from '../../core/constants/app.constants';
-import { TimeMachineCalc, TimeMachineMode } from '../../core/models/time-machine.model';
+import {
+  TimeMachineCalc,
+  TimeMachineLeader,
+  TimeMachineLeaders,
+  TimeMachineMode,
+} from '../../core/models/time-machine.model';
 import { MarketService } from '../../core/services/market.service';
 import { IndexService } from '../../core/services/index.service';
 import { ModalService } from '../../core/services/modal.service';
 import { CryptoApiService } from '../../core/services/crypto-api.service';
+import { CryptoMarketService } from '../../core/services/crypto-market.service';
 import {
   formatInteger,
   formatNumber,
@@ -20,12 +29,26 @@ import {
   formatLotRange,
   symbolColor,
 } from '../../core/utils/format.util';
-import { isForexSymbol, isIndexSymbol } from '../../core/models/index.model';
+import {
+  PARITY_ICONS,
+  PARITY_LABELS,
+  ParitySymbol,
+  isForexSymbol,
+  isIndexSymbol,
+} from '../../core/models/index.model';
 import { OverlayComponent } from '../../shared/components/overlay/overlay.component';
 import { DatePickerComponent } from '../../shared/components/date-picker/date-picker.component';
 import { TimeMachineSimulationComponent } from './time-machine-simulation.component';
 
 type InvestMode = 'wage' | 'custom';
+
+type PickerOption = {
+  value: string;
+  title: string;
+  subtitle?: string;
+  badge: string;
+  color: string;
+};
 
 @Component({
   selector: 'app-time-machine-modal',
@@ -42,26 +65,67 @@ type InvestMode = 'wage' | 'custom';
         <div class="tm-section">
           <div class="tm-label">{{ instrumentLabel() }}</div>
           <div class="stock-pick">
-            <div class="pick-logo" [style.background]="logoColor()">{{ symbol().slice(0, 2) }}</div>
-            <select class="f-input" [ngModel]="symbol()" (ngModelChange)="onSymbolChange($event)">
-              @if (forexOptions().length) {
-                <optgroup label="Döviz">
-                  @for (opt of forexOptions(); track opt.symbol) {
-                    <option [value]="opt.symbol">{{ opt.label }}</option>
-                  }
-                </optgroup>
+            <div class="pick-logo" [style.background]="logoColor()">{{ symbolBadge() }}</div>
+            <div class="sym-combo" [class.open]="pickerOpen()">
+              <button
+                type="button"
+                class="sym-trigger f-input"
+                (click)="togglePicker()"
+                [attr.aria-expanded]="pickerOpen()"
+              >
+                <span class="sym-trigger-label">{{ selectedLabel() }}</span>
+                <span class="sym-chevron" aria-hidden="true">▾</span>
+              </button>
+
+              @if (pickerOpen()) {
+                <div class="sym-panel" role="listbox">
+                  <input
+                    class="sym-search"
+                    type="search"
+                    [placeholder]="isCryptoTm() ? 'Coin ara (BTC, ETH…)' : 'Hisse ara (THYAO…)'"
+                    [ngModel]="pickerQuery()"
+                    (ngModelChange)="onPickerQuery($event)"
+                    (keydown.arrowDown)="onPickerNav($event, 1)"
+                    (keydown.arrowUp)="onPickerNav($event, -1)"
+                    (keydown.enter)="onPickerEnter($event)"
+                    (keydown.escape)="closePicker()"
+                    autocomplete="off"
+                    spellcheck="false"
+                    #pickerSearch
+                  />
+                  <ul class="sym-list">
+                    @for (opt of pickerOptions(); track opt.value; let i = $index) {
+                      <li
+                        role="option"
+                        [class.active]="i === pickerIndex()"
+                        [class.selected]="opt.value === symbol()"
+                        (mousedown)="pickSymbol(opt.value)"
+                      >
+                        <span class="opt-logo" [style.background]="opt.color">{{ opt.badge }}</span>
+                        <span class="opt-main">
+                          <b>{{ opt.title }}</b>
+                          @if (opt.subtitle) {
+                            <span class="opt-sub">{{ opt.subtitle }}</span>
+                          }
+                        </span>
+                        @if (opt.value === symbol()) {
+                          <span class="opt-check">✓</span>
+                        }
+                      </li>
+                    } @empty {
+                      <li class="sym-empty">Eşleşen kayıt yok</li>
+                    }
+                  </ul>
+                </div>
               }
-              <optgroup label="Hisseler">
-                @for (s of stockOptions(); track s) {
-                  <option [value]="s">{{ s }}</option>
-                }
-              </optgroup>
-            </select>
+            </div>
           </div>
-          <p class="idx-note">
-            BIST endekslerinde Zaman Makinesi yok — endeks bileşimi değişir; temettü / bedelli / bedelsiz
-            hisse bazında yansıtılamaz.
-          </p>
+          @if (!isCryptoTm()) {
+            <p class="idx-note">
+              BIST endekslerinde Zaman Makinesi yok — endeks bileşimi değişir; temettü / bedelli / bedelsiz
+              hisse bazında yansıtılamaz.
+            </p>
+          }
         </div>
 
         <!-- ── Tarih seçici ───────────────────────────────── -->
@@ -126,15 +190,15 @@ type InvestMode = 'wage' | 'custom';
                   class="f-input custom-amount-input"
                   [ngModel]="customAmount()"
                   (ngModelChange)="onCustomAmountChange($event)"
-                  placeholder="Tutar girin (₺)"
+                  placeholder="Tutar girin ({{ isCryptoTm() ? '$' : '₺' }})"
                   min="1"
                   step="100"
                 />
-                <span class="currency-badge">₺</span>
+                <span class="currency-badge">{{ isCryptoTm() ? '$' : '₺' }}</span>
               </div>
               <div class="wage-info">
                 {{ mode() === 'dca' ? 'Her ay' : 'Tek seferinde' }}
-                <b>{{ formatInteger(customAmount()) }} ₺</b> yatırılacak.
+                <b>{{ formatInteger(customAmount()) }} {{ isCryptoTm() ? '$' : '₺' }}</b> yatırılacak.
               </div>
             </div>
           }
@@ -214,6 +278,71 @@ type InvestMode = 'wage' | 'custom';
           }
         }
 
+        <!-- ── Aynı gün başka ne alsaydın? ─────────────────── -->
+        @if (leaders(); as lb) {
+          <div class="alt-panel">
+            <div class="alt-head">
+              <span class="alt-title">🔀 Aynı gün başka ne alsaydın?</span>
+              <span class="alt-when">{{ altWhen() }}</span>
+            </div>
+
+            @if (lb.parity.length) {
+              <div class="parity-row">
+                @for (p of lb.parity; track p.symbol) {
+                  <div class="parity-chip">
+                    <span class="chip-ico">{{ parityIcon(p.symbol) }}</span>
+                    <span class="chip-main">
+                      <b>{{ parityLabel(p.symbol) }}</b>
+                      <span class="chip-sub mono">
+                        {{ formatNumber(p.startPrice) }} → {{ formatNumber(p.endPrice) }} ₺
+                      </span>
+                    </span>
+                    <span class="chip-ret" [class.neg]="p.returnPct < 0">
+                      {{ pctText(p.returnPct) }}
+                    </span>
+                  </div>
+                }
+              </div>
+            }
+
+            <div class="seg alt-seg">
+              <button type="button" [class.active]="altTab() === 'bist'" (click)="setAltTab('bist')">
+                📈 Borsa İstanbul
+              </button>
+              <button type="button" [class.active]="altTab() === 'crypto'" (click)="setAltTab('crypto')">
+                ₿ Kripto
+              </button>
+            </div>
+
+            @if (altList().length) {
+              <ol class="alt-list">
+                @for (l of altList(); track l.symbol) {
+                  <li class="alt-item" [attr.data-rank]="l.rank">
+                    <span class="alt-rank">{{ l.rank }}</span>
+                    <span class="alt-logo" [style.background]="symbolColor(l.symbol)">
+                      {{ altBadge(l.symbol) }}
+                    </span>
+                    <span class="alt-main">
+                      <b>{{ altTitle(l) }}</b>
+                      <span class="alt-sub mono">
+                        {{ formatNumber(l.startPrice) }} → {{ formatNumber(l.endPrice) }}
+                      </span>
+                    </span>
+                    <span class="alt-figures">
+                      <span class="alt-ret" [class.neg]="l.returnPct < 0">{{ pctText(l.returnPct) }}</span>
+                      <span class="alt-mult mono">{{ multipleText(l.multiple) }}</span>
+                    </span>
+                  </li>
+                }
+              </ol>
+            } @else {
+              <p class="alt-empty">{{ altEmptyText() }}</p>
+            }
+
+            <p class="alt-note">{{ altNote() }}</p>
+          </div>
+        }
+
         @if (showSim() && calc() && !calc()!.error) {
           <app-time-machine-simulation [calc]="calc()!" [runTrigger]="simTrigger()" />
         }
@@ -275,8 +404,144 @@ type InvestMode = 'wage' | 'custom';
     .stock-pick {
       display: flex;
       gap: 10px;
+      align-items: flex-start;
+    }
+
+    .sym-combo {
+      position: relative;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .sym-trigger {
+      display: flex;
       align-items: center;
-      select { flex: 1; }
+      justify-content: space-between;
+      gap: 10px;
+      text-align: left;
+      cursor: pointer;
+      width: 100%;
+
+      &:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+    }
+
+    .sym-combo.open .sym-trigger {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+    }
+
+    .sym-trigger-label {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-weight: 700;
+    }
+
+    .sym-chevron {
+      color: var(--muted);
+      font-size: 12px;
+      flex: 0 0 auto;
+      transition: transform 0.15s ease;
+    }
+
+    .sym-combo.open .sym-chevron { transform: rotate(180deg); }
+
+    .sym-panel {
+      position: absolute;
+      z-index: 40;
+      left: 0;
+      right: 0;
+      top: calc(100% + 6px);
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
+    }
+
+    .sym-search {
+      width: 100%;
+      border: none;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel2);
+      color: var(--text);
+      font-size: 13.5px;
+      font-weight: 600;
+      padding: 12px 14px;
+      outline: none;
+    }
+
+    .sym-list {
+      list-style: none;
+      margin: 0;
+      padding: 6px;
+      max-height: 260px;
+      overflow: auto;
+    }
+
+    .sym-list li {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 10px;
+      border-radius: 10px;
+      cursor: pointer;
+      color: var(--text);
+
+      &:hover,
+      &.active {
+        background: color-mix(in srgb, var(--accent) 16%, var(--panel2));
+      }
+
+      &.selected {
+        background: color-mix(in srgb, var(--accent) 22%, transparent);
+      }
+    }
+
+    .opt-logo {
+      width: 32px;
+      height: 32px;
+      border-radius: 9px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 800;
+      flex: 0 0 auto;
+    }
+
+    .opt-main {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+
+      b {
+        font-size: 13.5px;
+        font-weight: 700;
+      }
+    }
+
+    .opt-sub {
+      font-size: 11.5px;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .opt-check {
+      color: var(--accent);
+      font-weight: 800;
+      font-size: 14px;
+    }
+
+    .sym-empty {
+      justify-content: center;
+      color: var(--muted);
+      font-size: 13px;
+      cursor: default !important;
+      &:hover { background: transparent !important; }
     }
 
     .idx-note {
@@ -483,6 +748,157 @@ type InvestMode = 'wage' | 'custom';
       from { opacity: 0; transform: translateY(14px); }
       to   { opacity: 1; transform: none; }
     }
+
+    /* ── "Aynı gün başka ne alsaydın?" paneli ─────────────── */
+    .alt-panel {
+      margin-top: 18px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--panel2);
+      animation: tmIn 0.35s ease both;
+    }
+
+    .alt-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+
+    .alt-title { font-size: 14px; font-weight: 800; }
+
+    .alt-when { font-size: 11px; opacity: 0.7; }
+
+    .parity-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .parity-chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 10px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel);
+      min-width: 0;
+    }
+
+    .chip-ico { font-size: 16px; }
+
+    .chip-main {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .chip-main b { font-size: 12px; }
+
+    .chip-sub {
+      font-size: 10px;
+      opacity: 0.65;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .chip-ret {
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--up);
+      white-space: nowrap;
+    }
+
+    .chip-ret.neg, .alt-ret.neg { color: var(--down); }
+
+    .alt-seg { margin-bottom: 12px; }
+
+    .alt-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .alt-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel);
+    }
+
+    .alt-item[data-rank='1'] {
+      border-color: var(--crown-border, #e8a317);
+      background: var(--crown-bg, var(--panel));
+    }
+
+    .alt-rank {
+      width: 20px;
+      text-align: center;
+      font-size: 11px;
+      font-weight: 800;
+      opacity: 0.6;
+      flex: none;
+    }
+
+    .alt-item[data-rank='1'] .alt-rank { opacity: 1; color: #e8a317; }
+
+    .alt-logo {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      color: #fff;
+      font-size: 10px;
+      font-weight: 800;
+      flex: none;
+    }
+
+    .alt-main {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .alt-main b { font-size: 13px; }
+
+    .alt-sub { font-size: 10px; opacity: 0.6; }
+
+    .alt-figures {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      flex: none;
+    }
+
+    .alt-ret { font-size: 13px; font-weight: 800; color: var(--up); }
+
+    .alt-mult { font-size: 10px; opacity: 0.65; }
+
+    .alt-empty, .alt-note {
+      margin: 10px 0 0;
+      font-size: 10.5px;
+      line-height: 1.5;
+      opacity: 0.62;
+    }
+
+    @media (max-width: 560px) {
+      .parity-row { grid-template-columns: 1fr; }
+    }
   `,
 })
 export class TimeMachineModalComponent {
@@ -490,10 +906,12 @@ export class TimeMachineModalComponent {
   private readonly market = inject(MarketService);
   private readonly indexService = inject(IndexService);
   private readonly cryptoApi = inject(CryptoApiService);
+  private readonly cryptoMarket = inject(CryptoMarketService);
 
   readonly formatNumber = formatNumber;
   readonly formatInteger = formatInteger;
   readonly formatLotRange = formatLotRange;
+  readonly symbolColor = symbolColor;
   readonly isInstrumentMode = computed(
     () => isIndexSymbol(this.symbol()) || isForexSymbol(this.symbol()),
   );
@@ -544,34 +962,120 @@ export class TimeMachineModalComponent {
   readonly dateLabel = computed(() => formatTurkishDate(this.dateStr()));
   readonly logoColor = computed(() => symbolColor(this.symbol()));
 
-  // ── Stock / index seçenekleri ─────────────────────────
-  readonly stockOptions = computed(() => {
-    const symbols = this.market.symbolOptions();
-    return symbols.length ? symbols : ['THYAO', 'GARAN', 'AKBNK'];
+  readonly symbolBadge = computed(() => {
+    const s = this.symbol();
+    if (this.isCryptoTm()) {
+      const base = s.endsWith('USDT') ? s.slice(0, -4) : s;
+      return base.slice(0, 3);
+    }
+    return s.slice(0, 2);
   });
 
-  readonly forexOptions = computed(() =>
+  readonly pickerOpen = signal(false);
+  readonly pickerQuery = signal('');
+  readonly pickerIndex = signal(0);
+  private readonly pickerSearch = viewChild<ElementRef<HTMLInputElement>>('pickerSearch');
+
+  readonly selectedLabel = computed(() => {
+    const s = this.symbol();
+    if (this.isCryptoTm()) {
+      const base = s.endsWith('USDT') ? s.slice(0, -4) : s;
+      return `${base} / USDT`;
+    }
+    const fx = this.forexOptions().find((o) => o.symbol === s);
+    return fx?.label ?? s;
+  });
+
+  private readonly forexOptions = computed(() =>
     this.indexService
       .quotes()
       .filter((q) => isForexSymbol(q.symbol))
       .map((q) => ({ symbol: q.symbol, label: q.displayName })),
   );
 
-  readonly instrumentLabel = computed(() =>
-    isForexSymbol(this.symbol()) ? 'DÖVİZ SEÇ' : 'HİSSE SEÇ',
-  );
+  private readonly allPickerOptions = computed<PickerOption[]>(() => {
+    if (this.isCryptoTm()) {
+      const all = Object.keys(this.cryptoMarket.priceMap()).sort((a, b) => a.localeCompare(b));
+      const current = this.symbol();
+      const list = current && !all.includes(current) ? [current, ...all] : all;
+      return list.map((sym) => {
+        const base = sym.endsWith('USDT') ? sym.slice(0, -4) : sym;
+        return {
+          value: sym,
+          title: `${base} / USDT`,
+          subtitle: sym,
+          badge: base.slice(0, 3),
+          color: symbolColor(sym),
+        };
+      });
+    }
+
+    const stocks = this.market.symbolOptions();
+    const stockList = stocks.length ? [...stocks] : ['THYAO', 'GARAN', 'AKBNK'];
+    const current = this.symbol();
+    if (current && !stockList.includes(current) && !isForexSymbol(current)) {
+      stockList.unshift(current);
+    }
+
+    const opts: PickerOption[] = [];
+    for (const fx of this.forexOptions()) {
+      opts.push({
+        value: fx.symbol,
+        title: fx.label,
+        subtitle: fx.symbol,
+        badge: fx.symbol.slice(0, 2),
+        color: symbolColor(fx.symbol),
+      });
+    }
+    for (const s of stockList) {
+      opts.push({
+        value: s,
+        title: s,
+        badge: s.slice(0, 2),
+        color: symbolColor(s),
+      });
+    }
+    return opts;
+  });
+
+  readonly pickerOptions = computed(() => {
+    const q = this.pickerQuery().trim().toUpperCase();
+    const all = this.allPickerOptions();
+    if (!q) return all.slice(0, 80);
+    return all
+      .filter(
+        (o) =>
+          o.value.toUpperCase().includes(q) ||
+          o.title.toUpperCase().includes(q) ||
+          (o.subtitle?.toUpperCase().includes(q) ?? false),
+      )
+      .slice(0, 80);
+  });
+
+  readonly instrumentLabel = computed(() => {
+    if (this.isCryptoTm()) return 'COİN SEÇ';
+    return isForexSymbol(this.symbol()) ? 'DÖVİZ / ALTIN SEÇ' : 'HİSSE SEÇ';
+  });
 
   readonly subtitle = computed(() => {
     if (this.isCryptoTm())
       return 'O tarihte belirlediğin USD tutarla bu coini alsaydın bugün ne olurdu?';
-    if (isForexSymbol(this.symbol()))
-      return 'O tarihte belirlediğin tutarla dolar alsaydın bugün ne olurdu?';
+    const sym = this.symbol();
+    if (isForexSymbol(sym)) {
+      const label = this.parityLabel(sym).toLocaleLowerCase('tr-TR');
+      return `O tarihte belirlediğin tutarla ${label} alsaydın bugün ne olurdu?`;
+    }
     return 'O tarihte belirlediğin tutarla bu hisseyi alsaydın bugün ne olurdu?';
   });
 
   readonly lotLabel = computed(() => {
-    if (isForexSymbol(this.symbol())) return 'USD MİKTARI';
-    return 'LOT';
+    if (this.isCryptoTm()) return 'MİKTAR';
+    switch (this.symbol()) {
+      case 'USDTRY': return 'USD MİKTARI';
+      case 'EURTRY': return 'EUR MİKTARI';
+      case 'GRAMALTIN': return 'GRAM';
+      default: return 'LOT';
+    }
   });
 
   readonly wageInfo = computed(() => {
@@ -599,10 +1103,46 @@ export class TimeMachineModalComponent {
     () => !!this.calc() && !this.calc()!.error && this.calc()!.valueSeries.length > 0,
   );
 
+  // ── "Aynı gün başka ne alsaydın?" ────────────────────
+  readonly leaders = signal<TimeMachineLeaders | null>(null);
+  readonly altTab = signal<'bist' | 'crypto'>('bist');
+  private leadersRequestedFor = '';
+
+  readonly altList = computed<TimeMachineLeader[]>(() => {
+    const lb = this.leaders();
+    if (!lb) return [];
+    return this.altTab() === 'crypto' ? lb.crypto : lb.bist;
+  });
+
+  readonly altWhen = computed(() => {
+    const row = this.altList()[0] ?? this.leaders()?.parity[0];
+    if (!row) return '';
+    return `${formatTurkishDate(row.startDate)} → ${formatTurkishDate(row.endDate)}`;
+  });
+
+  readonly altEmptyText = computed(() =>
+    this.altTab() === 'crypto'
+      ? 'Bu tarihte henüz kripto verisi yok.'
+      : 'Bu tarihte BIST verisi bulunamadı.',
+  );
+
+  readonly altNote = computed(() => {
+    const base = this.altTab() === 'crypto' ? '100 $' : '1.000 ₺';
+    const top = this.altList()[0];
+    if (!top) return 'Getiriler seçilen günün kapanışından son kapanışa kadar hesaplanır.';
+    const grown = this.altTab() === 'crypto' ? 100 * top.multiple : 1000 * top.multiple;
+    return `O gün ${base} ile ${this.altTitle(top)} alsaydın bugün ~${formatInteger(grown)} ${
+      this.altTab() === 'crypto' ? '$' : '₺'
+    } olurdu. Getiriler yalnızca fiyat değişimidir; temettü ve bedelsiz hariçtir.`;
+  });
+
   constructor() {
     // Modal açılınca sembolü ayarla ve tarihi en erken tarihe sıfırla
     effect(() => {
-      if (this.modals.active() !== 'timeMachine') return;
+      if (this.modals.active() !== 'timeMachine') {
+        this.closePicker();
+        return;
+      }
       const sym = this.modals.stockSymbol();
       const crypto = this.modals.timeMachineMarket() === 'crypto';
       if (sym) {
@@ -610,11 +1150,14 @@ export class TimeMachineModalComponent {
       }
       if (!crypto && !this.market.symbolOptions().length) this.market.loadMarket();
       if (!crypto && !this.indexService.quotes().length) this.indexService.loadQuotes();
-      if (crypto && sym) {
-        this.cryptoApi.getMeta(sym).subscribe({
-          next: (m) => this.cryptoEarliest.set(m.earliestDataDate),
-          error: () => this.cryptoEarliest.set(null),
-        });
+      if (crypto) {
+        if (this.cryptoMarket.tickersCount() === 0) this.cryptoMarket.load();
+        if (sym) {
+          this.cryptoApi.getMeta(sym).subscribe({
+            next: (m) => this.cryptoEarliest.set(m.earliestDataDate),
+            error: () => this.cryptoEarliest.set(null),
+          });
+        }
         // Kripto için varsayılan: sabit USD tutar
         this.investMode.set('custom');
       }
@@ -626,17 +1169,132 @@ export class TimeMachineModalComponent {
       const min = this.minDateStr();
       if (min) this.dateStr.set(min);
     });
+
+    // Seçilen tarih değişince alternatifleri getir — hesap tablosu gece işinde hazır.
+    effect(() => {
+      if (this.modals.active() !== 'timeMachine') return;
+      this.altTab.set(this.isCryptoTm() ? 'crypto' : 'bist');
+      const iso = this.dateStr();
+      if (!iso || iso.length < 10) return;
+      this.loadLeaders(iso);
+    });
+  }
+
+  private loadLeaders(iso: string): void {
+    if (this.leadersRequestedFor === iso) return;
+    this.leadersRequestedFor = iso;
+
+    this.market.getTimeMachineLeaders(iso).subscribe({
+      next: (r) => {
+        if (this.leadersRequestedFor !== iso) return;
+        this.leaders.set(r.bist.length || r.crypto.length || r.parity.length ? r : null);
+      },
+      error: () => {
+        if (this.leadersRequestedFor === iso) this.leaders.set(null);
+      },
+    });
+  }
+
+  setAltTab(tab: 'bist' | 'crypto'): void {
+    this.altTab.set(tab);
+  }
+
+  parityLabel(symbol: string): string {
+    return PARITY_LABELS[symbol as ParitySymbol] ?? symbol;
+  }
+
+  parityIcon(symbol: string): string {
+    return PARITY_ICONS[symbol as ParitySymbol] ?? '💱';
+  }
+
+  altTitle(leader: TimeMachineLeader): string {
+    return leader.symbol.endsWith('USDT') ? leader.symbol.slice(0, -4) : leader.symbol;
+  }
+
+  altBadge(symbol: string): string {
+    return this.altTitle({ symbol } as TimeMachineLeader).slice(0, 3);
+  }
+
+  /** Yüz binleri aşan getirilerde ondalık göstermek gürültü yaratıyor. */
+  pctText(pct: number): string {
+    const sign = pct >= 0 ? '+' : '';
+    return Math.abs(pct) >= 1000
+      ? `${sign}%${formatInteger(pct)}`
+      : `${sign}%${formatNumber(pct)}`;
+  }
+
+  multipleText(multiple: number): string {
+    if (multiple >= 1000) return `${formatInteger(multiple)}×`;
+    return `${multiple.toLocaleString('tr-TR', { maximumFractionDigits: 1 })}×`;
   }
 
   onClose(): void {
+    this.closePicker();
     this.showSim.set(false);
     this.modals.close();
+  }
+
+  togglePicker(): void {
+    if (this.pickerOpen()) {
+      this.closePicker();
+      return;
+    }
+    this.pickerOpen.set(true);
+    this.pickerQuery.set('');
+    this.pickerIndex.set(0);
+    queueMicrotask(() => this.pickerSearch()?.nativeElement.focus());
+  }
+
+  closePicker(): void {
+    this.pickerOpen.set(false);
+    this.pickerQuery.set('');
+    this.pickerIndex.set(0);
+  }
+
+  onPickerQuery(q: string): void {
+    this.pickerQuery.set(q);
+    this.pickerIndex.set(0);
+  }
+
+  onPickerNav(ev: Event, delta: number): void {
+    ev.preventDefault();
+    const n = this.pickerOptions().length;
+    if (!n) return;
+    this.pickerIndex.update((i) => (i + delta + n) % n);
+  }
+
+  onPickerEnter(ev: Event): void {
+    ev.preventDefault();
+    const list = this.pickerOptions();
+    const pick = list[this.pickerIndex()] ?? list[0];
+    if (pick) this.pickSymbol(pick.value);
+  }
+
+  pickSymbol(sym: string): void {
+    this.closePicker();
+    this.onSymbolChange(sym);
+  }
+
+  @HostListener('document:mousedown', ['$event'])
+  onDocMouseDown(ev: MouseEvent): void {
+    if (!this.pickerOpen()) return;
+    const path = ev.composedPath?.() ?? [];
+    const inside = path.some(
+      (n) => n instanceof HTMLElement && n.classList.contains('sym-combo'),
+    );
+    if (!inside) this.closePicker();
   }
 
   onSymbolChange(sym: string): void {
     if (isIndexSymbol(sym)) return;
     this.symbol.set(sym);
     this.resetCalc();
+    if (this.isCryptoTm()) {
+      this.cryptoApi.getMeta(sym).subscribe({
+        next: (m) => this.cryptoEarliest.set(m.earliestDataDate),
+        error: () => this.cryptoEarliest.set(null),
+      });
+    }
   }
 
   onDateChange(iso: string): void {

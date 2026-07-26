@@ -5,11 +5,16 @@ import { environment } from '../../../environments/environment';
 import { PagedResult } from '../models/paged-result.model';
 import { PriceHistory } from '../models/price-history.model';
 import { Stock, StockDetail } from '../models/stock.model';
-import { TimeMachineCalc, TimeMachineMode } from '../models/time-machine.model';
+import {
+  TimeMachineCalc,
+  TimeMachineLeaders,
+  TimeMachineMode,
+} from '../models/time-machine.model';
 
 export interface TopGainerItem {
   period: string;
   periodLabel: string;
+  periodShortLabel?: string;
   rank: number;
   symbol: string;
   name: string;
@@ -43,9 +48,16 @@ interface TimeMachineApiResponse {
   series: { year: number; month: number; price: number }[];
   valueSeries: number[];
   lotSeries: number[];
+  dailySeries?: {
+    startDate: string;
+    days: number[];
+    prices: number[];
+    values: number[];
+  } | null;
   lotEvents?: {
     year: number;
     month: number;
+    day?: number;
     actionDateLabel: string;
     actionType: string;
     label: string;
@@ -69,6 +81,7 @@ interface TimeMachineApiResponse {
 export class StockApiService {
   private readonly http = inject(HttpClient);
   private readonly base = `${environment.apiUrl}/stocks`;
+  private readonly timeMachineBase = `${environment.apiUrl}/time-machine`;
 
   getStocks(params: {
     page?: number;
@@ -76,6 +89,8 @@ export class StockApiService {
     search?: string;
     isActive?: boolean;
     indexFilter?: string;
+    sortBy?: 'volume' | 'price' | 'change' | 'name';
+    sortDesc?: boolean;
   } = {}): Observable<PagedResult<Stock>> {
     let httpParams = new HttpParams();
     if (params.page) httpParams = httpParams.set('page', params.page);
@@ -83,6 +98,8 @@ export class StockApiService {
     if (params.search) httpParams = httpParams.set('search', params.search);
     if (params.isActive !== undefined) httpParams = httpParams.set('isActive', params.isActive);
     if (params.indexFilter) httpParams = httpParams.set('indexFilter', params.indexFilter);
+    if (params.sortBy) httpParams = httpParams.set('sortBy', params.sortBy);
+    if (params.sortDesc !== undefined) httpParams = httpParams.set('sortDesc', params.sortDesc);
 
     return this.http.get<PagedResult<Stock>>(this.base, { params: httpParams });
   }
@@ -98,8 +115,9 @@ export class StockApiService {
     return this.http.get<PriceHistory[]>(`${this.base}/${symbol}/price-history`, { params });
   }
 
-  getTopGainers(): Observable<TopGainersResponse> {
-    return this.http.get<TopGainersResponse>(`${this.base}/top-gainers`);
+  getTopGainers(marketType: 'bist' | 'crypto' = 'bist'): Observable<TopGainersResponse> {
+    const params = new HttpParams().set('marketType', marketType);
+    return this.http.get<TopGainersResponse>(`${this.base}/top-gainers`, { params });
   }
 
   calculateTimeMachine(
@@ -124,6 +142,12 @@ export class StockApiService {
       .pipe(map((r) => this.mapTimeMachine(r, mode)));
   }
 
+  /** Seçilen tarihten bugüne en çok kazandıran 5 hisse / 5 coin + 3 parite. */
+  getTimeMachineLeaders(date: string): Observable<TimeMachineLeaders> {
+    const params = new HttpParams().set('date', date);
+    return this.http.get<TimeMachineLeaders>(`${this.timeMachineBase}/leaders`, { params });
+  }
+
   private mapTimeMachine(r: TimeMachineApiResponse, mode: TimeMachineMode): TimeMachineCalc {
     return {
       symbol: r.symbol,
@@ -142,9 +166,18 @@ export class StockApiService {
       })),
       valueSeries: (r.valueSeries ?? []).map(Number),
       lotSeries: (r.lotSeries ?? []).map(Number),
+      dailySeries: r.dailySeries
+        ? {
+            startDate: r.dailySeries.startDate,
+            days: r.dailySeries.days ?? [],
+            prices: (r.dailySeries.prices ?? []).map(Number),
+            values: (r.dailySeries.values ?? []).map(Number),
+          }
+        : undefined,
       lotEvents: (r.lotEvents ?? []).map((e) => ({
         year: e.year,
         month: e.month,
+        day: e.day,
         actionDateLabel: e.actionDateLabel,
         actionType: e.actionType,
         label: e.label,

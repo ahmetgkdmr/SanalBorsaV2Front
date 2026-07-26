@@ -4,7 +4,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
   selector: 'app-stock-logo',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="logo" [style.background]="color()">{{ initials() }}</div>
+    <div class="logo" [class.sm]="size() === 'sm'" [style.background]="color()">{{ initials() }}</div>
   `,
   styles: `
     .logo {
@@ -19,11 +19,19 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
       font-size: 13px;
       color: #fff;
     }
+
+    .logo.sm {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      font-size: 10px;
+    }
   `,
 })
 export class StockLogoComponent {
   readonly symbol = input.required<string>();
   readonly color = input.required<string>();
+  readonly size = input<'md' | 'sm'>('md');
 
   initials(): string {
     return this.symbol().slice(0, 2);

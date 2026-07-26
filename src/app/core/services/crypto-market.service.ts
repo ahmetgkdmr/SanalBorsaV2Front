@@ -5,15 +5,23 @@ import { environment } from '../../../environments/environment';
 import { CryptoCardView, CryptoTicker } from '../models/crypto.model';
 import { symbolColor } from '../utils/format.util';
 import { CryptoApiService } from './crypto-api.service';
+import { StockApiService } from './stock-api.service';
 
 export const CRYPTO_PAGE_SIZE = 50;
 
 /** Binance Markets benzeri sıralama alanları */
 export type CryptoSortKey = 'volume' | 'price' | 'change' | 'name';
 
+interface CrownInfo {
+  label: string;
+  period: string;
+  returnPct: number;
+}
+
 @Injectable({ providedIn: 'root' })
 export class CryptoMarketService {
   private readonly api = inject(CryptoApiService);
+  private readonly stockApi = inject(StockApiService);
   private readonly zone = inject(NgZone);
 
   readonly loading = signal(false);
@@ -28,6 +36,8 @@ export class CryptoMarketService {
   private readonly tickers = signal<CryptoTicker[]>([]);
   /** Sticky tick direction: 1 = up, -1 = down (last non-zero move). */
   private readonly tickDir = signal<Record<string, 1 | -1>>({});
+  /** Dönem şampiyonu sembol → taç bilgisi */
+  private readonly champions = signal<Map<string, CrownInfo>>(new Map());
 
   private hub: signalR.HubConnection | null = null;
   private hubStarting = false;
@@ -80,11 +90,12 @@ export class CryptoMarketService {
 
   readonly cards = computed<CryptoCardView[]>(() => {
     const dirs = this.tickDir();
+    const crowns = this.champions();
     const page = this.page();
     const start = (page - 1) * CRYPTO_PAGE_SIZE;
     return this.filtered()
       .slice(start, start + CRYPTO_PAGE_SIZE)
-      .map((t) => toCard(t, dirs));
+      .map((t) => toCard(t, dirs, crowns.get(t.symbol)));
   });
 
   readonly priceMap = computed(() => {
@@ -93,10 +104,43 @@ export class CryptoMarketService {
     return m;
   });
 
-  /** İlk REST snapshot + SignalR canlı akış. */
+  /** Header şeridi: hacme göre en popüler N coin (canlı). */
+  readonly topByVolume = computed(() =>
+    sortTickers([...this.tickers()], 'volume', true).slice(0, 20),
+  );
+
+  /** Sembol → canlı ticker (şerit gibi sabit listeler için). */
+  readonly tickerMap = computed(() => {
+    const m = new Map<string, CryptoTicker>();
+    for (const t of this.tickers()) m.set(t.symbol, t);
+    return m;
+  });
+
+  /** İlk REST snapshot + SignalR canlı akış + dönem şampiyonları. */
   load(): void {
     this.fetchSnapshot(true);
+    this.loadChampions();
     void this.startHub();
+  }
+
+  private loadChampions(): void {
+    this.stockApi.getTopGainers('crypto').subscribe({
+      next: (res) => {
+        const map = new Map<string, CrownInfo>();
+        for (const item of res.items ?? []) {
+          const sym = item.symbol.toUpperCase();
+          // Aynı sembol birden fazla dönem kazandıysa en kısa dönem öncelikli
+          if (map.has(sym)) continue;
+          map.set(sym, {
+            label: item.periodLabel,
+            period: item.period,
+            returnPct: item.returnPct,
+          });
+        }
+        this.champions.set(map);
+      },
+      error: () => this.champions.set(new Map()),
+    });
   }
 
   startPolling(): void {
@@ -135,7 +179,7 @@ export class CryptoMarketService {
   getCard(symbol: string): CryptoCardView | undefined {
     const dirs = this.tickDir();
     const t = this.tickers().find((x) => x.symbol === symbol.toUpperCase());
-    return t ? toCard(t, dirs) : undefined;
+    return t ? toCard(t, dirs, this.champions().get(t.symbol)) : undefined;
   }
 
   private fetchSnapshot(showLoading: boolean): void {
@@ -298,7 +342,11 @@ function sortTickers(list: CryptoTicker[], key: CryptoSortKey, desc: boolean): C
   return sorted;
 }
 
-function toCard(t: CryptoTicker, dirs: Record<string, 1 | -1>): CryptoCardView {
+function toCard(
+  t: CryptoTicker,
+  dirs: Record<string, 1 | -1>,
+  crown?: CrownInfo,
+): CryptoCardView {
   const dir = dirs[t.symbol];
   const tickUp = dir === 1 ? true : dir === -1 ? false : t.changePercent24h >= 0;
   return {
@@ -312,6 +360,9 @@ function toCard(t: CryptoTicker, dirs: Record<string, 1 | -1>): CryptoCardView {
     exchange: 'CRYPTO' as const,
     tickUp,
     priceDecimals: t.priceDecimals ?? 8,
+    crownLabel: crown?.label ?? null,
+    crownPeriod: crown?.period ?? null,
+    crownReturnPct: crown?.returnPct ?? null,
   };
 }
 

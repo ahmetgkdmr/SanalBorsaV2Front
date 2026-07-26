@@ -6,9 +6,19 @@ export interface SimulationPoint {
   price: number;
 }
 
+/** Sıkıştırılmış günlük seri: tarih = startDate + days[i] gün */
+export interface DailySeries {
+  startDate: string;
+  days: number[];
+  prices: number[];
+  values: number[];
+}
+
 export interface LotEventMarker {
   year: number;
   month: number;
+  /** Olayın gerçek günü (0 = bilinmiyor) */
+  day?: number;
   actionDateLabel: string;
   actionType: string;
   label: string;
@@ -34,6 +44,8 @@ export interface TimeMachineCalc {
   valueSeries: number[];
   lotSeries: number[];
   lotEvents: LotEventMarker[];
+  /** Gün gün gerçek kapanışlar — grafik animasyonu bunu kullanır */
+  dailySeries?: DailySeries;
   dateLabel: string;
   dividendsReceived: number;
   dividendsReinvested: number;
@@ -41,6 +53,28 @@ export interface TimeMachineCalc {
   cashRemaining: number;
   storyLines: string[];
   error?: string;
+}
+
+/** "O gün başka ne alsaydın?" — önceden hesaplanmış tek satır. */
+export interface TimeMachineLeader {
+  rank: number;
+  symbol: string;
+  name: string;
+  startPrice: number;
+  endPrice: number;
+  returnPct: number;
+  /** Paranın kaça katlandığı (endPrice / startPrice) */
+  multiple: number;
+  startDate: string;
+  endDate: string;
+}
+
+export interface TimeMachineLeaders {
+  requestedDate: string;
+  bist: TimeMachineLeader[];
+  crypto: TimeMachineLeader[];
+  parity: TimeMachineLeader[];
+  computedAt?: string | null;
 }
 
 export const SIMULATION_EVENTS: Record<number, string> = {

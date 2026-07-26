@@ -1,29 +1,17 @@
-import {
-  AfterViewInit,
-  ChangeDetectionStrategy,
-  Component,
-  ElementRef,
-  NgZone,
-  OnDestroy,
-  OnInit,
-  ViewChild,
-  effect,
-  inject,
-  signal,
-} from '@angular/core';
-import { NgTemplateOutlet } from '@angular/common';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { IndexService } from '../../core/services/index.service';
 import { MarketTypeService } from '../../core/services/market-type.service';
 import { ModalService } from '../../core/services/modal.service';
 import { ThemeService, AppTheme } from '../../core/services/theme.service';
-import { formatNumber, formatTime } from '../../core/utils/format.util';
+import { formatTime } from '../../core/utils/format.util';
+import { MarketTickerComponent } from './market-ticker.component';
 
 @Component({
   selector: 'app-header',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, NgTemplateOutlet],
+  imports: [RouterLink, MarketTickerComponent],
   template: `
     <header>
       <div class="topbar">
@@ -85,33 +73,7 @@ import { formatNumber, formatTime } from '../../core/utils/format.util';
         </div>
       </div>
 
-      <!-- Kayan şerit — items ×2 ile seamless loop (hover’da durmaz, tıklanmaz) -->
-      <div class="ticker-wrap">
-        <div class="ticker-track" #tickerTrack>
-          @for (idx of indices(); track 'a-' + idx.symbol) {
-            <ng-container *ngTemplateOutlet="idxChip; context: { $implicit: idx }" />
-          }
-          @for (idx of indices(); track 'b-' + idx.symbol) {
-            <ng-container *ngTemplateOutlet="idxChip; context: { $implicit: idx }" />
-          }
-        </div>
-      </div>
-
-      <ng-template #idxChip let-idx>
-        <span class="idx-chip" [title]="idx.name">
-          <span class="ic-name">{{ idx.name }}</span>
-          <span class="ic-val mono">
-            @if (idx.value > 0) { {{ formatIdx(idx.value, idx.decimals) }} }
-            @else { <span class="ic-dot">…</span> }
-          </span>
-          @if (idx.value > 0) {
-            <span class="ic-chg mono" [style.color]="idx.up ? 'var(--up)' : 'var(--down)'">
-              {{ idx.up ? '▲' : '▼' }}&nbsp;%{{ formatNumber(Math.abs(idx.change)) }}
-            </span>
-          }
-        </span>
-        <span class="ic-sep">|</span>
-      </ng-template>
+      <app-market-ticker />
     </header>
   `,
   styles: `
@@ -172,9 +134,7 @@ import { formatNumber, formatTime } from '../../core/utils/format.util';
       transition: background 0.15s, color 0.15s;
     }
 
-    .theme-switch button:hover {
-      color: var(--text);
-    }
+    .theme-switch button:hover { color: var(--text); }
 
     .theme-switch button.active {
       background: var(--panel);
@@ -228,15 +188,8 @@ import { formatNumber, formatTime } from '../../core/utils/format.util';
     }
 
     @keyframes pulse {
-      0%,
-      100% {
-        opacity: 1;
-        transform: scale(1);
-      }
-      50% {
-        opacity: 0.35;
-        transform: scale(0.8);
-      }
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.35; transform: scale(0.8); }
     }
 
     .pill-btn {
@@ -302,77 +255,7 @@ import { formatNumber, formatTime } from '../../core/utils/format.util';
       font-size: 14px;
       padding: 4px;
 
-      &:hover {
-        color: var(--down);
-      }
-    }
-
-    /* ── kayan şerit ─────────────────────────────────────────────────────── */
-    .ticker-wrap {
-      margin-top: 10px;
-      width: 100%;
-      overflow: hidden;
-      border-top: 1px solid var(--line);
-      border-bottom: 1px solid var(--line);
-      background: color-mix(in srgb, var(--text) 3%, transparent);
-      border-radius: 0;
-    }
-
-    :host-context([data-theme='light']) .ticker-wrap {
-      background: color-mix(in srgb, var(--panel) 70%, transparent);
-    }
-
-    .ticker-track {
-      display: flex;
-      align-items: center;
-      width: max-content;
-      will-change: transform;
-      transform: translate3d(0, 0, 0);
-      backface-visibility: hidden;
-    }
-
-    .idx-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 7px 14px;
-      white-space: nowrap;
-      color: var(--text);
-      font: inherit;
-      user-select: none;
-      pointer-events: none;
-    }
-
-    .ic-name {
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.5px;
-      color: var(--muted);
-      text-transform: uppercase;
-    }
-
-    .ic-val {
-      font-size: 13px;
-      font-weight: 700;
-      font-variant-numeric: tabular-nums;
-      min-width: 6.5ch;
-      text-align: right;
-    }
-
-    .ic-chg {
-      font-size: 11px;
-      font-weight: 600;
-      font-variant-numeric: tabular-nums;
-      min-width: 5.5ch;
-    }
-
-    .ic-dot { color: var(--muted); }
-
-    .ic-sep {
-      color: rgba(255,255,255,0.12);
-      font-size: 14px;
-      padding: 0 2px;
-      user-select: none;
+      &:hover { color: var(--down); }
     }
 
     @media (max-width: 600px) {
@@ -381,83 +264,21 @@ import { formatNumber, formatTime } from '../../core/utils/format.util';
         padding-right: 14px;
       }
     }
-
-    @media (prefers-reduced-motion: reduce) {
-      .ticker-track {
-        transform: none !important;
-      }
-    }
   `,
 })
-export class HeaderComponent implements OnInit, AfterViewInit, OnDestroy {
-  @ViewChild('tickerTrack', { static: true }) tickerTrack!: ElementRef<HTMLElement>;
-
+export class HeaderComponent implements OnInit, OnDestroy {
   readonly auth = inject(AuthService);
   readonly modals = inject(ModalService);
   readonly theme = inject(ThemeService);
   readonly marketType = inject(MarketTypeService);
   private readonly indexService = inject(IndexService);
-  private readonly zone = inject(NgZone);
-
-  readonly formatNumber = formatNumber;
-  readonly Math = Math;
 
   readonly clock = signal(formatTime());
-  readonly indices = signal<
-    { symbol: string; name: string; value: number; decimals: number; change: number; up: boolean }[]
-  >([]);
 
   private clockTimer?: ReturnType<typeof setInterval>;
   private destroyRetry?: () => void;
-  private rafId = 0;
-  private lastTs = 0;
-  private offsetPx = 0;
-  private loopWidth = 0;
-  private readonly speedPxPerSec = 42;
-  private reduceMotion = false;
-
-  constructor() {
-    effect(() => {
-      const quotes = this.indexService.quotes();
-      if (!quotes.length) return;
-
-      const next = quotes.map((q) => ({
-        symbol: q.symbol,
-        name: q.displayName,
-        value: q.value,
-        decimals: q.decimals,
-        change: q.changePct,
-        up: q.isUp,
-      }));
-
-      const prev = this.indices();
-      const sameShape =
-        prev.length === next.length && prev.every((p, i) => p.symbol === next[i].symbol);
-
-      // Aynı sembol setiyse yalnızca değerleri güncelle — DOM yapısı sabit kalsın
-      if (sameShape) {
-        let changed = false;
-        for (let i = 0; i < next.length; i++) {
-          const a = prev[i];
-          const b = next[i];
-          if (a.value !== b.value || a.change !== b.change || a.up !== b.up || a.name !== b.name) {
-            changed = true;
-            break;
-          }
-        }
-        if (!changed) return;
-      }
-
-      this.indices.set(next);
-      // Genişlik değişebilir; bir sonraki frame’de ölç
-      queueMicrotask(() => this.measureLoop());
-    });
-  }
 
   ngOnInit(): void {
-    this.reduceMotion =
-      typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-
     this.indexService.loadQuotes();
 
     this.clockTimer = setInterval(() => {
@@ -471,25 +292,12 @@ export class HeaderComponent implements OnInit, AfterViewInit, OnDestroy {
       }
       this.indexService.loadQuotes(true);
     }, 8000);
-
     this.destroyRetry = () => clearInterval(retry);
-  }
-
-  ngAfterViewInit(): void {
-    this.measureLoop();
-    if (!this.reduceMotion) {
-      this.zone.runOutsideAngular(() => this.startTicker());
-    }
   }
 
   ngOnDestroy(): void {
     if (this.clockTimer) clearInterval(this.clockTimer);
     this.destroyRetry?.();
-    if (this.rafId) cancelAnimationFrame(this.rafId);
-  }
-
-  formatIdx(value: number, decimals = 2): string {
-    return formatNumber(value, decimals);
   }
 
   setTheme(theme: AppTheme): void {
@@ -498,38 +306,5 @@ export class HeaderComponent implements OnInit, AfterViewInit, OnDestroy {
 
   logout(): void {
     this.auth.logout().catch(() => null);
-  }
-
-  private measureLoop(): void {
-    const el = this.tickerTrack?.nativeElement;
-    if (!el) return;
-    // İki kopya yan yana → loop genişliği yarısı
-    this.loopWidth = el.scrollWidth / 2;
-    if (this.loopWidth > 0 && this.offsetPx >= this.loopWidth) {
-      this.offsetPx = this.offsetPx % this.loopWidth;
-      el.style.transform = `translate3d(${-this.offsetPx}px, 0, 0)`;
-    }
-  }
-
-  private startTicker(): void {
-    const step = (ts: number) => {
-      const el = this.tickerTrack?.nativeElement;
-      if (el) {
-        if (!this.loopWidth) this.measureLoop();
-
-        if (this.loopWidth > 0) {
-          if (!this.lastTs) this.lastTs = ts;
-          const dt = Math.min((ts - this.lastTs) / 1000, 0.05);
-          this.lastTs = ts;
-          this.offsetPx += this.speedPxPerSec * dt;
-          if (this.offsetPx >= this.loopWidth) {
-            this.offsetPx -= this.loopWidth;
-          }
-          el.style.transform = `translate3d(${-this.offsetPx}px, 0, 0)`;
-        }
-      }
-      this.rafId = requestAnimationFrame(step);
-    };
-    this.rafId = requestAnimationFrame(step);
   }
 }

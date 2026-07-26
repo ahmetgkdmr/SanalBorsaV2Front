@@ -11,6 +11,9 @@ import { StockApiService } from './stock-api.service';
 
 export const MARKET_PAGE_SIZE = 50;
 
+/** Kripto ile birebir aynı sıralama alanları — son gün verisine göre */
+export type MarketSortKey = 'volume' | 'price' | 'change' | 'name';
+
 @Injectable({ providedIn: 'root' })
 export class MarketService {
   private readonly api = inject(StockApiService);
@@ -22,6 +25,9 @@ export class MarketService {
   readonly serverTotalCount = signal(0);
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
+  readonly sortKey = signal<MarketSortKey>('volume');
+  /** true = azalan (kripto varsayılanı hacim için) */
+  readonly sortDesc = signal(true);
 
   private readonly live = signal<LiveStockState[]>([]);
   private readonly priceCache = signal<Record<string, number>>({});
@@ -65,6 +71,8 @@ export class MarketService {
         search: this.apiSearch() || undefined,
         isActive: true,
         indexFilter: currentFilter !== 'all' ? currentFilter : undefined,
+        sortBy: this.sortKey(),
+        sortDesc: this.sortDesc(),
       })
       .pipe(
         map((result) => {
@@ -92,6 +100,16 @@ export class MarketService {
 
   setFilter(filter: MarketFilter): void {
     this.filter.set(filter);
+    this.loadPage(1);
+  }
+
+  setSort(key: MarketSortKey): void {
+    if (this.sortKey() === key) {
+      this.sortDesc.update((d) => !d);
+    } else {
+      this.sortKey.set(key);
+      this.sortDesc.set(key !== 'name');
+    }
     this.loadPage(1);
   }
 
@@ -132,6 +150,11 @@ export class MarketService {
     marketType: 'bist' | 'crypto' = 'bist',
   ) {
     return this.api.calculateTimeMachine(symbol, date, pct, mode, amount, marketType);
+  }
+
+  /** O tarihten bugüne en çok kazandıranlar (gece işinde önceden hesaplanır). */
+  getTimeMachineLeaders(date: string) {
+    return this.api.getTimeMachineLeaders(date);
   }
 
   private mergePrices(stocks: LiveStockState[]): void {

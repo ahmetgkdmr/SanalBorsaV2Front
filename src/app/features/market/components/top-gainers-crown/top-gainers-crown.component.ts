@@ -1,4 +1,11 @@
-import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@angular/core';
+﻿import {
+  ChangeDetectionStrategy,
+  Component,
+  effect,
+  inject,
+  input,
+  signal,
+} from '@angular/core';
 import { StockApiService, TopGainerItem } from '../../../../core/services/stock-api.service';
 import { ModalService } from '../../../../core/services/modal.service';
 import { formatNumber, symbolColor } from '../../../../core/utils/format.util';
@@ -27,26 +34,28 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
               type="button"
               class="crown-card"
               [attr.data-period]="item.period"
+              [title]="item.periodLabel"
               (click)="open(item.symbol)"
             >
               <div class="ribbon">
-                <span class="crown-mini">♛</span>
-                <span>{{ item.periodLabel }}</span>
+                <span class="crown-mini">👑</span>
+                <span>{{ shortLabel(item) }}</span>
               </div>
 
               <div class="body">
-                <app-stock-logo [symbol]="item.symbol" [color]="color(item.symbol)" />
+                <app-stock-logo [symbol]="displaySymbol(item)" [color]="color(item)" size="sm" />
                 <div class="meta">
-                  <div class="tick">{{ item.symbol }}</div>
+                  <div class="tick">{{ displaySymbol(item) }}</div>
                   <div class="name">{{ item.name }}</div>
                 </div>
-                <div class="ret mono">+{{ formatNumber(item.returnPct) }}%</div>
               </div>
 
+              <div class="ret mono">+{{ formatNumber(item.returnPct) }}%</div>
+
               <div class="foot mono">
-                <span>{{ formatNumber(item.startPrice) }} ₺</span>
+                <span>{{ formatNumber(item.startPrice) }} {{ currencySym }}</span>
                 <span class="arrow">→</span>
-                <span>{{ formatNumber(item.endPrice) }} ₺</span>
+                <span>{{ formatNumber(item.endPrice) }} {{ currencySym }}</span>
               </div>
             </button>
           }
@@ -57,8 +66,8 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
   styles: `
     .crown-section {
       margin: 18px 0 8px;
-      padding: 16px;
-      border-radius: 18px;
+      padding: 12px 14px;
+      border-radius: 16px;
       border: 1px solid var(--crown-border);
       background: var(--crown-bg);
       box-shadow: var(--shadow);
@@ -67,84 +76,117 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
     .crown-head {
       display: flex;
       align-items: center;
-      gap: 12px;
-      margin-bottom: 14px;
+      gap: 10px;
+      margin-bottom: 10px;
     }
 
     .crown-emoji {
-      font-size: 28px;
+      font-size: 24px;
       filter: drop-shadow(0 2px 8px rgba(240, 192, 64, 0.55));
     }
 
     h3 {
       margin: 0;
-      font-size: 17px;
+      font-size: 15px;
       font-weight: 800;
       letter-spacing: 0.2px;
       color: var(--crown-title);
     }
 
     .sub {
-      margin: 3px 0 0;
-      font-size: 11.5px;
+      margin: 2px 0 0;
+      font-size: 11px;
       color: var(--muted);
     }
 
     .crown-grid {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 12px;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 8px;
     }
 
-    @media (max-width: 860px) {
-      .crown-grid { grid-template-columns: 1fr; }
+    @media (max-width: 980px) {
+      .crown-grid {
+        display: flex;
+        overflow-x: auto;
+        gap: 8px;
+        padding-bottom: 4px;
+        scroll-snap-type: x mandatory;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .crown-card {
+        flex: 0 0 148px;
+        scroll-snap-align: start;
+      }
     }
 
     .crown-card {
       text-align: left;
       border: 1px solid var(--line);
-      border-radius: 14px;
+      border-radius: 12px;
+      background: var(--panel);
       padding: 0;
       overflow: hidden;
       cursor: pointer;
-      background: var(--panel);
-      color: var(--text);
-      transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+      transition: transform 0.15s, border-color 0.2s;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
 
-      &:hover {
-        transform: translateY(-3px);
-        border-color: rgba(240, 192, 64, 0.55);
-        box-shadow: 0 10px 24px rgba(240, 192, 64, 0.18);
-      }
-
-      &[data-period='week'] .ribbon { background: linear-gradient(90deg, #7dd3a0, #3cb371); color: #062012; }
-      &[data-period='month'] .ribbon { background: linear-gradient(90deg, #f0c040, #e8a317); color: #1a1206; }
-      &[data-period='year'] .ribbon { background: linear-gradient(90deg, #b388ff, #7c4dff); color: #140a22; }
+      &:hover { transform: translateY(-2px); }
     }
 
     .ribbon {
       display: flex;
       align-items: center;
-      gap: 6px;
-      padding: 8px 12px;
-      font-size: 11px;
+      gap: 5px;
+      padding: 5px 8px;
+      font-size: 10px;
       font-weight: 800;
       letter-spacing: 0.2px;
+      background: linear-gradient(90deg, #f0c040, #e8a317);
+      color: #1a1206;
     }
 
-    .crown-mini { font-size: 14px; }
+    .crown-card[data-period='week'] .ribbon {
+      background: linear-gradient(90deg, #7dd3a0, #3cb371);
+      color: #062012;
+    }
+    .crown-card[data-period='year'] .ribbon {
+      background: linear-gradient(90deg, #b388ff, #7c4dff);
+      color: #140a22;
+    }
+    .crown-card[data-period='fiveyear'] .ribbon {
+      background: linear-gradient(90deg, #5bbcff, #2f80ed);
+      color: #061018;
+    }
+    .crown-card[data-period='tenyear'] .ribbon {
+      background: linear-gradient(90deg, #ff8a65, #e64a19);
+      color: #1a0a06;
+    }
+
+    .crown-mini { font-size: 12px; line-height: 1; }
 
     .body {
       display: flex;
       align-items: center;
-      gap: 10px;
-      padding: 12px;
+      gap: 8px;
+      padding: 8px 10px 4px;
+      min-width: 0;
     }
 
-    .meta { flex: 1; min-width: 0; }
-    .tick { font-weight: 800; font-size: 15px; }
+    .meta { min-width: 0; }
+    .tick {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
     .name {
-      font-size: 11px;
+      font-size: 10px;
       color: var(--muted);
       white-space: nowrap;
       overflow: hidden;
@@ -152,50 +194,79 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
     }
 
     .ret {
-      font-size: 16px;
+      padding: 2px 10px 6px;
+      font-size: 15px;
       font-weight: 800;
       color: var(--up);
-      white-space: nowrap;
     }
 
     .foot {
       display: flex;
-      gap: 6px;
       align-items: center;
-      padding: 0 12px 12px;
-      font-size: 11px;
+      gap: 4px;
+      padding: 0 10px 10px;
+      font-size: 10px;
       color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
     }
 
     .arrow { opacity: 0.6; }
   `,
 })
-export class TopGainersCrownComponent implements OnInit {
+export class TopGainersCrownComponent {
   private readonly api = inject(StockApiService);
   private readonly modals = inject(ModalService);
+
+  /** bist | crypto — sekme değişince yeniden yüklenir */
+  readonly marketType = input<'bist' | 'crypto'>('bist');
 
   readonly items = signal<TopGainerItem[]>([]);
   readonly asOf = signal<string | null>(null);
   readonly formatNumber = formatNumber;
 
-  ngOnInit(): void {
-    this.api.getTopGainers().subscribe({
-      next: (res) => {
-        this.items.set(res.items ?? []);
-        this.asOf.set(res.asOfDate);
-      },
-      error: () => {
-        this.items.set([]);
-      },
+  get currencySym(): string {
+    return this.marketType() === 'crypto' ? '$' : '₺';
+  }
+
+  constructor() {
+    effect(() => {
+      const market = this.marketType();
+      this.api.getTopGainers(market).subscribe({
+        next: (res) => {
+          this.items.set(res.items ?? []);
+          this.asOf.set(res.asOfDate);
+        },
+        error: () => this.items.set([]),
+      });
     });
   }
 
-  color(symbol: string): string {
-    return symbolColor(symbol);
+  shortLabel(item: TopGainerItem): string {
+    if (item.periodShortLabel) return item.periodShortLabel;
+    switch (item.period) {
+      case 'week': return 'Son 1 hafta';
+      case 'month': return 'Son 1 ay';
+      case 'year': return 'Son 1 yıl';
+      case 'fiveyear': return 'Son 5 yıl';
+      case 'tenyear': return 'Son 10 yıl';
+      default: return item.periodLabel;
+    }
+  }
+
+  displaySymbol(item: TopGainerItem): string {
+    if (this.marketType() !== 'crypto') return item.symbol;
+    const s = item.symbol.toUpperCase();
+    return s.endsWith('USDT') ? s.slice(0, -4) : s;
+  }
+
+  color(item: TopGainerItem): string {
+    return symbolColor(this.displaySymbol(item));
   }
 
   open(symbol: string): void {
-    this.modals.openStock(symbol);
+    if (this.marketType() === 'crypto') this.modals.openCrypto(symbol);
+    else this.modals.openStock(symbol);
   }
 
   formatDate(iso: string): string {

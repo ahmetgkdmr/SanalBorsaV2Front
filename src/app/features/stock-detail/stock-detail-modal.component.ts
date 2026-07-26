@@ -1,11 +1,20 @@
-import { ChangeDetectionStrategy, Component, effect, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  effect,
+  inject,
+  signal,
+  untracked,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../core/services/auth.service';
 import { MarketService } from '../../core/services/market.service';
 import { ModalService } from '../../core/services/modal.service';
 import { PortfolioService } from '../../core/services/portfolio.service';
-import { StockCardView } from '../../core/models/stock.model';
-import { formatNumber } from '../../core/utils/format.util';
+import { StockApiService } from '../../core/services/stock-api.service';
+import { StockCardView, StockDetail } from '../../core/models/stock.model';
+import { changePercent, formatNumber, symbolColor } from '../../core/utils/format.util';
+import { tierBadge } from '../../core/constants/bist-tiers';
 import { OverlayComponent } from '../../shared/components/overlay/overlay.component';
 import { StockLogoComponent } from '../../shared/components/stock-logo/stock-logo.component';
 
@@ -129,31 +138,54 @@ export class StockDetailModalComponent {
   readonly auth = inject(AuthService);
   private readonly market = inject(MarketService);
   private readonly portfolio = inject(PortfolioService);
+  private readonly stockApi = inject(StockApiService);
 
   readonly formatNumber = formatNumber;
   readonly card = signal<StockCardView | null>(null);
   readonly msg = signal('');
   readonly busy = signal(false);
   lots = 10;
+  private fetchFor: string | null = null;
 
   constructor() {
+    // Önceki sürüm loadMarket() çağırıyordu ve getCard() üzerinden live sinyali
+    // okuyordu → istek bitince effect yeniden tetiklenip sonsuz /api/stocks döngüsü.
     effect(() => {
       if (this.modals.active() !== 'stockDetail') {
         this.card.set(null);
         this.msg.set('');
+        this.fetchFor = null;
         return;
       }
+
       const symbol = this.modals.stockSymbol();
       if (!symbol) return;
-      this.market.loadMarket();
-      this.card.set(this.market.getCard(symbol) ?? null);
-    });
 
-    effect(() => {
-      const symbol = this.modals.stockSymbol();
-      if (this.modals.active() !== 'stockDetail' || !symbol) return;
-      this.card.set(this.market.getCard(symbol) ?? null);
-      this.market.page();
+      const existing = this.market.getCard(symbol);
+      if (existing) {
+        this.card.set(existing);
+        return;
+      }
+
+      // Liste sayfasında yoksa (ör. taçtan açıldı) tek hisse çek — untracked ki döngü olmasın.
+      untracked(() => this.fetchDetail(symbol));
+    });
+  }
+
+  private fetchDetail(symbol: string): void {
+    if (this.fetchFor === symbol) return;
+    this.fetchFor = symbol;
+
+    this.stockApi.getStock(symbol).subscribe({
+      next: (detail) => {
+        if (this.modals.active() !== 'stockDetail' || this.modals.stockSymbol() !== symbol) {
+          return;
+        }
+        this.card.set(toCardView(detail));
+      },
+      error: () => {
+        if (this.fetchFor === symbol) this.fetchFor = null;
+      },
     });
   }
 
@@ -180,4 +212,28 @@ export class StockDetailModalComponent {
     this.modals.close();
     if (symbol) this.modals.openTimeMachine(symbol, 'bist');
   }
+}
+
+function toCardView(stock: StockDetail): StockCardView {
+  const close = stock.lastClose ?? stock.recentPrices?.[0]?.close ?? 0;
+  const open = stock.lastOpen ?? close;
+  const prev = stock.previousClose ?? close;
+  const spark =
+    stock.sparkline && stock.sparkline.length
+      ? stock.sparkline.map(Number)
+      : (stock.recentPrices ?? []).map((p) => Number(p.close)).reverse();
+
+  return {
+    ...stock,
+    close,
+    open,
+    changePct: changePercent(close, prev),
+    sparkline: spark.length ? spark : [close],
+    volume: (stock.lastVolume ?? 0) / 1_000_000,
+    color: symbolColor(stock.symbol),
+    tierBadge: tierBadge(stock.bistIndices ?? []),
+    crownLabel: stock.topGainerLabel ?? null,
+    crownPeriod: stock.topGainerPeriod ?? null,
+    crownReturnPct: stock.topGainerReturnPct ?? null,
+  };
 }

@@ -8,6 +8,12 @@ import {
   CryptoTicker,
 } from '../models/crypto.model';
 
+export interface CryptoStripItem {
+  symbol: string;
+  baseAsset: string;
+  priceDecimals: number;
+}
+
 @Injectable({ providedIn: 'root' })
 export class CryptoApiService {
   private readonly http = inject(HttpClient);
@@ -27,6 +33,13 @@ export class CryptoApiService {
         })),
       ),
     );
+  }
+
+  /** Header şeridinin sabit coin listesi (backend'de gün boyu değişmez). */
+  getTickerStrip(count = 20): Observable<CryptoStripItem[]> {
+    return this.http
+      .get<CryptoStripItem[]>(`${this.base}/ticker-strip?count=${count}`)
+      .pipe(map((list) => list ?? []));
   }
 
   getTicker(symbol: string): Observable<CryptoTicker> {
