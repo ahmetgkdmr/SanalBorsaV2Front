@@ -16,7 +16,7 @@ export function formatCryptoPrice(value: number, decimals?: number | null): stri
     const d = Math.min(12, Math.max(0, Math.floor(decimals)));
     return value.toLocaleString('tr-TR', {
       useGrouping: true,
-      minimumFractionDigits: d,
+      minimumFractionDigits: Math.min(d, significantFractionDigits(value)),
       maximumFractionDigits: d,
     });
   }
@@ -32,11 +32,42 @@ export function formatCryptoPrice(value: number, decimals?: number | null): stri
   else if (abs >= 0.0001) maxFrac = 8;
   else maxFrac = 10;
 
+  // "0,00" gibi anlamsız yuvarlamayı önle: anlamlı basamak kadar göster
+  const minFrac = abs > 0 && abs < 1 ? Math.min(maxFrac, Math.max(2, significantFractionDigits(value))) : 0;
+
   return value.toLocaleString('tr-TR', {
     useGrouping: true,
-    minimumFractionDigits: 0,
+    minimumFractionDigits: minFrac,
     maximumFractionDigits: maxFrac,
   });
+}
+
+/** Küçük fiyatlarda kaç ondalık basamak anlamlı (0,000098 → ~8). */
+function significantFractionDigits(value: number): number {
+  const abs = Math.abs(value);
+  if (!(abs > 0) || abs >= 1) return 2;
+  const digits = Math.ceil(-Math.log10(abs)) + 2;
+  return Math.min(12, Math.max(2, digits));
+}
+
+/**
+ * BIST / kripto / parite fiyatı — düşük fiyatlarda hane sayısını artırır.
+ * (Zaman makinesi "0,00 → 0,19" gibi kırpılmaları önler.)
+ */
+export function formatAssetPrice(
+  value: number,
+  market: 'bist' | 'crypto' | 'parity' = 'bist',
+  decimals?: number | null,
+): string {
+  if (!Number.isFinite(value)) return '—';
+
+  if (market === 'crypto') return formatCryptoPrice(value, decimals);
+
+  const abs = Math.abs(value);
+  if (abs >= 1) return formatNumber(value, 2);
+  if (abs >= 0.01) return formatNumber(value, 4);
+  // Çok ucuz BIST / parite
+  return formatCryptoPrice(value, decimals);
 }
 
 export function formatPrice(
@@ -45,7 +76,7 @@ export function formatPrice(
   decimals?: number | null,
 ): string {
   if (currency === 'USD' || currency === '$') return formatCryptoPrice(value, decimals);
-  return formatNumber(value, 2);
+  return formatAssetPrice(value, 'bist', decimals);
 }
 
 export function formatInteger(value: number): string {

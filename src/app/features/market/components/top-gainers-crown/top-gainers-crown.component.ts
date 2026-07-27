@@ -8,7 +8,7 @@
 } from '@angular/core';
 import { StockApiService, TopGainerItem } from '../../../../core/services/stock-api.service';
 import { ModalService } from '../../../../core/services/modal.service';
-import { formatNumber, symbolColor } from '../../../../core/utils/format.util';
+import { formatAssetPrice, formatNumber, symbolColor } from '../../../../core/utils/format.util';
 import { StockLogoComponent } from '../../../../shared/components/stock-logo/stock-logo.component';
 
 @Component({
@@ -58,9 +58,9 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
               <div class="ret mono">+{{ formatNumber(item.returnPct) }}%</div>
 
               <div class="foot mono">
-                <span>{{ formatNumber(item.startPrice) }} {{ currencySym }}</span>
+                <span>{{ formatAssetPrice(item.startPrice, marketType()) }} {{ currencySym }}</span>
                 <span class="arrow">→</span>
-                <span>{{ formatNumber(item.endPrice) }} {{ currencySym }}</span>
+                <span>{{ formatAssetPrice(item.endPrice, marketType()) }} {{ currencySym }}</span>
               </div>
             </button>
           }
@@ -233,6 +233,7 @@ export class TopGainersCrownComponent {
   readonly items = signal<TopGainerItem[]>([]);
   readonly asOf = signal<string | null>(null);
   readonly formatNumber = formatNumber;
+  readonly formatAssetPrice = formatAssetPrice;
 
   get currencySym(): string {
     return this.marketType() === 'crypto' ? '$' : '₺';

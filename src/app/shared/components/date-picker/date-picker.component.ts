@@ -4,6 +4,7 @@ import {
   ElementRef,
   HostListener,
   computed,
+  effect,
   input,
   model,
   signal,
@@ -48,14 +49,14 @@ interface CalCell {
           <div class="dph">
             <button type="button" class="dph-nav" (click)="prev()">‹</button>
             <div class="dph-title">
-              <select [value]="vm()" (change)="setMonth(+$any($event.target).value)">
+              <select (change)="onMonthSelect($event)">
                 @for (m of MONTHS; track $index) {
-                  <option [value]="$index">{{ m }}</option>
+                  <option [value]="$index" [selected]="vm() === $index">{{ m }}</option>
                 }
               </select>
-              <select [value]="vy()" (change)="setYear(+$any($event.target).value)">
+              <select (change)="onYearSelect($event)">
                 @for (y of yearList(); track y) {
-                  <option [value]="y">{{ y }}</option>
+                  <option [value]="y" [selected]="vy() === y">{{ y }}</option>
                 }
               </select>
             </div>
@@ -102,7 +103,7 @@ interface CalCell {
       color: var(--muted);
       margin-bottom: 8px;
       padding: 7px 11px;
-      background: rgba(255,255,255,0.04);
+      background: var(--panel2);
       border: 1px solid var(--line);
       border-radius: 10px;
       line-height: 1.5;
@@ -124,7 +125,7 @@ interface CalCell {
       font-weight: 600;
       transition: border-color 0.18s;
 
-      &:hover { border-color: rgba(255,255,255,0.3); }
+      &:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
       &:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
     }
 
@@ -145,12 +146,45 @@ interface CalCell {
       width: 268px;
       max-width: 100%;
       z-index: 200;
-      background: #1a1f2e;
+      background: var(--surface-elevated, var(--panel));
       border: 1.5px solid var(--line);
       border-radius: 12px;
       padding: 10px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+      box-shadow: var(--shadow);
       animation: dpIn 0.15s ease;
+      color: var(--text);
+    }
+
+    /* Açık modda takvim her zaman açık zemin + koyu yazı (kontrast garantisi) */
+    :host-context([data-theme='light']) .dp-pop {
+      background: #ffffff;
+      border-color: #d5dee9;
+      color: #152033;
+      box-shadow: 0 8px 28px rgba(21, 32, 51, 0.14);
+    }
+
+    :host-context([data-theme='light']) .dph-title select,
+    :host-context([data-theme='light']) .dph-nav {
+      background: #f0f4fa;
+      border-color: #d5dee9;
+      color: #152033;
+    }
+
+    :host-context([data-theme='light']) .dpg-dow {
+      color: #5a6b84;
+    }
+
+    :host-context([data-theme='light']) .dpg-day {
+      color: #152033;
+      &.dim { color: #9aa8bc; }
+      &.today:not(.sel) { color: #d4921a; }
+      &.off, &:disabled { color: #b8c2d1; }
+      &:hover:not(:disabled):not(.sel) { background: rgba(21, 32, 51, 0.06); }
+    }
+
+    :host-context([data-theme='light']) .dpf-btn {
+      color: #d4921a;
+      &:hover { background: rgba(21, 32, 51, 0.05); }
     }
 
     @keyframes dpIn {
@@ -173,7 +207,7 @@ interface CalCell {
       justify-content: center;
 
       select {
-        background: var(--panel);
+        background: var(--panel2);
         border: 1px solid var(--line);
         color: var(--text);
         font-weight: 700;
@@ -190,7 +224,7 @@ interface CalCell {
     }
 
     .dph-nav {
-      background: var(--panel);
+      background: var(--panel2);
       border: 1px solid var(--line);
       color: var(--text);
       width: 24px;
@@ -228,7 +262,7 @@ interface CalCell {
       background: transparent;
       color: var(--text);
       font-size: 11px;
-      font-weight: 500;
+      font-weight: 600;
       border-radius: 6px;
       cursor: pointer;
       display: flex;
@@ -238,9 +272,9 @@ interface CalCell {
       transition: background 0.1s;
 
       &:hover:not(:disabled):not(.sel) {
-        background: rgba(255,255,255,0.1);
+        background: var(--chip-hover);
       }
-      &.dim   { color: rgba(255,255,255,0.2); }
+      &.dim   { color: color-mix(in srgb, var(--muted) 55%, transparent); font-weight: 500; }
       &.today:not(.sel) {
         font-weight: 800;
         color: var(--accent);
@@ -251,10 +285,10 @@ interface CalCell {
         font-weight: 800;
       }
       &.off, &:disabled {
-        color: rgba(255,255,255,0.15);
+        color: color-mix(in srgb, var(--muted) 40%, transparent);
         cursor: not-allowed;
         text-decoration: line-through;
-        opacity: 0.4;
+        opacity: 0.55;
       }
     }
 
@@ -276,8 +310,10 @@ interface CalCell {
       cursor: pointer;
       padding: 3px 6px;
       border-radius: 6px;
-      &:hover { background: rgba(255,255,255,0.06); }
+      &:hover { background: var(--chip-hover); }
     }
+
+    .dp-trigger:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
   `,
 })
 export class DatePickerComponent implements OnInit {
@@ -292,6 +328,9 @@ export class DatePickerComponent implements OnInit {
   readonly open = signal(false);
   readonly vy   = signal(new Date().getFullYear());
   readonly vm   = signal(new Date().getMonth());
+
+  /** Native <select> DOM’a eklenirken sahte change ile ay/yılı sıfırlamasın. */
+  private suppressSelect = false;
 
   private readonly _today = new Date();
 
@@ -336,13 +375,33 @@ export class DatePickerComponent implements OnInit {
     return cells;
   });
 
-  constructor(private readonly _el: ElementRef) {}
+  constructor(private readonly _el: ElementRef) {
+    // Parent değeri sonradan set edilince (ör. en eski tarih) görünümü güncelle.
+    effect(() => {
+      const v = this.value() || this.minDate();
+      if (!v || this.open()) return;
+      this._syncView();
+    });
+  }
 
   ngOnInit(): void {
     this._syncView();
   }
 
-  toggle(): void { this.open.update(v => !v); }
+  toggle(): void {
+    if (this.open()) {
+      this.open.set(false);
+      return;
+    }
+    this._syncView();
+    this.suppressSelect = true;
+    this.open.set(true);
+    // Select mount + olası sahte change sonrası seçili aya geri kilitle.
+    setTimeout(() => {
+      this._syncView();
+      this.suppressSelect = false;
+    });
+  }
 
   prev(): void {
     if (this.vm() === 0) { this.vm.set(11); this.vy.update(y => y - 1); }
@@ -354,8 +413,15 @@ export class DatePickerComponent implements OnInit {
     else this.vm.update(m => m + 1);
   }
 
-  setMonth(m: number): void { this.vm.set(m); }
-  setYear(y: number):  void { this.vy.set(y); }
+  onMonthSelect(e: Event): void {
+    if (this.suppressSelect) return;
+    this.vm.set(+(e.target as HTMLSelectElement).value);
+  }
+
+  onYearSelect(e: Event): void {
+    if (this.suppressSelect) return;
+    this.vy.set(+(e.target as HTMLSelectElement).value);
+  }
 
   pick(c: CalCell): void {
     if (c.disabled) return;
@@ -389,10 +455,12 @@ export class DatePickerComponent implements OnInit {
     if (!this._el.nativeElement.contains(e.target)) this.open.set(false);
   }
 
+  /** Görünümü seçili tarihe (yoksa min) hizala. */
   private _syncView(): void {
-    const v = this.value();
-    if (!v) return;
+    const v = this.value() || this.minDate();
+    if (!v || v.length < 7) return;
     const d = new Date(v + 'T12:00:00');
+    if (Number.isNaN(d.getTime())) return;
     this.vy.set(d.getFullYear());
     this.vm.set(d.getMonth());
   }
