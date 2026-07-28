@@ -46,6 +46,10 @@ export class AuthService {
     await this.firebase.sendPhoneOtp(phoneE164, captchaContainerId);
   }
 
+  clearRecaptcha(captchaContainerId = 'recaptcha-container'): void {
+    this.firebase.clearRecaptcha(captchaContainerId);
+  }
+
   /** Girilen OTP kodu doğrular ve giriş yapar. */
   async verifyPhoneOtp(code: string): Promise<void> {
     const idToken = await this.firebase.verifyPhoneOtp(code);

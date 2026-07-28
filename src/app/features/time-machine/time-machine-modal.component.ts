@@ -27,6 +27,7 @@ import {
   formatInteger,
   formatMoneyAmount,
   formatNumber,
+  formatAssetPrice,
   formatTurkishDate,
   formatLotRange,
   symbolColor,
@@ -219,15 +220,15 @@ type PickerOption = {
                   class="f-input custom-amount-input"
                   [ngModel]="customAmount() > 0 ? customAmount() : null"
                   (ngModelChange)="onCustomAmountChange($event)"
-                  placeholder="Tutar girin ({{ isCryptoTm() ? '$' : '₺' }})"
+                  placeholder="Tutar girin (₺)"
                   min="1"
                   step="100"
                 />
-                <span class="currency-badge">{{ isCryptoTm() ? '$' : '₺' }}</span>
+                <span class="currency-badge">₺</span>
               </div>
               <div class="wage-info">
                 {{ mode() === 'dca' ? 'Her ay' : 'Tek seferinde' }}
-                <b>{{ formatInteger(customAmount()) }} {{ isCryptoTm() ? '$' : '₺' }}</b> yatırılacak.
+                <b>{{ formatInteger(customAmount()) }} ₺</b> yatırılacak.
               </div>
             </div>
           }
@@ -245,6 +246,7 @@ type PickerOption = {
 
         <!-- ── Sonuç ──────────────────────────────────────── -->
         @if (calc(); as r) {
+          <div #tmResult class="tm-scroll-target">
           @if (r.error) {
             <div class="result show">
               <p class="headline err">{{ r.error }}</p>
@@ -273,7 +275,7 @@ type PickerOption = {
                 </div>
                 <div class="stat">
                   <div class="k">ALIM FİYATI</div>
-                  <div class="v mono">{{ formatNumber(r.buyPrice) }} ₺</div>
+                  <div class="v mono">{{ formatAssetPrice(r.buyPrice, isCryptoTm() ? 'crypto' : 'bist') }} {{ isCryptoTm() ? '$' : '₺' }}</div>
                 </div>
                 <div class="stat">
                   <div class="k">{{ lotLabel() }}</div>
@@ -286,7 +288,7 @@ type PickerOption = {
                 </div>
                 <div class="stat">
                   <div class="k">BUGÜN</div>
-                  <div class="v mono">{{ formatNumber(r.currentPrice) }} ₺</div>
+                  <div class="v mono">{{ formatAssetPrice(r.currentPrice, isCryptoTm() ? 'crypto' : 'bist') }} {{ isCryptoTm() ? '$' : '₺' }}</div>
                 </div>
                 @if (!isInstrumentMode() && r.dividendsReceived > 0) {
                   <div class="stat">
@@ -305,10 +307,11 @@ type PickerOption = {
               </div>
             </div>
           }
+          </div>
         }
 
         <!-- ── Aynı gün X TL ile ne alsaydın? ─────────────────── -->
-        @if (leaders()) {
+        @if (showAltPanel()) {
           <div class="alt-panel">
             <div class="alt-head">
               <span class="alt-title">🔀 {{ altPanelTitle() }}</span>
@@ -318,7 +321,7 @@ type PickerOption = {
             @if (mode() === 'dca') {
               <p class="alt-dca-note">
                 Düzenli aylık alım seçili; aşağıdaki karşılaştırmalar tek seferlik alımla
-                {{ formatMoneyAmount(altInvestAmount()) }} {{ isCryptoTm() ? '$' : '₺' }}
+                {{ formatMoneyAmount(altInvestAmount()) }} ₺
                 yatırılmış gibi hesaplanmıştır (her ay tekrar eden alım değil).
               </p>
             }
@@ -337,7 +340,7 @@ type PickerOption = {
                   </div>
                   @if (p.leader; as row) {
                     <span class="chip-sub mono">
-                      {{ formatNumber(row.startPrice) }} → {{ formatNumber(row.endPrice) }} ₺
+                      {{ formatAssetPrice(row.startPrice, 'parity') }} → {{ formatAssetPrice(row.endPrice, 'parity') }} ₺
                     </span>
                     <span class="chip-grown mono" [class.neg]="row.returnPct < 0">
                       <span class="grown-from">{{ formatMoneyAmount(altInvestAmount()) }} ₺</span>
@@ -374,12 +377,12 @@ type PickerOption = {
                     <span class="alt-main">
                       <b>{{ altTitle(l) }}</b>
                       <span class="alt-sub mono">
-                        {{ formatNumber(l.startPrice) }} → {{ formatNumber(l.endPrice) }}
+                        {{ formatAssetPrice(l.startPrice, altTab()) }} → {{ formatAssetPrice(l.endPrice, altTab()) }}
                       </span>
                       <span class="alt-grown mono" [class.neg]="l.returnPct < 0">
-                        <span class="grown-from">{{ formatMoneyAmount(altInvestAmount()) }} {{ altCurrency() }}</span>
+                        <span class="grown-from">{{ formatMoneyAmount(altInvestAmount()) }} ₺</span>
                         <span class="grown-arrow">→</span>
-                        <span class="grown-to">~{{ formatMoneyAmount(grownFromReturn(l.returnPct)) }} {{ altCurrency() }}</span>
+                        <span class="grown-to">~{{ formatMoneyAmount(grownFromReturn(l.returnPct)) }} ₺</span>
                       </span>
                     </span>
                     <span class="alt-figures">
@@ -398,7 +401,9 @@ type PickerOption = {
         }
 
         @if (showSim() && calc() && !calc()!.error) {
-          <app-time-machine-simulation [calc]="calc()!" [runTrigger]="simTrigger()" />
+          <div #tmSim class="tm-scroll-target">
+            <app-time-machine-simulation [calc]="calc()!" [runTrigger]="simTrigger()" />
+          </div>
         }
       </div>
     </app-overlay>
@@ -412,6 +417,10 @@ type PickerOption = {
       border-radius: 20px;
       padding: 26px;
       position: relative;
+    }
+
+    .tm-scroll-target {
+      scroll-margin-top: 24px;
     }
 
     h2 {
@@ -832,7 +841,12 @@ type PickerOption = {
 
     .alt-title { font-size: 14px; font-weight: 800; }
 
-    .alt-when { font-size: 11px; opacity: 0.7; }
+    .alt-when {
+      font-size: 11px;
+      color: color-mix(in srgb, var(--text) 72%, var(--muted));
+      font-weight: 650;
+      letter-spacing: 0.01em;
+    }
 
     .parity-row {
       display: grid;
@@ -1038,6 +1052,7 @@ export class TimeMachineModalComponent {
   readonly formatNumber = formatNumber;
   readonly formatInteger = formatInteger;
   readonly formatMoneyAmount = formatMoneyAmount;
+  readonly formatAssetPrice = formatAssetPrice;
   readonly formatLotRange = formatLotRange;
   readonly symbolColor = symbolColor;
   readonly isInstrumentMode = computed(
@@ -1054,6 +1069,9 @@ export class TimeMachineModalComponent {
   readonly calc      = signal<TimeMachineCalc | null>(null);
   readonly showSim   = signal(false);
   readonly simTrigger = signal(0);
+
+  private readonly resultEl = viewChild<ElementRef<HTMLElement>>('tmResult');
+  private readonly simEl = viewChild<ElementRef<HTMLElement>>('tmSim');
 
   /** Modal bu oturumda açık mı — her yeni açılışta formu sıfırlamak için */
   private tmWasOpen = false;
@@ -1250,7 +1268,9 @@ export class TimeMachineModalComponent {
 
   readonly canCalculate = computed(() => {
     const d = this.dateStr();
-    return !!d && d.length >= 10 && !this.loading();
+    if (!d || d.length < 10 || this.loading()) return false;
+    if (this.investMode() === 'custom' && this.customAmount() <= 0) return false;
+    return true;
   });
 
   /** Sembol değişince / açılışta en erken tarihe snap için */
@@ -1271,13 +1291,18 @@ export class TimeMachineModalComponent {
     return getMinimumWage(iso) * (this.pct() / 100);
   });
 
-  readonly altCurrency = computed(() => (this.altTab() === 'crypto' ? '$' : '₺'));
+  /** Hesapla sonrası + geçerli tutar varken alternatif paneli göster. */
+  readonly showAltPanel = computed(() => {
+    const r = this.calc();
+    if (!r || r.error) return false;
+    if (this.altInvestAmount() <= 0) return false;
+    return !!this.leaders();
+  });
 
   readonly altPanelTitle = computed(() => {
     const amt = this.altInvestAmount();
-    const unit = this.isCryptoTm() ? '$' : '₺';
     if (amt <= 0) return 'Aynı gün ne alsaydın?';
-    return `Aynı gün ${formatMoneyAmount(amt)} ${unit} ile ne alsaydın?`;
+    return `Aynı gün ${formatMoneyAmount(amt)} ₺ ile ne alsaydın?`;
   });
 
   readonly parityChips = computed(() => {
@@ -1311,14 +1336,13 @@ export class TimeMachineModalComponent {
     const top = this.altList()[0];
     if (!top) return 'Getiriler seçilen günün kapanışından son kapanışa kadar hesaplanır.';
     const amt = this.altInvestAmount();
-    const unit = this.altCurrency();
     const grown = this.grownFromReturn(top.returnPct);
     const suffix =
       this.altTab() === 'crypto'
-        ? 'Getiriler fiyat değişimidir.'
+        ? 'Getiriler coin fiyat değişimidir; tutarlar TL cinsinden (aynı gün yatırılan tutara uygulanır).'
         : 'Getiri TV AdjustedClose (temettü/bölünme düzeltilmiş) oranıdır; gösterilen fiyatlar ham kapanıştır.';
     if (amt <= 0) return suffix;
-    return `O gün ${formatMoneyAmount(amt)} ${unit} ile ${this.altTitle(top)} alsaydın bugün ~${formatMoneyAmount(grown)} ${unit} olurdu. ${suffix}`;
+    return `O gün ${formatMoneyAmount(amt)} ₺ ile ${this.altTitle(top)} alsaydın bugün ~${formatMoneyAmount(grown)} ₺ olurdu. ${suffix}`;
   });
 
   constructor() {
@@ -1393,22 +1417,13 @@ export class TimeMachineModalComponent {
         },
       });
     });
-
-    // Seçilen tarih değişince alternatifleri getir
-    effect(() => {
-      if (this.modals.active() !== 'timeMachine') return;
-      this.altTab.set(this.isCryptoTm() ? 'crypto' : 'bist');
-      const iso = this.dateStr();
-      if (!iso || iso.length < 10) return;
-      this.loadLeaders(iso);
-    });
   }
 
   /** Her açılışta önceki girdi / sonucu temizle. Tarih min gelince effect doldurur. */
   private resetFormForOpen(crypto: boolean): void {
     this.mode.set('lump');
     this.pct.set(50);
-    this.investMode.set(crypto ? 'custom' : 'wage');
+    this.investMode.set('wage');
     this.customAmount.set(0);
     this.dateStr.set('');
     this.dateSnapSymbol = '';
@@ -1430,21 +1445,6 @@ export class TimeMachineModalComponent {
 
   returnMultiple(returnPct: number): number {
     return 1 + returnPct / 100;
-  }
-
-  private loadLeaders(iso: string): void {
-    if (this.leadersRequestedFor === iso) return;
-    this.leadersRequestedFor = iso;
-
-    this.market.getTimeMachineLeaders(iso).subscribe({
-      next: (r) => {
-        if (this.leadersRequestedFor !== iso) return;
-        this.leaders.set(r.bist.length || r.crypto.length || r.parity.length ? r : null);
-      },
-      error: () => {
-        if (this.leadersRequestedFor === iso) this.leaders.set(null);
-      },
-    });
   }
 
   setAltTab(tab: 'bist' | 'crypto'): void {
@@ -1578,6 +1578,41 @@ export class TimeMachineModalComponent {
     this.calc.set(null);
     this.showSim.set(false);
     this.simTrigger.set(0);
+    this.leaders.set(null);
+    this.leadersRequestedFor = '';
+  }
+
+  /** Asgari ücret veya özel tutar — her zaman TL. */
+  private resolveInvestAmountTry(): number {
+    if (this.investMode() === 'custom') return Math.max(0, this.customAmount());
+    const iso = this.dateStr();
+    if (!iso || iso.length < 7) return 0;
+    return getMinimumWage(iso) * (this.pct() / 100);
+  }
+
+  private usdTryFromLeaders(leaders: TimeMachineLeaders | null): { start: number; end: number } | null {
+    const row = leaders?.parity?.find((p) => p.symbol === 'USDTRY');
+    if (!row || row.startPrice <= 0 || row.endPrice <= 0) return null;
+    return { start: row.startPrice, end: row.endPrice };
+  }
+
+  private toTryCalc(r: TimeMachineCalc, amountTry: number, usd: { start: number; end: number }): TimeMachineCalc {
+    if (r.error) return r;
+    // DCA: API toplam USD yatırımı döner → başlangıç kuruyla TL'ye çevir (yaklaşık)
+    const invested =
+      this.mode() === 'dca' && r.invested > 0 ? r.invested * usd.start : amountTry;
+    const currentValue = r.currentValue * usd.end;
+    const gainPct = invested > 0 ? ((currentValue / invested) - 1) * 100 : r.gainPct;
+    return {
+      ...r,
+      invested,
+      currentValue,
+      gainPct,
+      dividendsReceived: r.dividendsReceived * usd.end,
+      dividendsReinvested: r.dividendsReinvested * usd.end,
+      cashRemaining: r.cashRemaining * usd.end,
+      valueSeries: (r.valueSeries ?? []).map((v) => v * usd.end),
+    };
   }
 
   calculate(): void {
@@ -1607,62 +1642,116 @@ export class TimeMachineModalComponent {
         error:
           'Endeksler için Zaman Makinesi desteklenmiyor. Endeks bileşimi değişir; temettü / bedelli / bedelsiz hisse bazında yansıtılamaz. Bir hisse veya döviz seç.',
       });
+      this.scrollToAnchor('result');
       return;
     }
 
     this.loading.set(true);
     this.showSim.set(false);
+    this.leaders.set(null);
+    this.leadersRequestedFor = '';
 
-    const amount =
-      this.investMode() === 'custom' && this.customAmount() > 0
-        ? this.customAmount()
-        : undefined;
+    const iso = this.dateStr();
+    const amountTry = this.resolveInvestAmountTry();
+    const crypto = this.isCryptoTm();
 
-    this.market
-      .calculateInvestment(
-        this.symbol(),
-        this.dateStr(),
-        this.pct(),
-        this.mode(),
-        amount,
-        this.isCryptoTm() ? 'crypto' : 'bist',
-      )
-      .subscribe({
-        next: (r) => {
-          this.calc.set(r);
-          this.loading.set(false);
-        },
-        error: () => {
-          this.calc.set({
-            symbol: this.symbol(),
-            mode: this.mode(),
-            invested: 0,
-            currentValue: 0,
-            gainPct: 0,
-            initialLots: 0,
-            lots: 0,
-            buyPrice: 0,
-            currentPrice: 0,
-            series: [],
-            valueSeries: [],
-            lotSeries: [],
-            lotEvents: [],
-            dateLabel: this.dateLabel(),
-            dividendsReceived: 0,
-            dividendsReinvested: 0,
-            lotsFromReinvestment: 0,
-            cashRemaining: 0,
-            storyLines: [],
-            error: 'Hesaplama başarısız. Backend bağlantısını kontrol et.',
-          });
-          this.loading.set(false);
-        },
+    const finishError = (msg: string) => {
+      this.calc.set({
+        symbol: this.symbol(),
+        mode: this.mode(),
+        invested: 0,
+        currentValue: 0,
+        gainPct: 0,
+        initialLots: 0,
+        lots: 0,
+        buyPrice: 0,
+        currentPrice: 0,
+        series: [],
+        valueSeries: [],
+        lotSeries: [],
+        lotEvents: [],
+        dateLabel: this.dateLabel(),
+        dividendsReceived: 0,
+        dividendsReinvested: 0,
+        lotsFromReinvestment: 0,
+        cashRemaining: 0,
+        storyLines: [],
+        error: msg,
       });
+      this.loading.set(false);
+      this.scrollToAnchor('result');
+    };
+
+    const runInvestment = (leaders: TimeMachineLeaders | null) => {
+      if (leaders && (leaders.bist.length || leaders.crypto.length || leaders.parity.length)) {
+        this.leaders.set(leaders);
+        this.leadersRequestedFor = iso;
+      }
+
+      let amountForApi: number | undefined;
+      let usd: { start: number; end: number } | null = null;
+
+      if (crypto) {
+        usd = this.usdTryFromLeaders(leaders);
+        if (!usd) {
+          finishError('Bu tarih için USD/TRY paritesi yok; kripto hesabı TL’ye çevrilemedi.');
+          return;
+        }
+        if (amountTry <= 0) {
+          finishError('Geçerli bir TL tutarı seç.');
+          return;
+        }
+        amountForApi = amountTry / usd.start;
+      } else if (this.investMode() === 'custom' && amountTry > 0) {
+        amountForApi = amountTry;
+      } else {
+        amountForApi = undefined;
+      }
+
+      this.market
+        .calculateInvestment(
+          this.symbol(),
+          iso,
+          this.pct(),
+          this.mode(),
+          amountForApi,
+          crypto ? 'crypto' : 'bist',
+        )
+        .subscribe({
+          next: (r) => {
+            this.calc.set(crypto && usd ? this.toTryCalc(r, amountTry, usd) : r);
+            this.loading.set(false);
+            this.scrollToAnchor('result');
+          },
+          error: () => finishError('Hesaplama başarısız. Backend bağlantısını kontrol et.'),
+        });
+    };
+
+    this.market.getTimeMachineLeaders(iso).subscribe({
+      next: (leaders) => runInvestment(leaders),
+      error: () => {
+        if (crypto) finishError('USD/TRY paritesi yüklenemedi.');
+        else runInvestment(null);
+      },
+    });
   }
 
   runSim(): void {
     if (!this.canSimulate()) return;
     this.showSim.set(true);
     this.simTrigger.update((n) => n + 1);
+    this.scrollToAnchor('sim');
+  }
+
+  /** Overlay scroll: sonuç / simülasyon bloğuna kaydır. */
+  private scrollToAnchor(which: 'result' | 'sim'): void {
+    // @if bloğu paint olduktan sonra scroll
+    setTimeout(() => {
+      const el =
+        which === 'sim'
+          ? this.simEl()?.nativeElement
+          : this.resultEl()?.nativeElement;
+      el?.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+    }, 80);
   }
 }

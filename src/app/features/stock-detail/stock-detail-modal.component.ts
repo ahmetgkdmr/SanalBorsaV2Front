@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   effect,
   inject,
   signal,
@@ -54,9 +55,22 @@ import { StockLogoComponent } from '../../shared/components/stock-logo/stock-log
 
           @if (auth.isLoggedIn()) {
             <div class="trade" style="margin-top: 16px">
-              <input class="f-input mono" type="number" min="1" [(ngModel)]="lots" />
+              <input
+                class="f-input mono"
+                type="number"
+                min="1"
+                step="1"
+                [(ngModel)]="lots"
+                placeholder="Lot miktarı giriniz"
+              />
               <button class="btn btn-buy" type="button" [disabled]="busy()" (click)="buy()">AL</button>
-              <button class="btn btn-sell" type="button" [disabled]="busy()" (click)="sell()">SAT</button>
+              <button
+                class="btn btn-sell"
+                type="button"
+                [disabled]="busy() || !canSell()"
+                [title]="canSell() ? '' : 'Bu hisseden pozisyonun yok'"
+                (click)="sell()"
+              >SAT</button>
             </div>
             @if (msg()) {
               <div class="trade-msg" [style.color]="msg().startsWith('✓') ? 'var(--up)' : 'var(--down)'">
@@ -144,8 +158,21 @@ export class StockDetailModalComponent {
   readonly card = signal<StockCardView | null>(null);
   readonly msg = signal('');
   readonly busy = signal(false);
-  lots = 10;
+  /** Boş başlar — kullanıcı lot girmeli. */
+  lots: number | null = null;
   private fetchFor: string | null = null;
+  private tradeSymbol: string | null = null;
+
+  readonly ownedLots = computed(() => {
+    const sym = this.card()?.symbol;
+    if (!sym) return 0;
+    const h = this.portfolio.portfolio().holdings.find(
+      (x) => x.marketType === 'bist' && x.symbol.toUpperCase() === sym.toUpperCase(),
+    );
+    return h?.quantity ?? h?.lots ?? 0;
+  });
+
+  readonly canSell = computed(() => this.ownedLots() > 0);
 
   constructor() {
     // Önceki sürüm loadMarket() çağırıyordu ve getCard() üzerinden live sinyali
@@ -154,12 +181,20 @@ export class StockDetailModalComponent {
       if (this.modals.active() !== 'stockDetail') {
         this.card.set(null);
         this.msg.set('');
+        this.lots = null;
         this.fetchFor = null;
+        this.tradeSymbol = null;
         return;
       }
 
       const symbol = this.modals.stockSymbol();
       if (!symbol) return;
+
+      if (this.tradeSymbol !== symbol) {
+        this.tradeSymbol = symbol;
+        this.msg.set('');
+        this.lots = null;
+      }
 
       const existing = this.market.getCard(symbol);
       if (existing) {
@@ -192,18 +227,28 @@ export class StockDetailModalComponent {
   async buy(): Promise<void> {
     const d = this.card();
     if (!d || this.busy()) return;
+    const lots = Number(this.lots);
+    if (!Number.isFinite(lots) || lots < 1) {
+      this.msg.set('Alım için lot miktarı gir.');
+      return;
+    }
     this.busy.set(true);
-    const err = await this.portfolio.buy(d.symbol, this.lots, d.close);
-    this.msg.set(err ?? `✓ ${this.lots} lot alındı.`);
+    const err = await this.portfolio.buy(d.symbol, Math.floor(lots), d.close);
+    this.msg.set(err ?? `✓ ${Math.floor(lots)} lot alındı.`);
     this.busy.set(false);
   }
 
   async sell(): Promise<void> {
     const d = this.card();
-    if (!d || this.busy()) return;
+    if (!d || this.busy() || !this.canSell()) return;
+    const lots = Number(this.lots);
+    if (!Number.isFinite(lots) || lots < 1) {
+      this.msg.set('Satım için lot miktarı gir.');
+      return;
+    }
     this.busy.set(true);
-    const err = await this.portfolio.sell(d.symbol, this.lots, d.close);
-    this.msg.set(err ?? `✓ ${this.lots} lot satıldı.`);
+    const err = await this.portfolio.sell(d.symbol, Math.floor(lots), d.close);
+    this.msg.set(err ?? `✓ ${Math.floor(lots)} lot satıldı.`);
     this.busy.set(false);
   }
 
@@ -215,13 +260,18 @@ export class StockDetailModalComponent {
 }
 
 function toCardView(stock: StockDetail): StockCardView {
-  const close = stock.lastClose ?? stock.recentPrices?.[0]?.close ?? 0;
-  const open = stock.lastOpen ?? close;
-  const prev = stock.previousClose ?? close;
+  // recentPrices API'de tarihe göre artan; [0]=en eski, [^1]=son gün.
+  // lastClose/previousClose/lastVolume varsa onları kullan; yoksa son iki günden türet.
+  const prices = stock.recentPrices ?? [];
+  const latest = prices.length ? prices[prices.length - 1] : null;
+  const prior = prices.length > 1 ? prices[prices.length - 2] : null;
+  const close = stock.lastClose ?? latest?.close ?? 0;
+  const open = stock.lastOpen ?? latest?.open ?? close;
+  const prev = stock.previousClose ?? prior?.close ?? close;
   const spark =
     stock.sparkline && stock.sparkline.length
       ? stock.sparkline.map(Number)
-      : (stock.recentPrices ?? []).map((p) => Number(p.close)).reverse();
+      : prices.map((p) => Number(p.close));
 
   return {
     ...stock,
@@ -229,7 +279,7 @@ function toCardView(stock: StockDetail): StockCardView {
     open,
     changePct: changePercent(close, prev),
     sparkline: spark.length ? spark : [close],
-    volume: (stock.lastVolume ?? 0) / 1_000_000,
+    volume: (stock.lastVolume ?? latest?.volume ?? 0) / 1_000_000,
     color: symbolColor(stock.symbol),
     tierBadge: tierBadge(stock.bistIndices ?? []),
     crownLabel: stock.topGainerLabel ?? null,

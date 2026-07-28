@@ -45,26 +45,31 @@ export class FirebaseService {
    * @param captchaContainerId  DOM element id'si (reCAPTCHA için)
    */
   async sendPhoneOtp(phoneE164: string, captchaContainerId: string): Promise<void> {
-    // Önceki verifier'ı temizle — aynı container'a çift render engelini önler
-    if (this.recaptchaVerifier) {
-      this.recaptchaVerifier.clear();
-      this.recaptchaVerifier = null;
+    this.clearRecaptcha(captchaContainerId);
+
+    const container = document.getElementById(captchaContainerId);
+    if (!container) {
+      throw new Error('reCAPTCHA alanı bulunamadı. Sayfayı yenileyip tekrar dene.');
     }
 
     this.recaptchaVerifier = new RecaptchaVerifier(this.auth, captchaContainerId, {
       size: 'invisible',
       callback: () => { /* reCAPTCHA çözüldü */ },
       'expired-callback': () => {
-        this.recaptchaVerifier?.clear();
-        this.recaptchaVerifier = null;
+        this.clearRecaptcha(captchaContainerId);
       },
     });
 
-    this.confirmationResult = await signInWithPhoneNumber(
-      this.auth,
-      phoneE164,
-      this.recaptchaVerifier,
-    );
+    try {
+      this.confirmationResult = await signInWithPhoneNumber(
+        this.auth,
+        phoneE164,
+        this.recaptchaVerifier,
+      );
+    } catch (err) {
+      this.clearRecaptcha(captchaContainerId);
+      throw err;
+    }
   }
 
   /** Gönderilen SMS kodunu doğrular, Firebase ID Token döner. */
@@ -73,6 +78,19 @@ export class FirebaseService {
       throw new Error('Önce telefon numarasına kod gönderilmeli.');
     const result = await this.confirmationResult.confirm(code);
     return result.user.getIdToken();
+  }
+
+  /** Önceki invisible reCAPTCHA widget'ını ve DOM içeriğini temizler. */
+  clearRecaptcha(captchaContainerId = 'recaptcha-container'): void {
+    try {
+      this.recaptchaVerifier?.clear();
+    } catch {
+      // already cleared / detached
+    }
+    this.recaptchaVerifier = null;
+
+    const el = document.getElementById(captchaContainerId);
+    if (el) el.innerHTML = '';
   }
 
   /** Firebase oturumunu kapatır. */

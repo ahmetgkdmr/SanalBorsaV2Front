@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { CryptoDepth, CryptoFillPreview } from '../../core/models/crypto.model';
@@ -85,7 +85,13 @@ import { StockLogoComponent } from '../../shared/components/stock-logo/stock-log
                 [placeholder]="mode() === 'quote' ? 'Örn. 1000 USD' : 'Örn. 0.01'"
               />
               <button class="btn btn-buy" type="button" [disabled]="busy()" (click)="buy()">AL</button>
-              <button class="btn btn-sell" type="button" [disabled]="busy()" (click)="sell()">SAT</button>
+              <button
+                class="btn btn-sell"
+                type="button"
+                [disabled]="busy() || !canSell()"
+                [title]="canSell() ? '' : 'Bu coinden pozisyonun yok'"
+                (click)="sell()"
+              >SAT</button>
             </div>
             <button class="preview-btn" type="button" [disabled]="busy()" (click)="preview()">
               Emir önizle
@@ -224,10 +230,23 @@ export class CryptoDetailModalComponent {
   readonly msg = signal('');
   readonly busy = signal(false);
   readonly mode = signal<'quote' | 'qty'>('quote');
-  amount = 1000;
+  /** Boş başlar — kullanıcı tutar/miktar girmeli. */
+  amount: number | null = null;
 
   readonly asks = signal<{ price: number; quantity: number }[]>([]);
   readonly bids = signal<{ price: number; quantity: number }[]>([]);
+  private tradeSymbol: string | null = null;
+
+  readonly ownedQty = computed(() => {
+    const sym = this.symbol();
+    if (!sym) return 0;
+    const h = this.portfolio.portfolio().holdings.find(
+      (x) => x.marketType === 'crypto' && x.symbol.toUpperCase() === sym.toUpperCase(),
+    );
+    return h?.quantity ?? 0;
+  });
+
+  readonly canSell = computed(() => this.ownedQty() > 0);
 
   constructor() {
     effect(() => {
@@ -235,11 +254,20 @@ export class CryptoDetailModalComponent {
         this.symbol.set('');
         this.fill.set(null);
         this.msg.set('');
+        this.amount = null;
+        this.tradeSymbol = null;
         return;
       }
       const sym = this.modals.stockSymbol();
       if (!sym) return;
-      this.symbol.set(sym.toUpperCase());
+      const upper = sym.toUpperCase();
+      this.symbol.set(upper);
+      if (this.tradeSymbol !== upper) {
+        this.tradeSymbol = upper;
+        this.msg.set('');
+        this.amount = null;
+        this.fill.set(null);
+      }
       const card = this.cryptoMarket.getCard(sym);
       if (card) {
         this.price.set(card.close);
@@ -272,15 +300,25 @@ export class CryptoDetailModalComponent {
     }
   }
 
+  private parseAmount(): number {
+    const n = Number(this.amount);
+    return Number.isFinite(n) ? n : 0;
+  }
+
   async preview(): Promise<void> {
     const sym = this.symbol();
-    if (!sym || this.amount <= 0) return;
+    const amount = this.parseAmount();
+    if (!sym) return;
+    if (amount <= 0) {
+      this.msg.set(this.mode() === 'quote' ? 'Önizleme için USD tutarı gir.' : 'Önizleme için miktar gir.');
+      return;
+    }
     this.busy.set(true);
     try {
       const body =
         this.mode() === 'quote'
-          ? { symbol: sym, side: 'buy' as const, quoteUsd: this.amount }
-          : { symbol: sym, side: 'buy' as const, quantity: this.amount };
+          ? { symbol: sym, side: 'buy' as const, quoteUsd: amount }
+          : { symbol: sym, side: 'buy' as const, quantity: amount };
       const f = await firstValueFrom(this.cryptoApi.quote(body));
       this.fill.set(f);
       this.msg.set(f.fullyFilled ? '✓ Önizleme hazır' : 'Derinlik yetersiz (tam fill yok)');
@@ -293,10 +331,15 @@ export class CryptoDetailModalComponent {
 
   async buy(): Promise<void> {
     const sym = this.symbol();
-    if (!sym || this.amount <= 0 || this.busy()) return;
+    if (!sym || this.busy()) return;
+    const amount = this.parseAmount();
+    if (amount <= 0) {
+      this.msg.set(this.mode() === 'quote' ? 'Alım için USD tutarı gir.' : 'Alım için miktar gir.');
+      return;
+    }
     this.busy.set(true);
     const opts =
-      this.mode() === 'quote' ? { quoteUsd: this.amount } : { quantity: this.amount };
+      this.mode() === 'quote' ? { quoteUsd: amount } : { quantity: amount };
     const r = await this.portfolio.buyCrypto(sym, opts);
     if (r.error) this.msg.set(r.error);
     else {
@@ -309,15 +352,16 @@ export class CryptoDetailModalComponent {
 
   async sell(): Promise<void> {
     const sym = this.symbol();
-    if (!sym || this.busy()) return;
+    if (!sym || this.busy() || !this.canSell()) return;
+    const amount = this.parseAmount();
     const qty =
       this.mode() === 'qty'
-        ? this.amount
+        ? amount
         : this.price() > 0
-          ? this.amount / this.price()
+          ? amount / this.price()
           : 0;
-    if (qty <= 0) {
-      this.msg.set('Geçerli miktar gir.');
+    if (amount <= 0 || qty <= 0) {
+      this.msg.set(this.mode() === 'quote' ? 'Satım için USD tutarı gir.' : 'Satım için miktar gir.');
       return;
     }
     this.busy.set(true);
