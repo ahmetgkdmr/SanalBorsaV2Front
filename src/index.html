@@ -15,6 +15,7 @@
   </head>
   <body>
     <script>
+      /* Şimdilik yalnızca açık mod — koyu tema seçimi kapalı
       try {
         var t = localStorage.getItem('sanalborsa.theme');
         if (t === 'light') {
@@ -27,6 +28,10 @@
       } catch (e) {
         document.documentElement.setAttribute('data-theme', 'dark');
       }
+      */
+      document.documentElement.setAttribute('data-theme', 'light');
+      document.documentElement.style.colorScheme = 'light';
+      try { localStorage.setItem('sanalborsa.theme', 'light'); } catch (e) {}
     </script>
     <app-root></app-root>
   </body>
