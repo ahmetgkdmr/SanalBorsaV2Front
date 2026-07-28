@@ -5,14 +5,18 @@ export type AppTheme = 'dark' | 'light';
 const STORAGE_KEY = 'sanalborsa.theme';
 
 function readStored(): AppTheme {
+  // Şimdilik yalnızca açık mod
+  return 'light';
+  /*
   try {
     const v = localStorage.getItem(STORAGE_KEY);
     if (v === 'light') return 'light';
     // 'modern' veya bilinmeyen → koyu
   } catch {
-    /* ignore */
+    // ignore
   }
   return 'dark';
+  */
 }
 
 @Injectable({ providedIn: 'root' })
@@ -31,13 +35,17 @@ export class ThemeService {
     });
   }
 
-  setTheme(theme: AppTheme): void {
-    this.theme.set(theme);
+  setTheme(_theme: AppTheme): void {
+    // Şimdilik koyu moda geçiş kapalı
+    this.theme.set('light');
+    // this.theme.set(theme);
   }
 
-  private apply(theme: AppTheme): void {
+  private apply(_theme: AppTheme): void {
     const root = document.documentElement;
-    root.setAttribute('data-theme', theme);
-    root.style.colorScheme = theme === 'light' ? 'light' : 'dark';
+    root.setAttribute('data-theme', 'light');
+    root.style.colorScheme = 'light';
+    // root.setAttribute('data-theme', theme);
+    // root.style.colorScheme = theme === 'light' ? 'light' : 'dark';
   }
 }

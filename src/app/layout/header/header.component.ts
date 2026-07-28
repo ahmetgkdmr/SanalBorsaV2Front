@@ -4,7 +4,6 @@ import { AuthService } from '../../core/services/auth.service';
 import { IndexService } from '../../core/services/index.service';
 import { MarketTypeService } from '../../core/services/market-type.service';
 import { ModalService } from '../../core/services/modal.service';
-import { ThemeService, AppTheme } from '../../core/services/theme.service';
 import { formatTime } from '../../core/utils/format.util';
 import { MarketTickerComponent } from './market-ticker.component';
 
@@ -30,25 +29,6 @@ import { MarketTickerComponent } from './market-ticker.component';
         </a>
 
         <div class="top-actions">
-          <div class="theme-switch" role="group" aria-label="Görünüm teması">
-            <button
-              type="button"
-              [class.active]="theme.theme() === 'dark'"
-              (click)="setTheme('dark')"
-              title="Koyu mod"
-            >
-              Koyu
-            </button>
-            <button
-              type="button"
-              [class.active]="theme.theme() === 'light'"
-              (click)="setTheme('light')"
-              title="Açık mod"
-            >
-              Açık
-            </button>
-          </div>
-
           <button class="pill-btn prem" type="button" (click)="modals.openTimeMachine()">
             🕰️ Zaman Makinesi <span class="prem-tag">PREMIUM</span>
           </button>
@@ -111,6 +91,7 @@ import { MarketTickerComponent } from './market-ticker.component';
       color: #0b1220;
     }
 
+    /* .theme-switch — şimdilik kapalı (sadece açık mod)
     .theme-switch {
       display: inline-flex;
       align-items: center;
@@ -145,6 +126,7 @@ import { MarketTickerComponent } from './market-ticker.component';
     :host-context([data-theme='light']) .theme-switch button.active {
       box-shadow: 0 1px 4px rgba(21, 32, 51, 0.08);
     }
+    */
 
     .brand h1 {
       font-size: 19px;
@@ -278,7 +260,6 @@ import { MarketTickerComponent } from './market-ticker.component';
 export class HeaderComponent implements OnInit, OnDestroy {
   readonly auth = inject(AuthService);
   readonly modals = inject(ModalService);
-  readonly theme = inject(ThemeService);
   readonly marketType = inject(MarketTypeService);
   private readonly indexService = inject(IndexService);
 
@@ -307,10 +288,6 @@ export class HeaderComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     if (this.clockTimer) clearInterval(this.clockTimer);
     this.destroyRetry?.();
-  }
-
-  setTheme(theme: AppTheme): void {
-    this.theme.setTheme(theme);
   }
 
   logout(): void {

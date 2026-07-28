@@ -1,3 +1,4 @@
+/* Koyu mod — şimdilik kapalı (sadece açık mod aktif)
 :root,
 [data-theme='dark'] {
   --bg: #0d1321;
@@ -28,8 +29,10 @@
   --chip-hover: rgba(255, 255, 255, 0.06);
   --surface-elevated: var(--panel);
 }
+*/
 
-/* ── Açık mod ───────────────────────────────────────────────────────────── */
+/* ── Açık mod (tek aktif tema) ──────────────────────────────────────────── */
+:root,
 [data-theme='light'] {
   --bg: #e8eef6;
   --bg-top: #f5f8fc;
