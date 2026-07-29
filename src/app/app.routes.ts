@@ -21,6 +21,16 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/leaderboard/leaderboard.page').then((m) => m.LeaderboardPageComponent),
       },
+      {
+        path: 'kullanim-sartlari',
+        loadComponent: () =>
+          import('./features/legal/terms.page').then((m) => m.TermsPageComponent),
+      },
+      {
+        path: 'gizlilik',
+        loadComponent: () =>
+          import('./features/legal/privacy.page').then((m) => m.PrivacyPageComponent),
+      },
     ],
   },
   { path: '**', redirectTo: '' },

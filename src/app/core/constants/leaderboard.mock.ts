@@ -1,10 +1,20 @@
+export interface LeaderTrade {
+  symbol: string;
+  side: 'AL' | 'SAT';
+  lots: number;
+  at: string;
+  price?: number;
+}
+
 export interface LeaderboardEntry {
   rank: number;
   username: string;
   gainPct: number;
   portfolioValue: number;
   avatarColor: string;
-  trades: { symbol: string; side: string; lots: number; at: string }[];
+  /** İşlem geçmişi herkese açık mı? */
+  tradeHistoryPublic: boolean;
+  trades: LeaderTrade[];
 }
 
 const MOCK_USERS = [
@@ -13,6 +23,25 @@ const MOCK_USERS = [
   'PortfoyPatronu', 'HisseAvcisi', 'BullRun2025', 'BearKiller', 'TrendTakipci',
   'RiskYoneticisi', 'UzunVadeci', 'GunlukTrader', 'SektörUzmani', 'EndeksAvcisi',
 ];
+
+const SYMBOLS = ['THYAO', 'GARAN', 'ASELS', 'EREGL', 'SISE', 'KCHOL', 'BIMAS', 'TCELL'];
+
+function buildTrades(seed: number): LeaderTrade[] {
+  const trades: LeaderTrade[] = [];
+  for (let i = 0; i < 14; i++) {
+    const sym = SYMBOLS[(seed + i * 3) % SYMBOLS.length];
+    const side: 'AL' | 'SAT' = (seed + i) % 3 === 0 ? 'SAT' : 'AL';
+    const day = 20 - (i % 18);
+    trades.push({
+      symbol: sym,
+      side,
+      lots: 10 + ((seed + i * 7) % 90),
+      price: 20 + ((seed + i * 11) % 400) + (i % 10) / 10,
+      at: `2026-07-${String(Math.max(1, day)).padStart(2, '0')}`,
+    });
+  }
+  return trades;
+}
 
 export function buildLeaderboard(): LeaderboardEntry[] {
   return MOCK_USERS.map((username, i) => {
@@ -24,10 +53,9 @@ export function buildLeaderboard(): LeaderboardEntry[] {
       gainPct,
       portfolioValue,
       avatarColor: `hsl(${(i * 37) % 360} 55% 45%)`,
-      trades: [
-        { symbol: 'THYAO', side: 'AL', lots: 50, at: '2026-07-07' },
-        { symbol: 'GARAN', side: 'SAT', lots: 100, at: '2026-07-05' },
-      ],
+      // Birkaç kullanıcı gizlilik kapalı (demo blur)
+      tradeHistoryPublic: i % 5 !== 2,
+      trades: buildTrades(i + 1),
     };
   });
 }

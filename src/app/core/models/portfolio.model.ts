@@ -27,9 +27,18 @@ export interface PortfolioState {
   cashTry: number;
   cashUsd: number;
   holdings: PortfolioHolding[];
+  /** @deprecated sayfalı endpoint kullan */
   transactions: PortfolioTransaction[];
   /** @deprecated alias */
   cash?: number;
+}
+
+export interface PagedTransactions {
+  items: PortfolioTransaction[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
 }
 
 /** @deprecated Eski local-auth için — AuthUser kullan. */

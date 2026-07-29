@@ -6,6 +6,7 @@ import { LoginModalComponent } from '../../features/auth/login-modal/login-modal
 import { CryptoDetailModalComponent } from '../../features/crypto-detail/crypto-detail-modal.component';
 import { StockDetailModalComponent } from '../../features/stock-detail/stock-detail-modal.component';
 import { TimeMachineModalComponent } from '../../features/time-machine/time-machine-modal.component';
+import { AlertModalComponent } from '../../shared/components/alert-modal/alert-modal.component';
 
 @Component({
   selector: 'app-shell',
@@ -18,6 +19,7 @@ import { TimeMachineModalComponent } from '../../features/time-machine/time-mach
     StockDetailModalComponent,
     CryptoDetailModalComponent,
     TimeMachineModalComponent,
+    AlertModalComponent,
   ],
   template: `
     <app-header />
@@ -28,6 +30,7 @@ import { TimeMachineModalComponent } from '../../features/time-machine/time-mach
     <app-stock-detail-modal />
     <app-crypto-detail-modal />
     <app-time-machine-modal />
+    <app-alert-modal />
   `,
 })
 export class ShellComponent {}

@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, catchError, map, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
+  PagedTransactions,
   PortfolioHolding,
   PortfolioState,
   PortfolioTransaction,
@@ -20,7 +21,7 @@ interface ApiPortfolio {
     quantity: number;
     avgCost: number;
   }[];
-  transactions: {
+  transactions?: {
     id: string;
     symbol: string;
     marketType: string;
@@ -31,6 +32,14 @@ interface ApiPortfolio {
     fillBreakdownJson?: string | null;
     executedAt: string;
   }[];
+}
+
+interface ApiPagedTransactions {
+  items: ApiPortfolio['transactions'];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
 }
 
 interface ApiCryptoTradeResult {
@@ -45,6 +54,14 @@ export class PortfolioApiService {
 
   get(): Observable<PortfolioState> {
     return this.http.get<ApiPortfolio>(this.base).pipe(map(mapPortfolio));
+  }
+
+  getTransactions(page = 1, pageSize = 10): Observable<PagedTransactions> {
+    return this.http
+      .get<ApiPagedTransactions>(`${this.base}/transactions`, {
+        params: { page: String(page), pageSize: String(pageSize) },
+      })
+      .pipe(map(mapPagedTransactions), catchError(mapHttpError));
   }
 
   buyBist(symbol: string, lots: number): Observable<PortfolioState> {
@@ -84,16 +101,8 @@ export class PortfolioApiService {
   }
 }
 
-function mapPortfolio(p: ApiPortfolio): PortfolioState {
-  const holdings: PortfolioHolding[] = (p.holdings ?? []).map((h) => ({
-    symbol: h.symbol,
-    marketType: h.marketType === 'crypto' ? 'crypto' : 'bist',
-    quantity: Number(h.quantity),
-    avgCost: Number(h.avgCost),
-    lots: Number(h.quantity),
-  }));
-
-  const transactions: PortfolioTransaction[] = (p.transactions ?? []).map((t) => ({
+function mapTx(t: NonNullable<ApiPortfolio['transactions']>[number]): PortfolioTransaction {
+  return {
     id: t.id,
     symbol: t.symbol,
     marketType: t.marketType === 'crypto' ? 'crypto' : 'bist',
@@ -104,6 +113,26 @@ function mapPortfolio(p: ApiPortfolio): PortfolioState {
     fillBreakdownJson: t.fillBreakdownJson,
     at: t.executedAt,
     lots: Number(t.quantity),
+  };
+}
+
+function mapPagedTransactions(p: ApiPagedTransactions): PagedTransactions {
+  return {
+    items: (p.items ?? []).map(mapTx),
+    page: Number(p.page) || 1,
+    pageSize: Number(p.pageSize) || 10,
+    totalCount: Number(p.totalCount) || 0,
+    totalPages: Number(p.totalPages) || 0,
+  };
+}
+
+function mapPortfolio(p: ApiPortfolio): PortfolioState {
+  const holdings: PortfolioHolding[] = (p.holdings ?? []).map((h) => ({
+    symbol: h.symbol,
+    marketType: h.marketType === 'crypto' ? 'crypto' : 'bist',
+    quantity: Number(h.quantity),
+    avgCost: Number(h.avgCost),
+    lots: Number(h.quantity),
   }));
 
   return {
@@ -111,7 +140,7 @@ function mapPortfolio(p: ApiPortfolio): PortfolioState {
     cashUsd: Number(p.cashUsd),
     cash: Number(p.cashTry),
     holdings,
-    transactions,
+    transactions: (p.transactions ?? []).map(mapTx),
   };
 }
 

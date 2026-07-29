@@ -1,14 +1,17 @@
 export interface AuthUser {
   id: string;
+  username: string;
   displayName: string;
   email?: string | null;
   phoneNumber?: string | null;
   avatarUrl?: string | null;
-  provider: 'google' | 'phone';
+  provider: 'google' | 'phone' | 'local';
   /** @deprecated use portfolioCashTry */
   portfolioCash?: number;
   portfolioCashTry: number;
   portfolioCashUsd: number;
+  /** İşlem geçmişi liderlikte başkalarına görünsün mü? Varsayılan true. */
+  showTradeHistoryPublic: boolean;
 }
 
 export interface AuthTokens {
@@ -21,6 +24,28 @@ export interface LoginResult extends AuthTokens {
   user: AuthUser;
 }
 
+export interface ProfileSetupHint {
+  email?: string | null;
+  suggestedDisplayName?: string | null;
+  avatarUrl?: string | null;
+  suggestedUsername: string;
+}
+
+export interface AuthExchangeResult {
+  needsProfile: boolean;
+  accessToken?: string | null;
+  refreshToken?: string | null;
+  expiresAt?: string | null;
+  user?: AuthUser | null;
+  profileHint?: ProfileSetupHint | null;
+}
+
+export interface UsernameAvailability {
+  username: string;
+  available: boolean;
+  reason?: string | null;
+}
+
 export interface AuthSession {
   user: AuthUser;
   tokens: AuthTokens;
@@ -28,11 +53,14 @@ export interface AuthSession {
 
 const SESSION_KEY = 'sb_auth_session';
 
-export function normalizeAuthUser(raw: Partial<AuthUser> & { id: string; displayName: string }): AuthUser {
+export function normalizeAuthUser(
+  raw: Partial<AuthUser> & { id: string; displayName: string },
+): AuthUser {
   const tryCash = Number(raw.portfolioCashTry ?? raw.portfolioCash ?? 1_000_000);
   const usdCash = Number(raw.portfolioCashUsd ?? 100_000);
   return {
     id: String(raw.id),
+    username: raw.username?.trim() || raw.displayName,
     displayName: raw.displayName,
     email: raw.email,
     phoneNumber: raw.phoneNumber,
@@ -41,6 +69,7 @@ export function normalizeAuthUser(raw: Partial<AuthUser> & { id: string; display
     portfolioCash: tryCash,
     portfolioCashTry: tryCash,
     portfolioCashUsd: usdCash,
+    showTradeHistoryPublic: raw.showTradeHistoryPublic !== false,
   };
 }
 

@@ -8,7 +8,6 @@ export interface IndexTicker {
 }
 
 export const STARTING_CASH = 1_000_000;
-export const PREMIUM_PASSWORD = '12345';
 
 /**
  * Net asgari ücret dönemleri (Yeni TL).

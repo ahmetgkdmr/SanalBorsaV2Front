@@ -158,9 +158,10 @@ import { StockLogoComponent } from '../../shared/components/stock-logo/stock-log
       background: var(--panel2);
       border: 1px solid var(--line);
       border-radius: 12px;
-      padding: 10px;
+      padding: 10px 6px 10px 10px;
       max-height: 220px;
       overflow: auto;
+      overscroll-behavior: contain;
     }
     .depth-h {
       font-size: 10px; font-weight: 800; letter-spacing: 0.5px;

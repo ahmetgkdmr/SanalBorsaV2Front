@@ -234,7 +234,8 @@ export class StockDetailModalComponent {
     }
     this.busy.set(true);
     const err = await this.portfolio.buy(d.symbol, Math.floor(lots), d.close);
-    this.msg.set(err ?? `✓ ${Math.floor(lots)} lot alındı.`);
+    if (err === '__bist_closed__') this.msg.set('');
+    else this.msg.set(err ?? `✓ ${Math.floor(lots)} lot alındı.`);
     this.busy.set(false);
   }
 
@@ -248,7 +249,8 @@ export class StockDetailModalComponent {
     }
     this.busy.set(true);
     const err = await this.portfolio.sell(d.symbol, Math.floor(lots), d.close);
-    this.msg.set(err ?? `✓ ${Math.floor(lots)} lot satıldı.`);
+    if (err === '__bist_closed__') this.msg.set('');
+    else this.msg.set(err ?? `✓ ${Math.floor(lots)} lot satıldı.`);
     this.busy.set(false);
   }
 
