@@ -38,7 +38,7 @@ import { MarketTickerComponent } from './market-ticker.component';
           @if (auth.isLoggedIn()) {
             <span class="user-chip">
               <button class="pill-btn" type="button" routerLink="/portfolio">
-                👤 <b>{{ auth.currentUser()?.displayName }}</b>
+                👤 <b>{{ auth.currentUser()?.username || auth.currentUser()?.displayName }}</b>
               </button>
               <button class="logout" type="button" (click)="logout()" title="Çıkış">⏻</button>
             </span>

@@ -1,30 +1,47 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
 import { ModalService } from '../../../core/services/modal.service';
 import { PortfolioService } from '../../../core/services/portfolio.service';
 import { OverlayComponent } from '../../../shared/components/overlay/overlay.component';
 
-type AuthStep = 'choose' | 'phone-enter' | 'phone-otp';
+type AuthStep = 'choose' | 'form-login' | 'form-register' | 'profile';
 
 @Component({
   selector: 'app-login-modal',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [OverlayComponent, FormsModule],
+  imports: [OverlayComponent, FormsModule, RouterLink],
   template: `
-    <app-overlay [open]="modals.active() === 'login'" (closed)="modals.close()">
+    <app-overlay [open]="modals.active() === 'login'" (closed)="onClose()">
       <div class="modal">
-        <button class="m-close" type="button" (click)="modals.close()">✕</button>
+        <button class="m-close" type="button" (click)="onClose()">✕</button>
 
         @switch (step()) {
           @case ('choose') {
             <h2>Giriş Yap</h2>
             <p class="sub">
-              İlk girişte hesabın otomatik açılır,
-              <b style="color:var(--up)">1.000.000 ₺</b> sanal bakiye ile başlarsın.
+              Google veya kullanıcı adınla gir.
+              Yeni hesapta <b style="color:var(--up)">1.000.000 ₺</b> sanal bakiye.
             </p>
             <div class="login-box">
-              <button class="btn-provider btn-google" type="button" (click)="onGoogle()" [disabled]="loading()">
+              <label class="terms-row">
+                <input type="checkbox" [(ngModel)]="acceptTerms" />
+                <span>
+                  <a routerLink="/kullanim-sartlari" target="_blank" rel="noopener" (click)="$event.stopPropagation()">Kullanım Şartları</a>
+                  ve
+                  <a routerLink="/gizlilik" target="_blank" rel="noopener" (click)="$event.stopPropagation()">Gizlilik / KVKK</a>
+                  metinlerini okudum, sanal platform olduğunu ve yatırım tavsiyesi
+                  olmadığını kabul ediyorum.
+                </span>
+              </label>
+
+              <button
+                class="btn-provider btn-google"
+                type="button"
+                (click)="onGoogle()"
+                [disabled]="loading() || !acceptTerms"
+              >
                 <svg width="18" height="18" viewBox="0 0 48 48">
                   <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v8.51h12.8c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.14z"/>
                   <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
@@ -36,9 +53,11 @@ type AuthStep = 'choose' | 'phone-enter' | 'phone-otp';
 
               <div class="divider"><span>veya</span></div>
 
-              <button class="btn-provider btn-phone" type="button" (click)="step.set('phone-enter')" [disabled]="loading()">
-                <span>📱</span>
-                Telefon ile Devam Et
+              <button class="btn-provider btn-local" type="button" (click)="goFormLogin()" [disabled]="loading()">
+                Kullanıcı adı ile giriş
+              </button>
+              <button class="btn-link" type="button" (click)="goFormRegister()" [disabled]="loading()">
+                Hesap oluştur
               </button>
 
               @if (error()) {
@@ -47,60 +66,181 @@ type AuthStep = 'choose' | 'phone-enter' | 'phone-otp';
             </div>
           }
 
-          @case ('phone-enter') {
-            <h2>Telefon Numarası</h2>
-            <p class="sub">SMS doğrulama kodu göndereceğiz.</p>
+          @case ('form-login') {
+            <h2>Giriş Yap</h2>
+            <p class="sub">Kullanıcı adı ve şifrenle devam et.</p>
             <div class="login-box">
-              <div class="phone-row">
-                <span class="phone-prefix">+90</span>
+              <label class="f-label">Kullanıcı adı</label>
+              <div class="user-row">
+                <span class="at">@</span>
                 <input
-                  class="f-input phone-input"
-                  type="tel"
-                  placeholder="555 123 45 67"
-                  maxlength="11"
-                  [(ngModel)]="phoneLocal"
+                  class="f-input"
+                  type="text"
+                  maxlength="32"
+                  [(ngModel)]="username"
+                  (keyup.enter)="onPasswordLogin()"
+                  placeholder="kullanici_adi"
                 />
               </div>
-              <button class="btn btn-main" type="button" (click)="onSendOtp()" [disabled]="loading()">
-                @if (loading()) { Gönderiliyor… } @else { Kod Gönder }
+
+              <label class="f-label">Şifre</label>
+              <input
+                class="f-input"
+                type="password"
+                [(ngModel)]="password"
+                (keyup.enter)="onPasswordLogin()"
+                placeholder="••••••••"
+              />
+
+              <button class="btn btn-main" type="button" (click)="onPasswordLogin()" [disabled]="loading()">
+                @if (loading()) { Giriş yapılıyor… } @else { Giriş Yap }
               </button>
               <button class="btn-back" type="button" (click)="goBackToChoose()">← Geri</button>
+              <button class="btn-link" type="button" (click)="goFormRegister()">Hesabın yok mu? Oluştur</button>
+
               @if (error()) {
                 <div class="msg-error">{{ error() }}</div>
               }
             </div>
           }
 
-          @case ('phone-otp') {
-            <h2>Doğrulama Kodu</h2>
-            <p class="sub">Telefonuna gelen 6 haneli kodu gir.</p>
+          @case ('form-register') {
+            <h2>Hesap Oluştur</h2>
+            <p class="sub">Kullanıcı adı ve şifre yeterli. E-posta istemiyoruz.</p>
             <div class="login-box">
+              <label class="f-label">Kullanıcı adı <span class="req">*</span></label>
+              <div class="user-row">
+                <span class="at">@</span>
+                <input
+                  class="f-input"
+                  type="text"
+                  maxlength="32"
+                  [(ngModel)]="username"
+                  (ngModelChange)="onUsernameChange($event)"
+                  placeholder="ornek_kullanici"
+                />
+              </div>
+              @if (usernameHint()) {
+                <div class="hint" [class.ok]="usernameOk()" [class.bad]="!usernameOk()">
+                  {{ usernameHint() }}
+                </div>
+              }
+
+              <label class="f-label">Şifre <span class="req">*</span></label>
               <input
-                class="f-input otp-input"
-                type="text"
-                placeholder="_ _ _ _ _ _"
-                maxlength="6"
-                [(ngModel)]="otp"
-                (keyup.enter)="onVerifyOtp()"
+                class="f-input"
+                type="password"
+                [(ngModel)]="password"
+                placeholder="En az 6 karakter"
               />
-              <button class="btn btn-main" type="button" (click)="onVerifyOtp()" [disabled]="loading()">
-                @if (loading()) { Doğrulanıyor… } @else { Doğrula }
+
+              <label class="f-label">Şifre tekrar <span class="req">*</span></label>
+              <input
+                class="f-input"
+                type="password"
+                [(ngModel)]="passwordConfirm"
+                placeholder="Şifreyi tekrar yaz"
+              />
+
+              <label class="f-label">Görünen ad <span class="opt">opsiyonel</span></label>
+              <input
+                class="f-input"
+                type="text"
+                maxlength="100"
+                [(ngModel)]="displayName"
+                placeholder="İstersen bir isim"
+              />
+
+              <label class="terms-row">
+                <input type="checkbox" [(ngModel)]="acceptTerms" />
+                <span>
+                  <a routerLink="/kullanim-sartlari" target="_blank" rel="noopener" (click)="$event.stopPropagation()">Kullanım Şartları</a>
+                  ve
+                  <a routerLink="/gizlilik" target="_blank" rel="noopener" (click)="$event.stopPropagation()">Gizlilik / KVKK</a>
+                  metinlerini okudum ve kabul ediyorum. Platformun sanal olduğunu,
+                  yatırım tavsiyesi içermediğini biliyorum.
+                </span>
+              </label>
+
+              <button
+                class="btn btn-main"
+                type="button"
+                (click)="onPasswordRegister()"
+                [disabled]="loading() || !canSubmitRegister()"
+              >
+                @if (loading()) { Kaydediliyor… } @else { Kayıt Ol }
               </button>
-              <button class="btn-back" type="button" (click)="goBackToPhoneEnter()">← Tekrar Gönder</button>
+              <button class="btn-back" type="button" (click)="goBackToChoose()">← Geri</button>
+              <button class="btn-link" type="button" (click)="goFormLogin()">Zaten hesabın var? Giriş yap</button>
+
+              @if (error()) {
+                <div class="msg-error">{{ error() }}</div>
+              }
+            </div>
+          }
+
+          @case ('profile') {
+            <h2>Hesabını oluştur</h2>
+            <p class="sub">
+              Kullanıcı adı zorunlu. Görünen adı sonra da değiştirebilirsin.
+            </p>
+            <div class="login-box">
+              <label class="f-label">Kullanıcı adı <span class="req">*</span></label>
+              <div class="user-row">
+                <span class="at">@</span>
+                <input
+                  class="f-input"
+                  type="text"
+                  maxlength="32"
+                  [(ngModel)]="username"
+                  (ngModelChange)="onUsernameChange($event)"
+                  placeholder="ornek_kullanici"
+                />
+              </div>
+              @if (usernameHint()) {
+                <div class="hint" [class.ok]="usernameOk()" [class.bad]="!usernameOk()">
+                  {{ usernameHint() }}
+                </div>
+              }
+
+              <label class="f-label">Görünen ad <span class="opt">opsiyonel</span></label>
+              <input
+                class="f-input"
+                type="text"
+                maxlength="100"
+                [(ngModel)]="displayName"
+                placeholder="Örn. Ahmet"
+              />
+
+              <label class="terms-row">
+                <input type="checkbox" [(ngModel)]="acceptTerms" />
+                <span>
+                  <a routerLink="/kullanim-sartlari" target="_blank" rel="noopener" (click)="$event.stopPropagation()">Kullanım Şartları</a>
+                  ve
+                  <a routerLink="/gizlilik" target="_blank" rel="noopener" (click)="$event.stopPropagation()">Gizlilik / KVKK</a>
+                  metinlerini okudum ve kabul ediyorum.
+                </span>
+              </label>
+
+              <button
+                class="btn btn-main"
+                type="button"
+                (click)="onCompleteProfile()"
+                [disabled]="loading() || !canSubmitProfile()"
+              >
+                @if (loading()) { Kaydediliyor… } @else { Devam Et }
+              </button>
+
               @if (error()) {
                 <div class="msg-error">{{ error() }}</div>
               }
             </div>
           }
         }
-
-        <!-- reCAPTCHA her adımda yeniden oluşturulmasın diye switch dışında sabit tutulur -->
-        <div id="recaptcha-container" aria-hidden="true"></div>
       </div>
     </app-overlay>
   `,
   styles: `
-    #recaptcha-container { position: absolute; width: 0; height: 0; overflow: hidden; }
     .modal {
       max-width: 420px;
       margin: 0 auto;
@@ -132,8 +272,8 @@ type AuthStep = 'choose' | 'phone-enter' | 'phone-otp';
     .btn-provider:disabled { opacity: 0.5; cursor: not-allowed; }
     .btn-google { background: #fff; color: #1f1f1f; }
     .btn-google:hover:not(:disabled) { background: #f5f5f5; }
-    .btn-phone  { background: var(--panel2); color: var(--text); }
-    .btn-phone:hover:not(:disabled) { background: var(--line); }
+    .btn-local  { background: var(--panel2); color: var(--text); }
+    .btn-local:hover:not(:disabled) { background: var(--line); }
 
     .divider {
       display: flex; align-items: center; gap: 8px;
@@ -143,57 +283,100 @@ type AuthStep = 'choose' | 'phone-enter' | 'phone-otp';
       content: ''; flex: 1; height: 1px; background: var(--line);
     }
 
-    .phone-row { display: flex; align-items: center; gap: 8px; }
-    .phone-prefix {
-      background: var(--panel2); border: 1px solid var(--line);
-      border-radius: 10px; padding: 10px 12px;
-      font-size: 14px; font-weight: 600; white-space: nowrap;
-    }
-    .phone-input { flex: 1; }
-
-    .otp-input { letter-spacing: 10px; font-size: 22px; font-weight: 700; text-align: center; }
-
-    .btn-back {
+    .btn-back, .btn-link {
       background: none; border: none; color: var(--muted);
       font-size: 13px; cursor: pointer; text-align: left; padding: 0;
     }
-    .btn-back:hover { color: var(--text); }
+    .btn-link { text-align: center; color: var(--accent, var(--text)); font-weight: 600; }
+    .btn-back:hover, .btn-link:hover { color: var(--text); }
 
     .msg-error { color: var(--down); font-size: 13px; font-weight: 600; }
+
+    .f-label {
+      font-size: 12px; font-weight: 700; color: var(--muted);
+      display: flex; gap: 6px; align-items: baseline;
+    }
+    .req { color: var(--down); }
+    .opt { font-weight: 500; opacity: 0.8; }
+    .user-row {
+      display: flex; align-items: center; gap: 8px;
+    }
+    .at {
+      font-weight: 800; color: var(--muted); font-size: 16px;
+    }
+    .user-row .f-input { flex: 1; }
+    .hint { font-size: 12px; font-weight: 600; }
+    .hint.ok { color: var(--up); }
+    .hint.bad { color: var(--down); }
+
+    .terms-row {
+      display: flex; gap: 10px; align-items: flex-start;
+      font-size: 12px; line-height: 1.45; color: var(--muted);
+      cursor: pointer;
+      input { margin-top: 2px; width: 15px; height: 15px; flex: 0 0 auto; accent-color: var(--up); }
+      a { color: var(--text); font-weight: 700; }
+    }
   `,
 })
 export class LoginModalComponent {
-  readonly modals    = inject(ModalService);
-  private readonly auth      = inject(AuthService);
+  readonly modals = inject(ModalService);
+  private readonly auth = inject(AuthService);
   private readonly portfolio = inject(PortfolioService);
 
-  readonly step    = signal<AuthStep>('choose');
+  readonly step = signal<AuthStep>('choose');
   readonly loading = signal(false);
-  readonly error   = signal('');
+  readonly error = signal('');
+  readonly usernameHint = signal('');
+  readonly usernameOk = signal(false);
 
-  phoneLocal = '';
-  otp        = '';
+  username = '';
+  password = '';
+  passwordConfirm = '';
+  displayName = '';
+  acceptTerms = false;
+
+  private pendingIdToken = '';
+  private usernameCheckTimer?: ReturnType<typeof setTimeout>;
+
+  onClose(): void {
+    this.resetTransient();
+    this.modals.close();
+  }
 
   goBackToChoose(): void {
-    this.auth.clearRecaptcha();
     this.error.set('');
+    this.password = '';
+    this.passwordConfirm = '';
     this.step.set('choose');
   }
 
-  goBackToPhoneEnter(): void {
-    this.auth.clearRecaptcha();
-    this.otp = '';
+  goFormLogin(): void {
     this.error.set('');
-    this.step.set('phone-enter');
+    this.password = '';
+    this.passwordConfirm = '';
+    this.step.set('form-login');
+  }
+
+  goFormRegister(): void {
+    this.error.set('');
+    this.password = '';
+    this.passwordConfirm = '';
+    this.usernameHint.set('');
+    this.usernameOk.set(false);
+    this.step.set('form-register');
+    if (this.username.length >= 3) void this.checkUsername();
   }
 
   async onGoogle(): Promise<void> {
+    if (!this.acceptTerms) {
+      this.error.set('Devam etmek için Kullanım Şartları ve Gizlilik metnini kabul etmelisin.');
+      return;
+    }
     this.error.set('');
     this.loading.set(true);
     try {
-      await this.auth.loginWithGoogle();
-      await this.portfolio.reload();
-      this.modals.close();
+      const outcome = await this.auth.loginWithGoogle();
+      await this.handleOutcome(outcome);
     } catch (e: any) {
       this.error.set(this.friendlyAuthError(e, 'Google girişi başarısız.'));
     } finally {
@@ -201,44 +384,143 @@ export class LoginModalComponent {
     }
   }
 
-  async onSendOtp(): Promise<void> {
-    const phone = '+90' + this.phoneLocal.replace(/\D/g, '');
-    if (phone.length < 12) {
-      this.error.set('Geçerli bir telefon numarası gir.');
+  async onPasswordLogin(): Promise<void> {
+    if (!this.username.trim() || !this.password) {
+      this.error.set('Kullanıcı adı ve şifre gerekli.');
       return;
     }
     this.error.set('');
     this.loading.set(true);
     try {
-      await this.auth.sendPhoneOtp(phone, 'recaptcha-container');
-      this.step.set('phone-otp');
+      await this.auth.loginWithPassword(this.username.trim(), this.password);
+      await this.portfolio.reload();
+      this.resetTransient();
+      this.modals.close();
     } catch (e: any) {
-      this.error.set(this.friendlyAuthError(e, 'SMS gönderilemedi.'));
+      this.error.set(this.friendlyAuthError(e, 'Giriş başarısız.'));
     } finally {
       this.loading.set(false);
     }
   }
 
-  async onVerifyOtp(): Promise<void> {
-    if (this.otp.length !== 6) {
-      this.error.set('6 haneli kodu gir.');
+  canSubmitRegister(): boolean {
+    return (
+      this.acceptTerms &&
+      this.usernameOk() &&
+      this.username.length >= 3 &&
+      this.password.length >= 6 &&
+      this.password === this.passwordConfirm
+    );
+  }
+
+  async onPasswordRegister(): Promise<void> {
+    if (!this.acceptTerms) {
+      this.error.set('Kayıt için şartları kabul etmelisin.');
+      return;
+    }
+    if (!this.canSubmitRegister()) {
+      if (this.password !== this.passwordConfirm) {
+        this.error.set('Şifreler eşleşmiyor.');
+      } else if (this.password.length < 6) {
+        this.error.set('Şifre en az 6 karakter olmalı.');
+      }
       return;
     }
     this.error.set('');
     this.loading.set(true);
     try {
-      await this.auth.verifyPhoneOtp(this.otp);
+      await this.auth.registerWithPassword(
+        this.username.trim(),
+        this.password,
+        this.passwordConfirm,
+        this.displayName.trim() || null,
+      );
       await this.portfolio.reload();
+      this.resetTransient();
       this.modals.close();
     } catch (e: any) {
-      this.error.set(this.friendlyAuthError(e, 'Kod hatalı veya süresi dolmuş.'));
+      this.error.set(this.friendlyAuthError(e, 'Kayıt tamamlanamadı.'));
     } finally {
       this.loading.set(false);
     }
+  }
+
+  onUsernameChange(value: string): void {
+    this.username = value.trim();
+    this.usernameOk.set(false);
+    this.usernameHint.set('');
+    if (this.usernameCheckTimer) clearTimeout(this.usernameCheckTimer);
+    if (this.username.length < 3) {
+      this.usernameHint.set('En az 3 karakter.');
+      return;
+    }
+    this.usernameCheckTimer = setTimeout(() => void this.checkUsername(), 350);
+  }
+
+  canSubmitProfile(): boolean {
+    return this.acceptTerms && this.usernameOk() && this.username.length >= 3;
+  }
+
+  async onCompleteProfile(): Promise<void> {
+    if (!this.canSubmitProfile() || !this.pendingIdToken) return;
+    this.error.set('');
+    this.loading.set(true);
+    try {
+      await this.auth.completeRegistration(
+        this.pendingIdToken,
+        this.username,
+        this.displayName.trim() || null,
+      );
+      await this.portfolio.reload();
+      this.resetTransient();
+      this.modals.close();
+    } catch (e: any) {
+      this.error.set(this.friendlyAuthError(e, 'Kayıt tamamlanamadı.'));
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  private async handleOutcome(
+    outcome: Awaited<ReturnType<AuthService['loginWithGoogle']>>,
+  ): Promise<void> {
+    if (outcome.kind === 'session') {
+      await this.portfolio.reload();
+      this.resetTransient();
+      this.modals.close();
+      return;
+    }
+
+    this.pendingIdToken = outcome.idToken;
+    this.username = outcome.hint.suggestedUsername || '';
+    this.displayName = outcome.hint.suggestedDisplayName?.trim() || '';
+    this.step.set('profile');
+    if (this.username) await this.checkUsername();
+  }
+
+  private async checkUsername(): Promise<void> {
+    try {
+      const res = await this.auth.checkUsername(this.username);
+      this.usernameOk.set(res.available);
+      this.usernameHint.set(res.available ? 'Uygun.' : (res.reason || 'Alınmış.'));
+    } catch {
+      this.usernameOk.set(false);
+      this.usernameHint.set('Kontrol edilemedi.');
+    }
+  }
+
+  private resetTransient(): void {
+    this.step.set('choose');
+    this.error.set('');
+    this.password = '';
+    this.passwordConfirm = '';
+    this.pendingIdToken = '';
+    this.usernameHint.set('');
+    this.usernameOk.set(false);
+    this.acceptTerms = false;
   }
 
   private friendlyAuthError(e: any, fallback: string): string {
-    const code = e?.code as string | undefined;
     const msg = (
       e?.error?.detail ??
       e?.error?.title ??
@@ -246,14 +528,6 @@ export class LoginModalComponent {
       fallback
     ) as string;
 
-    if (code === 'auth/billing-not-enabled' || msg.includes('billing-not-enabled')) {
-      return 'Telefon ile SMS için Firebase projesinde Blaze (ücretli) plan gerekir. ' +
-        'Ücretsiz denemek için Firebase Console → Authentication → Phone → ' +
-        '"Phone numbers for testing" bölümüne numaranı ve sabit bir kod ekle.';
-    }
-    if (msg.includes('reCAPTCHA has already been rendered')) {
-      return 'Doğrulama alanı takıldı. Sayfayı yenileyip tekrar dene.';
-    }
     if (msg.includes('firebase-service-account') || msg.includes('yapılandırılmamış')) {
       return msg;
     }
