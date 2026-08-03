@@ -2,7 +2,8 @@ name: Deploy Frontend to Hetzner
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, master ]
+  workflow_dispatch:
 
 jobs:
   build-and-deploy:
