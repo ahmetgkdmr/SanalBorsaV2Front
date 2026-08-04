@@ -1,7 +1,7 @@
 export const environment = {
   production: true,
-  apiUrl: 'http://167.233.147.18:5000/api',
-  hubUrl: 'http://167.233.147.18:5000/hubs/crypto',
+  apiUrl: 'https://api.sanalportfoy.com/api',
+  hubUrl: 'https://api.sanalportfoy.com/hubs/crypto',
 
   firebase: {
     apiKey:            'AIzaSyC_klYwoZvXsxSfDHMxcxzpURGPcFXUMnY',
