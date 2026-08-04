@@ -23,6 +23,8 @@ import { IndexService } from '../../core/services/index.service';
 import { ModalService } from '../../core/services/modal.service';
 import { CryptoApiService } from '../../core/services/crypto-api.service';
 import { CryptoMarketService } from '../../core/services/crypto-market.service';
+import { UsMarketService } from '../../core/services/us-market.service';
+import { UsStockApiService } from '../../core/services/us-stock-api.service';
 import {
   formatInteger,
   formatMoneyAmount,
@@ -79,7 +81,7 @@ type PickerOption = {
             <app-stock-logo
               [symbol]="logoSymbol()"
               [color]="logoColor()"
-              [market]="isCryptoTm() ? 'crypto' : 'bist'"
+              [market]="isCryptoTm() ? 'crypto' : isUsTm() ? 'us' : 'bist'"
             />
             <div class="sym-combo" [class.open]="pickerOpen()">
               <button
@@ -119,7 +121,7 @@ type PickerOption = {
                         <app-stock-logo
                           [symbol]="opt.value"
                           [color]="opt.color"
-                          [market]="isCryptoTm() ? 'crypto' : 'bist'"
+                          [market]="isCryptoTm() ? 'crypto' : isUsTm() ? 'us' : 'bist'"
                           size="sm"
                         />
                         <span class="opt-main">
@@ -140,7 +142,7 @@ type PickerOption = {
               }
             </div>
           </div>
-          @if (!isCryptoTm()) {
+          @if (!isCryptoTm() && !isUsTm()) {
             <p class="idx-note">
               BIST endekslerinde Zaman Makinesi yok — endeks bileşimi değişir; temettü / bedelli / bedelsiz
               hisse bazında yansıtılamaz.
@@ -275,7 +277,7 @@ type PickerOption = {
                 </div>
                 <div class="stat">
                   <div class="k">ALIM FİYATI</div>
-                  <div class="v mono">{{ formatAssetPrice(r.buyPrice, isCryptoTm() ? 'crypto' : 'bist') }} {{ isCryptoTm() ? '$' : '₺' }}</div>
+                  <div class="v mono">{{ formatAssetPrice(r.buyPrice, showsDollar() ? 'crypto' : 'bist') }} {{ showsDollar() ? '$' : '₺' }}</div>
                 </div>
                 <div class="stat">
                   <div class="k">{{ lotLabel() }}</div>
@@ -288,7 +290,7 @@ type PickerOption = {
                 </div>
                 <div class="stat">
                   <div class="k">BUGÜN</div>
-                  <div class="v mono">{{ formatAssetPrice(r.currentPrice, isCryptoTm() ? 'crypto' : 'bist') }} {{ isCryptoTm() ? '$' : '₺' }}</div>
+                  <div class="v mono">{{ formatAssetPrice(r.currentPrice, showsDollar() ? 'crypto' : 'bist') }} {{ showsDollar() ? '$' : '₺' }}</div>
                 </div>
                 @if (!isInstrumentMode() && r.dividendsReceived > 0) {
                   <div class="stat">
@@ -1048,6 +1050,8 @@ export class TimeMachineModalComponent {
   private readonly indexService = inject(IndexService);
   private readonly cryptoApi = inject(CryptoApiService);
   private readonly cryptoMarket = inject(CryptoMarketService);
+  private readonly usMarket = inject(UsMarketService);
+  private readonly usStockApi = inject(UsStockApiService);
 
   readonly formatNumber = formatNumber;
   readonly formatInteger = formatInteger;
@@ -1084,13 +1088,23 @@ export class TimeMachineModalComponent {
   private readonly cryptoEarliest = signal<string | null>(null);
   /** Liste API'sinde earliest yoksa detaydan doldurulur */
   private readonly bistEarliestOverride = signal<string | null>(null);
+  private readonly usEarliestOverride = signal<string | null>(null);
 
   readonly isCryptoTm = computed(() => this.modals.timeMachineMarket() === 'crypto');
+  readonly isUsTm = computed(() => this.modals.timeMachineMarket() === 'us');
+  /** Sonuç/fiyat alanlarında $ mi ₺ mi gösterilecek — kripto ve ABD hisseleri USD. */
+  readonly showsDollar = computed(() => this.isCryptoTm() || this.isUsTm());
 
   readonly minDateStr = computed<string>(() => {
     const sym = this.symbol();
     if (this.isCryptoTm()) {
       return (this.cryptoEarliest() ?? '').slice(0, 10);
+    }
+    if (this.isUsTm()) {
+      const fromLive = this.usMarket.getEarliestDate(sym);
+      if (fromLive) return fromLive.slice(0, 10);
+      const override = this.usEarliestOverride();
+      return override ? override.slice(0, 10) : '';
     }
     if (isIndexSymbol(sym) || isForexSymbol(sym)) {
       const q = this.indexService.quotes().find((q) => q.symbol === sym);
@@ -1173,6 +1187,18 @@ export class TimeMachineModalComponent {
       });
     }
 
+    if (this.isUsTm()) {
+      const all = this.usMarket.symbolOptions();
+      const current = this.symbol();
+      const list = current && !all.includes(current) ? [current, ...all] : all;
+      return list.map((sym) => ({
+        value: sym,
+        title: sym,
+        badge: sym.slice(0, 2),
+        color: symbolColor(sym),
+      }));
+    }
+
     const stocks = this.market.symbolOptions();
     const stockList = stocks.length ? [...stocks] : ['THYAO', 'GARAN', 'AKBNK'];
     const current = this.symbol();
@@ -1217,12 +1243,15 @@ export class TimeMachineModalComponent {
 
   readonly instrumentLabel = computed(() => {
     if (this.isCryptoTm()) return 'COİN SEÇ';
+    if (this.isUsTm()) return 'ABD HİSSE SEÇ';
     return isForexSymbol(this.symbol()) ? 'DÖVİZ / ALTIN SEÇ' : 'HİSSE SEÇ';
   });
 
   readonly subtitle = computed(() => {
     if (this.isCryptoTm())
       return 'O tarihte belirlediğin USD tutarla bu coini alsaydın bugün ne olurdu?';
+    if (this.isUsTm())
+      return 'O tarihte belirlediğin tutarla bu ABD hissesini alsaydın bugün ne olurdu?';
     const sym = this.symbol();
     if (isForexSymbol(sym)) {
       const label = this.parityLabel(sym).toLocaleLowerCase('tr-TR');
@@ -1356,18 +1385,20 @@ export class TimeMachineModalComponent {
         return;
       }
 
-      const crypto = this.modals.timeMachineMarket() === 'crypto';
+      const tmMarket = this.modals.timeMachineMarket();
+      const crypto = tmMarket === 'crypto';
+      const us = tmMarket === 'us';
       if (!this.tmWasOpen) {
         this.tmWasOpen = true;
-        this.resetFormForOpen(crypto);
+        this.resetFormForOpen(tmMarket);
       }
 
       const sym = this.modals.stockSymbol();
       if (sym) {
-        this.symbol.set(crypto ? sym : isIndexSymbol(sym) ? 'THYAO' : sym);
+        this.symbol.set(crypto || us ? sym : isIndexSymbol(sym) ? 'THYAO' : sym);
       }
-      if (!crypto && !this.market.symbolOptions().length) this.market.loadMarket();
-      if (!crypto && !this.indexService.quotes().length) this.indexService.loadQuotes();
+      if (!crypto && !us && !this.market.symbolOptions().length) this.market.loadMarket();
+      if (!crypto && !us && !this.indexService.quotes().length) this.indexService.loadQuotes();
       if (crypto) {
         if (this.cryptoMarket.tickersCount() === 0) this.cryptoMarket.load();
         if (sym) {
@@ -1377,6 +1408,7 @@ export class TimeMachineModalComponent {
           });
         }
       }
+      if (us && !this.usMarket.symbolOptions().length) this.usMarket.loadMarket();
     });
 
     // Açılışta veya sembol değişince → o enstrümanın en erken tarihine snap.
@@ -1403,6 +1435,23 @@ export class TimeMachineModalComponent {
       if (this.isCryptoTm()) return;
       const sym = this.symbol();
       if (!sym || isIndexSymbol(sym) || isForexSymbol(sym)) return;
+
+      if (this.isUsTm()) {
+        if (this.usMarket.getEarliestDate(sym)) {
+          this.usEarliestOverride.set(null);
+          return;
+        }
+        this.usStockApi.getStock(sym).subscribe({
+          next: (d) => {
+            if (this.symbol() === sym) this.usEarliestOverride.set(d.earliestDataDate ?? null);
+          },
+          error: () => {
+            if (this.symbol() === sym) this.usEarliestOverride.set(null);
+          },
+        });
+        return;
+      }
+
       if (this.market.getEarliestDate(sym)) {
         this.bistEarliestOverride.set(null);
         return;
@@ -1420,7 +1469,7 @@ export class TimeMachineModalComponent {
   }
 
   /** Her açılışta önceki girdi / sonucu temizle. Tarih min gelince effect doldurur. */
-  private resetFormForOpen(crypto: boolean): void {
+  private resetFormForOpen(tmMarket: 'bist' | 'crypto' | 'us'): void {
     this.mode.set('lump');
     this.pct.set(50);
     this.investMode.set('wage');
@@ -1428,10 +1477,11 @@ export class TimeMachineModalComponent {
     this.dateStr.set('');
     this.dateSnapSymbol = '';
     this.bistEarliestOverride.set(null);
+    this.usEarliestOverride.set(null);
     this.resetCalc();
     this.leaders.set(null);
     this.leadersRequestedFor = '';
-    this.altTab.set(crypto ? 'crypto' : 'bist');
+    this.altTab.set(tmMarket === 'crypto' ? 'crypto' : 'bist');
     this.pickerQuery.set('');
     this.closePicker();
   }
@@ -1654,6 +1704,7 @@ export class TimeMachineModalComponent {
     const iso = this.dateStr();
     const amountTry = this.resolveInvestAmountTry();
     const crypto = this.isCryptoTm();
+    const us = this.isUsTm();
 
     const finishError = (msg: string) => {
       this.calc.set({
@@ -1691,10 +1742,14 @@ export class TimeMachineModalComponent {
       let amountForApi: number | undefined;
       let usd: { start: number; end: number } | null = null;
 
-      if (crypto) {
+      if (crypto || us) {
         usd = this.usdTryFromLeaders(leaders);
         if (!usd) {
-          finishError('Bu tarih için USD/TRY paritesi yok; kripto hesabı TL’ye çevrilemedi.');
+          finishError(
+            us
+              ? 'Bu tarih için USD/TRY paritesi yok; hesap TL’ye çevrilemedi.'
+              : 'Bu tarih için USD/TRY paritesi yok; kripto hesabı TL’ye çevrilemedi.',
+          );
           return;
         }
         if (amountTry <= 0) {
@@ -1708,29 +1763,32 @@ export class TimeMachineModalComponent {
         amountForApi = undefined;
       }
 
-      this.market
-        .calculateInvestment(
-          this.symbol(),
-          iso,
-          this.pct(),
-          this.mode(),
-          amountForApi,
-          crypto ? 'crypto' : 'bist',
-        )
-        .subscribe({
-          next: (r) => {
-            this.calc.set(crypto && usd ? this.toTryCalc(r, amountTry, usd) : r);
-            this.loading.set(false);
-            this.scrollToAnchor('result');
-          },
-          error: () => finishError('Hesaplama başarısız. Backend bağlantısını kontrol et.'),
-        });
+      const usdSnapshot = usd;
+      const result$ = us
+        ? this.usStockApi.calculateTimeMachine(this.symbol(), iso, this.mode(), amountForApi!)
+        : this.market.calculateInvestment(
+            this.symbol(),
+            iso,
+            this.pct(),
+            this.mode(),
+            amountForApi,
+            crypto ? 'crypto' : 'bist',
+          );
+
+      result$.subscribe({
+        next: (r) => {
+          this.calc.set((crypto || us) && usdSnapshot ? this.toTryCalc(r, amountTry, usdSnapshot) : r);
+          this.loading.set(false);
+          this.scrollToAnchor('result');
+        },
+        error: () => finishError('Hesaplama başarısız. Backend bağlantısını kontrol et.'),
+      });
     };
 
     this.market.getTimeMachineLeaders(iso).subscribe({
       next: (leaders) => runInvestment(leaders),
       error: () => {
-        if (crypto) finishError('USD/TRY paritesi yüklenemedi.');
+        if (crypto || us) finishError('USD/TRY paritesi yüklenemedi.');
         else runInvestment(null);
       },
     });

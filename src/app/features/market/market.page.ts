@@ -8,6 +8,7 @@ import {
   CryptoMarketService,
   CryptoSortKey,
 } from '../../core/services/crypto-market.service';
+import { US_PAGE_SIZE, UsMarketService, UsSortKey } from '../../core/services/us-market.service';
 import { MarketTypeService } from '../../core/services/market-type.service';
 import { ModalService } from '../../core/services/modal.service';
 import { formatCryptoPrice, formatNumber } from '../../core/utils/format.util';
@@ -16,7 +17,7 @@ import { TopGainersCrownComponent } from './components/top-gainers-crown/top-gai
 
 type PageItem = number | 'ellipsis';
 
-const SORT_OPTIONS: { key: MarketSortKey & CryptoSortKey; label: string }[] = [
+const SORT_OPTIONS: { key: MarketSortKey & CryptoSortKey & UsSortKey; label: string }[] = [
   { key: 'volume', label: 'Hacim' },
   { key: 'price', label: 'Fiyat' },
   { key: 'change', label: 'Değişim %' },
@@ -46,6 +47,15 @@ const SORT_OPTIONS: { key: MarketSortKey & CryptoSortKey; label: string }[] = [
         >
           KRİPTO PİYASASI
           <span class="live-badge" title="Binance spot canlı veri">CANLI VERİ</span>
+        </button>
+        <button
+          type="button"
+          class="ms-btn"
+          [class.active]="marketType.type() === 'us'"
+          (click)="setMarket('us')"
+        >
+          ABD HİSSELERİ
+          <span class="live-badge" style="background: var(--prem, #b388ff)" title="S&amp;P 500 pilotu">PİLOT</span>
         </button>
       </div>
 
@@ -94,7 +104,9 @@ const SORT_OPTIONS: { key: MarketSortKey & CryptoSortKey; label: string }[] = [
               [placeholder]="
                 marketType.type() === 'crypto'
                   ? 'Coin ara (BTC, ETH, SOL…)'
-                  : 'Hisse ara (ör. THYAO)'
+                  : marketType.type() === 'us'
+                    ? 'Hisse ara (ör. AAPL)'
+                    : 'Hisse ara (ör. THYAO)'
               "
               [ngModel]="searchInput"
               (ngModelChange)="onSearch($event)"
@@ -134,6 +146,8 @@ const SORT_OPTIONS: { key: MarketSortKey & CryptoSortKey; label: string }[] = [
           <span class="count">
             @if (marketType.type() === 'crypto') {
               {{ crypto.totalCount() }} / {{ crypto.tickersCount() }} coin
+            } @else if (marketType.type() === 'us') {
+              {{ us.serverTotalCount() }} hisse
             } @else {
               {{ market.serverTotalCount() }} hisse
             }
@@ -153,7 +167,7 @@ const SORT_OPTIONS: { key: MarketSortKey & CryptoSortKey; label: string }[] = [
             </span>
           </div>
         }
-      } @else {
+      } @else if (marketType.type() === 'crypto') {
         <app-top-gainers-crown marketType="crypto" />
 
         <div class="data-note">
@@ -167,6 +181,15 @@ const SORT_OPTIONS: { key: MarketSortKey & CryptoSortKey; label: string }[] = [
             }
             · sırala: <b>{{ sortLabel() }}</b>
             · başlangıç <b>100.000 USD</b>
+          </span>
+        </div>
+      } @else {
+        <div class="data-note">
+          <span>🇺🇸</span>
+          <span>
+            <b>S&amp;P 500 pilotu</b> — 10 hisse, Yahoo Finance kaynaklı, günlük kapanış verisi
+            · sırala: <b>{{ sortLabel() }}</b>
+            · sadece görüntüleme + Zaman Makinesi (alım/satım yakında)
           </span>
         </div>
       }
@@ -463,6 +486,7 @@ const SORT_OPTIONS: { key: MarketSortKey & CryptoSortKey; label: string }[] = [
 export class MarketPageComponent implements OnInit, OnDestroy {
   readonly market = inject(MarketService);
   readonly crypto = inject(CryptoMarketService);
+  readonly us = inject(UsMarketService);
   readonly marketType = inject(MarketTypeService);
   private readonly modals = inject(ModalService);
 
@@ -473,23 +497,38 @@ export class MarketPageComponent implements OnInit, OnDestroy {
   suggestIndex = 0;
   private searchTimer?: ReturnType<typeof setTimeout>;
 
-  readonly isLoading = computed(() =>
-    this.marketType.type() === 'crypto' ? this.crypto.loading() : this.market.loading(),
-  );
+  readonly isLoading = computed(() => {
+    const kind = this.marketType.type();
+    if (kind === 'crypto') return this.crypto.loading();
+    if (kind === 'us') return this.us.loading();
+    return this.market.loading();
+  });
 
-  readonly activeSortKey = computed(() =>
-    this.marketType.type() === 'crypto' ? this.crypto.sortKey() : this.market.sortKey(),
-  );
+  readonly activeSortKey = computed(() => {
+    const kind = this.marketType.type();
+    if (kind === 'crypto') return this.crypto.sortKey();
+    if (kind === 'us') return this.us.sortKey();
+    return this.market.sortKey();
+  });
 
-  readonly activeSortDesc = computed(() =>
-    this.marketType.type() === 'crypto' ? this.crypto.sortDesc() : this.market.sortDesc(),
-  );
-  readonly errorMsg = computed(() =>
-    this.marketType.type() === 'crypto' ? this.crypto.error() : this.market.error(),
-  );
+  readonly activeSortDesc = computed(() => {
+    const kind = this.marketType.type();
+    if (kind === 'crypto') return this.crypto.sortDesc();
+    if (kind === 'us') return this.us.sortDesc();
+    return this.market.sortDesc();
+  });
+
+  readonly errorMsg = computed(() => {
+    const kind = this.marketType.type();
+    if (kind === 'crypto') return this.crypto.error();
+    if (kind === 'us') return this.us.error();
+    return this.market.error();
+  });
 
   readonly displayCards = computed<StockCardView[]>(() => {
-    if (this.marketType.type() === 'bist') return this.market.cards();
+    const kind = this.marketType.type();
+    if (kind === 'bist') return this.market.cards();
+    if (kind === 'us') return this.us.cards();
     return this.crypto.cards().map((c) => ({
       id: 0,
       symbol: c.symbol,
@@ -517,21 +556,36 @@ export class MarketPageComponent implements OnInit, OnDestroy {
     }));
   });
 
-  readonly activePage = computed(() =>
-    this.marketType.type() === 'crypto' ? this.crypto.page() : this.market.page(),
-  );
+  readonly activePage = computed(() => {
+    const kind = this.marketType.type();
+    if (kind === 'crypto') return this.crypto.page();
+    if (kind === 'us') return this.us.page();
+    return this.market.page();
+  });
 
-  readonly activeTotalPages = computed(() =>
-    this.marketType.type() === 'crypto' ? this.crypto.totalPages() : this.market.totalPages(),
-  );
+  readonly activeTotalPages = computed(() => {
+    const kind = this.marketType.type();
+    if (kind === 'crypto') return this.crypto.totalPages();
+    if (kind === 'us') return this.us.totalPages();
+    return this.market.totalPages();
+  });
 
   readonly activeRange = computed(() => {
-    if (this.marketType.type() === 'crypto') {
+    const kind = this.marketType.type();
+    if (kind === 'crypto') {
       const total = this.crypto.totalCount();
       const page = this.crypto.page();
       if (!total) return { from: 0, to: 0, total: 0 };
       const from = (page - 1) * CRYPTO_PAGE_SIZE + 1;
       const to = Math.min(page * CRYPTO_PAGE_SIZE, total);
+      return { from, to, total };
+    }
+    if (kind === 'us') {
+      const total = this.us.serverTotalCount();
+      const page = this.us.page();
+      if (!total) return { from: 0, to: 0, total: 0 };
+      const from = (page - 1) * US_PAGE_SIZE + 1;
+      const to = Math.min(page * US_PAGE_SIZE, total);
       return { from, to, total };
     }
     const total = this.market.serverTotalCount();
@@ -552,13 +606,17 @@ export class MarketPageComponent implements OnInit, OnDestroy {
     return `${label} ${this.activeSortDesc() ? '↓' : '↑'}`;
   });
 
-  setSort(key: MarketSortKey & CryptoSortKey): void {
-    if (this.marketType.type() === 'crypto') this.crypto.setSort(key);
+  setSort(key: MarketSortKey & CryptoSortKey & UsSortKey): void {
+    const kind = this.marketType.type();
+    if (kind === 'crypto') this.crypto.setSort(key);
+    else if (kind === 'us') this.us.setSort(key);
     else this.market.setSort(key);
   }
 
   ngOnInit(): void {
-    if (this.marketType.type() === 'crypto') this.crypto.load();
+    const kind = this.marketType.type();
+    if (kind === 'crypto') this.crypto.load();
+    else if (kind === 'us') this.us.loadMarket();
     else this.market.loadMarket();
   }
 
@@ -566,16 +624,19 @@ export class MarketPageComponent implements OnInit, OnDestroy {
     this.crypto.stopPolling();
   }
 
-  setMarket(type: 'bist' | 'crypto'): void {
+  setMarket(type: 'bist' | 'crypto' | 'us'): void {
     this.marketType.setType(type);
     this.searchInput = '';
     this.searchFocused = false;
     this.suggestIndex = 0;
+    this.crypto.stopPolling();
     if (type === 'crypto') {
       this.crypto.setSearch('');
       this.crypto.load();
+    } else if (type === 'us') {
+      this.us.setSearch('');
+      if (!this.us.symbolOptions().length) this.us.loadMarket();
     } else {
-      this.crypto.stopPolling();
       this.market.setSearch('');
       this.market.loadMarket();
     }
@@ -598,7 +659,9 @@ export class MarketPageComponent implements OnInit, OnDestroy {
     this.goPage(this.activeTotalPages());
   }
   goPage(p: number): void {
-    if (this.marketType.type() === 'crypto') this.crypto.goToPage(p);
+    const kind = this.marketType.type();
+    if (kind === 'crypto') this.crypto.goToPage(p);
+    else if (kind === 'us') this.us.goToPage(p);
     else this.market.goToPage(p);
   }
 
@@ -608,8 +671,11 @@ export class MarketPageComponent implements OnInit, OnDestroy {
     this.searchFocused = true;
     clearTimeout(this.searchTimer);
     this.searchTimer = setTimeout(() => {
-      if (this.marketType.type() === 'crypto') {
+      const kind = this.marketType.type();
+      if (kind === 'crypto') {
         this.crypto.setSearch(term);
+      } else if (kind === 'us') {
+        this.us.setSearch(term.toUpperCase().trim());
       } else {
         this.market.setSearch(term.toLocaleUpperCase('tr-TR').trim());
       }
@@ -656,12 +722,16 @@ export class MarketPageComponent implements OnInit, OnDestroy {
   }
 
   reload(): void {
-    if (this.marketType.type() === 'crypto') this.crypto.load();
+    const kind = this.marketType.type();
+    if (kind === 'crypto') this.crypto.load();
+    else if (kind === 'us') this.us.reloadMarket();
     else this.market.reloadMarket();
   }
 
   openDetail(symbol: string): void {
-    if (this.marketType.type() === 'crypto') this.modals.openCrypto(symbol);
+    const kind = this.marketType.type();
+    if (kind === 'crypto') this.modals.openCrypto(symbol);
+    else if (kind === 'us') this.modals.openUsStock(symbol);
     else this.modals.openStock(symbol);
   }
 

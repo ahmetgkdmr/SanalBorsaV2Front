@@ -16,7 +16,7 @@ import {
 
 interface HoldingRow {
   symbol: string;
-  marketType: 'bist' | 'crypto';
+  marketType: 'bist' | 'crypto' | 'us';
   quantity: number;
   avgCost: number;
   price: number;
@@ -612,7 +612,7 @@ export class PortfolioPageComponent implements OnInit {
     return name.slice(0, 1).toUpperCase();
   }
 
-  displaySymbol(symbol: string, market: 'bist' | 'crypto'): string {
+  displaySymbol(symbol: string, market: 'bist' | 'crypto' | 'us'): string {
     if (market === 'crypto' && symbol.endsWith('USDT')) return symbol.slice(0, -4);
     return symbol;
   }
@@ -625,7 +625,7 @@ export class PortfolioPageComponent implements OnInit {
     return this.cryptoMsg().includes('✓') ? 'var(--up)' : 'var(--down)';
   }
 
-  formatQty(q: number, market: 'bist' | 'crypto'): string {
+  formatQty(q: number, market: 'bist' | 'crypto' | 'us'): string {
     if (market === 'bist') return String(Math.round(q));
     // Sabit basamak → fiyat tick'inde kolon genişliği oynamasın
     if (q >= 100) return q.toFixed(2);
@@ -633,7 +633,7 @@ export class PortfolioPageComponent implements OnInit {
     return q.toFixed(6);
   }
 
-  formatHoldingPrice(v: number, market: 'bist' | 'crypto'): string {
+  formatHoldingPrice(v: number, market: 'bist' | 'crypto' | 'us'): string {
     if (market === 'bist') return formatNumber(v, 2);
     // Sabit 2–4 hane: tick'te string uzunluğu zıplamasın
     const abs = Math.abs(v);

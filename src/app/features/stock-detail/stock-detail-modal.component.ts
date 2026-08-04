@@ -13,6 +13,8 @@ import { MarketService } from '../../core/services/market.service';
 import { ModalService } from '../../core/services/modal.service';
 import { PortfolioService } from '../../core/services/portfolio.service';
 import { StockApiService } from '../../core/services/stock-api.service';
+import { UsMarketService } from '../../core/services/us-market.service';
+import { UsStockApiService } from '../../core/services/us-stock-api.service';
 import { StockCardView, StockDetail } from '../../core/models/stock.model';
 import { changePercent, formatNumber, symbolColor } from '../../core/utils/format.util';
 import { tierBadge } from '../../core/constants/bist-tiers';
@@ -24,12 +26,12 @@ import { StockLogoComponent } from '../../shared/components/stock-logo/stock-log
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [OverlayComponent, FormsModule, StockLogoComponent],
   template: `
-    <app-overlay [open]="modals.active() === 'stockDetail'" (closed)="modals.close()">
+    <app-overlay [open]="isOpen()" (closed)="modals.close()">
       @if (card(); as d) {
         <div class="modal">
           <button class="m-close" type="button" (click)="modals.close()">✕</button>
           <div class="card-top">
-            <app-stock-logo [symbol]="d.symbol" [color]="d.color" market="bist" />
+            <app-stock-logo [symbol]="d.symbol" [color]="d.color" [market]="isUsMode() ? 'us' : 'bist'" />
             <div>
               <h2>{{ d.symbol }}</h2>
               <div class="sub">{{ d.name }}</div>
@@ -39,7 +41,7 @@ import { StockLogoComponent } from '../../shared/components/stock-logo/stock-log
           <div class="stat-grid">
             <div class="stat">
               <div class="k">SON FİYAT</div>
-              <div class="v mono">{{ formatNumber(d.close) }} ₺</div>
+              <div class="v mono">{{ formatNumber(d.close) }} {{ currencySymbol() }}</div>
             </div>
             <div class="stat">
               <div class="k">GÜNLÜK DEĞİŞİM</div>
@@ -49,11 +51,15 @@ import { StockLogoComponent } from '../../shared/components/stock-logo/stock-log
             </div>
             <div class="stat">
               <div class="k">HACİM</div>
-              <div class="v mono">{{ formatNumber(d.volume) }} mn ₺</div>
+              <div class="v mono">{{ formatNumber(d.volume) }} mn {{ currencySymbol() }}</div>
             </div>
           </div>
 
-          @if (auth.isLoggedIn()) {
+          @if (isUsMode()) {
+            <div class="us-note">
+              🇺🇸 ABD hisseleri şu an sadece görüntüleme + Zaman Makinesi için — alım/satım yakında.
+            </div>
+          } @else if (auth.isLoggedIn()) {
             <div class="trade" style="margin-top: 16px">
               <input
                 class="f-input mono"
@@ -136,6 +142,17 @@ import { StockLogoComponent } from '../../shared/components/stock-logo/stock-log
       font-weight: 600;
     }
 
+    .us-note {
+      margin-top: 16px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px dashed var(--line);
+      background: var(--panel2);
+      font-size: 12px;
+      line-height: 1.5;
+      color: var(--muted);
+    }
+
     .actions {
       margin-top: 20px;
       display: flex;
@@ -151,8 +168,10 @@ export class StockDetailModalComponent {
   readonly modals = inject(ModalService);
   readonly auth = inject(AuthService);
   private readonly market = inject(MarketService);
+  private readonly usMarket = inject(UsMarketService);
   private readonly portfolio = inject(PortfolioService);
   private readonly stockApi = inject(StockApiService);
+  private readonly usStockApi = inject(UsStockApiService);
 
   readonly formatNumber = formatNumber;
   readonly card = signal<StockCardView | null>(null);
@@ -163,9 +182,15 @@ export class StockDetailModalComponent {
   private fetchFor: string | null = null;
   private tradeSymbol: string | null = null;
 
+  readonly isUsMode = computed(() => this.modals.active() === 'usStockDetail');
+  readonly isOpen = computed(
+    () => this.modals.active() === 'stockDetail' || this.modals.active() === 'usStockDetail',
+  );
+  readonly currencySymbol = computed(() => (this.isUsMode() ? '$' : '₺'));
+
   readonly ownedLots = computed(() => {
     const sym = this.card()?.symbol;
-    if (!sym) return 0;
+    if (!sym || this.isUsMode()) return 0;
     const h = this.portfolio.portfolio().holdings.find(
       (x) => x.marketType === 'bist' && x.symbol.toUpperCase() === sym.toUpperCase(),
     );
@@ -178,7 +203,7 @@ export class StockDetailModalComponent {
     // Önceki sürüm loadMarket() çağırıyordu ve getCard() üzerinden live sinyali
     // okuyordu → istek bitince effect yeniden tetiklenip sonsuz /api/stocks döngüsü.
     effect(() => {
-      if (this.modals.active() !== 'stockDetail') {
+      if (!this.isOpen()) {
         this.card.set(null);
         this.msg.set('');
         this.lots = null;
@@ -196,27 +221,27 @@ export class StockDetailModalComponent {
         this.lots = null;
       }
 
-      const existing = this.market.getCard(symbol);
+      const us = this.isUsMode();
+      const existing = us ? this.usMarket.getCard(symbol) : this.market.getCard(symbol);
       if (existing) {
         this.card.set(existing);
         return;
       }
 
       // Liste sayfasında yoksa (ör. taçtan açıldı) tek hisse çek — untracked ki döngü olmasın.
-      untracked(() => this.fetchDetail(symbol));
+      untracked(() => this.fetchDetail(symbol, us));
     });
   }
 
-  private fetchDetail(symbol: string): void {
+  private fetchDetail(symbol: string, us: boolean): void {
     if (this.fetchFor === symbol) return;
     this.fetchFor = symbol;
 
-    this.stockApi.getStock(symbol).subscribe({
+    const api$ = us ? this.usStockApi.getStock(symbol) : this.stockApi.getStock(symbol);
+    api$.subscribe({
       next: (detail) => {
-        if (this.modals.active() !== 'stockDetail' || this.modals.stockSymbol() !== symbol) {
-          return;
-        }
-        this.card.set(toCardView(detail));
+        if (!this.isOpen() || this.modals.stockSymbol() !== symbol) return;
+        this.card.set(toCardView(detail, us));
       },
       error: () => {
         if (this.fetchFor === symbol) this.fetchFor = null;
@@ -226,7 +251,7 @@ export class StockDetailModalComponent {
 
   async buy(): Promise<void> {
     const d = this.card();
-    if (!d || this.busy()) return;
+    if (!d || this.busy() || this.isUsMode()) return;
     const lots = Number(this.lots);
     if (!Number.isFinite(lots) || lots < 1) {
       this.msg.set('Alım için lot miktarı gir.');
@@ -241,7 +266,7 @@ export class StockDetailModalComponent {
 
   async sell(): Promise<void> {
     const d = this.card();
-    if (!d || this.busy() || !this.canSell()) return;
+    if (!d || this.busy() || !this.canSell() || this.isUsMode()) return;
     const lots = Number(this.lots);
     if (!Number.isFinite(lots) || lots < 1) {
       this.msg.set('Satım için lot miktarı gir.');
@@ -256,12 +281,13 @@ export class StockDetailModalComponent {
 
   openTimeMachine(): void {
     const symbol = this.card()?.symbol;
+    const market = this.isUsMode() ? 'us' : 'bist';
     this.modals.close();
-    if (symbol) this.modals.openTimeMachine(symbol, 'bist');
+    if (symbol) this.modals.openTimeMachine(symbol, market);
   }
 }
 
-function toCardView(stock: StockDetail): StockCardView {
+function toCardView(stock: StockDetail, us: boolean): StockCardView {
   // recentPrices API'de tarihe göre artan; [0]=en eski, [^1]=son gün.
   // lastClose/previousClose/lastVolume varsa onları kullan; yoksa son iki günden türet.
   const prices = stock.recentPrices ?? [];
@@ -283,7 +309,7 @@ function toCardView(stock: StockDetail): StockCardView {
     sparkline: spark.length ? spark : [close],
     volume: (stock.lastVolume ?? latest?.volume ?? 0) / 1_000_000,
     color: symbolColor(stock.symbol),
-    tierBadge: tierBadge(stock.bistIndices ?? []),
+    tierBadge: us ? 'ABD' : tierBadge(stock.bistIndices ?? []),
     crownLabel: stock.topGainerLabel ?? null,
     crownPeriod: stock.topGainerPeriod ?? null,
     crownReturnPct: stock.topGainerReturnPct ?? null,

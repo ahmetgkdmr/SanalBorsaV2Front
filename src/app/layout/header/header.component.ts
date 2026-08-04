@@ -15,12 +15,16 @@ import { MarketTickerComponent } from './market-ticker.component';
     <header>
       <div class="topbar">
         <a class="brand" routerLink="/" title="Ana ekran">
-          <div class="brand-mark">{{ marketType.type() === 'crypto' ? '₿' : 'Bİ' }}</div>
+          <div class="brand-mark">
+            {{ marketType.type() === 'crypto' ? '₿' : marketType.type() === 'us' ? 'US' : 'Bİ' }}
+          </div>
           <div>
             <h1>Piyasa Ekranı</h1>
             <small>
               @if (marketType.type() === 'crypto') {
                 KRİPTO · BINANCE SPOT
+              } @else if (marketType.type() === 'us') {
+                ABD HİSSELERİ · S&amp;P 500 PİLOTU
               } @else {
                 BORSA İSTANBUL · DB FİYAT
               }

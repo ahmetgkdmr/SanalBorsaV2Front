@@ -36,6 +36,37 @@ export class AuthService {
     return this._session()?.tokens.accessToken ?? null;
   }
 
+  private refreshInFlight: Promise<string | null> | null = null;
+
+  /**
+   * Access token süresi dolduğunda (401) interceptor tarafından çağrılır.
+   * Aynı anda birden çok istek 401 alırsa tek bir refresh çağrısı paylaşılır.
+   * Refresh de başarısız olursa oturum kapatılır (isLoggedIn() false olur,
+   * UI sahte/boş veri göstermek yerine "giriş yap" ekranına döner).
+   */
+  ensureValidToken(): Promise<string | null> {
+    if (this.refreshInFlight) return this.refreshInFlight;
+
+    const session = this._session();
+    if (!session?.tokens.refreshToken) return Promise.resolve(null);
+
+    this.refreshInFlight = this.doRefresh(session.tokens.refreshToken).finally(() => {
+      this.refreshInFlight = null;
+    });
+    return this.refreshInFlight;
+  }
+
+  private async doRefresh(refreshToken: string): Promise<string | null> {
+    try {
+      const result = await firstValueFrom(this.api.refresh(refreshToken));
+      this.applyLogin(result);
+      return result.accessToken;
+    } catch {
+      await this.logout();
+      return null;
+    }
+  }
+
   /** Google popup — kayıtlıysa session, değilse profil adımı. */
   async loginWithGoogle(): Promise<FirebaseLoginOutcome> {
     const idToken = await this.firebase.signInWithGoogle();

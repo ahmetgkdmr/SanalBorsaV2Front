@@ -7,7 +7,7 @@ import {
   signal,
 } from '@angular/core';
 
-export type LogoMarket = 'bist' | 'crypto' | 'auto';
+export type LogoMarket = 'bist' | 'crypto' | 'us' | 'auto';
 
 type LogoCatalog = {
   bist: Record<string, string[]>;
@@ -141,9 +141,9 @@ export class StockLogoComponent {
     });
   }
 
-  readonly resolvedMarket = computed<'bist' | 'crypto'>(() => {
+  readonly resolvedMarket = computed<'bist' | 'crypto' | 'us'>(() => {
     const m = this.market();
-    if (m === 'bist' || m === 'crypto') return m;
+    if (m === 'bist' || m === 'crypto' || m === 'us') return m;
     const sym = this.symbol().toUpperCase();
     return sym.endsWith('USDT') ? 'crypto' : 'bist';
   });
@@ -159,8 +159,10 @@ export class StockLogoComponent {
   /** Katalogdan bilinen uzantı; katalog yoksa / yüklenmediyse harf göster (404 önle) */
   readonly logoExt = computed<'svg' | 'png' | null>(() => {
     if (this.imgFailed()) return null;
-    const key = this.logoKey();
     const market = this.resolvedMarket();
+    // ABD hisseleri için henüz bir logo kataloğu yok — harflerle göster, 404 denemesi yapma.
+    if (market === 'us') return null;
+    const key = this.logoKey();
     const cat = catalogSignal();
     if (!cat) return null;
 

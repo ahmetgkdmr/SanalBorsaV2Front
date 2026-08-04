@@ -1,7 +1,7 @@
 import { Injectable, signal } from '@angular/core';
 
-export type ModalId = 'timeMachine' | 'login' | 'stockDetail' | 'cryptoDetail' | null;
-export type TimeMachineMarket = 'bist' | 'crypto';
+export type ModalId = 'timeMachine' | 'login' | 'stockDetail' | 'cryptoDetail' | 'usStockDetail' | null;
+export type TimeMachineMarket = 'bist' | 'crypto' | 'us';
 
 @Injectable({ providedIn: 'root' })
 export class ModalService {
@@ -24,6 +24,12 @@ export class ModalService {
     this.stockSymbol.set(symbol);
     this.timeMachineMarket.set('crypto');
     this.open('cryptoDetail');
+  }
+
+  openUsStock(symbol: string): void {
+    this.stockSymbol.set(symbol);
+    this.timeMachineMarket.set('us');
+    this.open('usStockDetail');
   }
 
   openTimeMachine(symbol?: string, market: TimeMachineMarket = 'bist'): void {

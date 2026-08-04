@@ -27,7 +27,7 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
         <app-stock-logo
           [symbol]="stock().symbol"
           [color]="stock().color"
-          [market]="stock().exchange === 'CRYPTO' ? 'crypto' : 'bist'"
+          [market]="stock().exchange === 'CRYPTO' ? 'crypto' : stock().exchange === 'US' ? 'us' : 'bist'"
         />
         <div class="meta">
           <div class="tick">{{ stock().symbol }}</div>

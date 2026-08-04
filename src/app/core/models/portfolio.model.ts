@@ -1,4 +1,4 @@
-export type MarketType = 'bist' | 'crypto';
+export type MarketType = 'bist' | 'crypto' | 'us';
 
 export interface PortfolioHolding {
   symbol: string;

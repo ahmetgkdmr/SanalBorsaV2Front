@@ -1,6 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 
-export type MarketKind = 'bist' | 'crypto';
+export type MarketKind = 'bist' | 'crypto' | 'us';
 
 const KEY = 'sb_market_type';
 
@@ -18,5 +18,5 @@ export class MarketTypeService {
 
 function loadInitial(): MarketKind {
   const v = localStorage.getItem(KEY);
-  return v === 'crypto' ? 'crypto' : 'bist';
+  return v === 'crypto' || v === 'us' ? v : 'bist';
 }
