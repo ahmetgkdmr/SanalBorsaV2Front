@@ -32,6 +32,8 @@ export class MarketService {
   private readonly live = signal<LiveStockState[]>([]);
   private readonly priceCache = signal<Record<string, number>>({});
   private readonly symbolList = signal<string[]>([]);
+  /** Yanıtlar sıra dışı dönebilir (arama hızlı yazılırken) — sadece en son isteğin sonucu uygulanır. */
+  private requestSeq = 0;
 
   readonly cards = computed(() => this.live().map((s) => toStockCard(s)));
 
@@ -56,9 +58,8 @@ export class MarketService {
   }
 
   loadPage(page: number): void {
-    if (this.loading()) return;
-
     const safePage = Math.max(1, page);
+    const seq = ++this.requestSeq;
     this.loading.set(true);
     this.error.set(null);
 
@@ -76,6 +77,9 @@ export class MarketService {
       })
       .pipe(
         map((result) => {
+          // Yanıtlar istek sırasıyla dönmeyebilir (ör. hızlı arama yazılırken) — bu yanıt artık
+          // en son tetiklenen istek değilse yok say, eski sonuç ekrandaki güncel aramayı ezmesin.
+          if (seq !== this.requestSeq) return;
           const stocks = (result.items ?? []).map((s) => this.toLiveState(s));
           this.live.set(stocks);
           this.page.set(result.page ?? safePage);
@@ -86,8 +90,10 @@ export class MarketService {
           this.loading.set(false);
         }),
         catchError((err) => {
-          this.error.set('Hisse verileri yüklenemedi. Backend çalışıyor mu?');
-          this.loading.set(false);
+          if (seq === this.requestSeq) {
+            this.error.set('Hisse verileri yüklenemedi. Backend çalışıyor mu?');
+            this.loading.set(false);
+          }
           return throwError(() => err);
         }),
       )

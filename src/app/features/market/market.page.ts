@@ -37,7 +37,7 @@ const SORT_OPTIONS: { key: MarketSortKey & CryptoSortKey & UsSortKey; label: str
           [class.active]="marketType.type() === 'bist'"
           (click)="setMarket('bist')"
         >
-          BORSA İSTANBUL
+          <span class="ms-flag">🇹🇷</span> BORSA İSTANBUL
         </button>
         <button
           type="button"
@@ -45,7 +45,7 @@ const SORT_OPTIONS: { key: MarketSortKey & CryptoSortKey & UsSortKey; label: str
           [class.active]="marketType.type() === 'crypto'"
           (click)="setMarket('crypto')"
         >
-          KRİPTO PİYASASI
+          <span class="ms-flag">🪙</span> KRİPTO PİYASASI
           <span class="live-badge" title="Binance spot canlı veri">CANLI VERİ</span>
         </button>
         <button
@@ -54,8 +54,7 @@ const SORT_OPTIONS: { key: MarketSortKey & CryptoSortKey & UsSortKey; label: str
           [class.active]="marketType.type() === 'us'"
           (click)="setMarket('us')"
         >
-          ABD HİSSELERİ
-          <span class="live-badge" style="background: var(--prem, #b388ff)" title="S&amp;P 500 pilotu">PİLOT</span>
+          <span class="ms-flag">🇺🇸</span> ABD HİSSELERİ
         </button>
       </div>
 
@@ -187,9 +186,8 @@ const SORT_OPTIONS: { key: MarketSortKey & CryptoSortKey & UsSortKey; label: str
         <div class="data-note">
           <span>🇺🇸</span>
           <span>
-            <b>S&amp;P 500 pilotu</b> — 10 hisse, Yahoo Finance kaynaklı, günlük kapanış verisi
+            <b>S&amp;P 500</b> — günlük kapanış verisi
             · sırala: <b>{{ sortLabel() }}</b>
-            · sadece görüntüleme + Zaman Makinesi (alım/satım yakında)
           </span>
         </div>
       }
@@ -273,6 +271,11 @@ const SORT_OPTIONS: { key: MarketSortKey & CryptoSortKey & UsSortKey; label: str
     }
     .ms-crypto {
       padding-right: 18px;
+    }
+    .ms-flag {
+      font-size: 13px;
+      margin-right: 2px;
+      filter: grayscale(0);
     }
     .live-badge {
       position: absolute;

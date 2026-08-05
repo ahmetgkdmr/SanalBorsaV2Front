@@ -11,6 +11,12 @@ import {
   isBistClosedError,
   isBistTradingOpen,
 } from '../utils/bist-trading-hours';
+import {
+  US_CLOSED_MESSAGE,
+  US_CLOSED_TITLE,
+  isUsClosedError,
+  isUsTradingOpen,
+} from '../utils/us-trading-hours';
 
 const TX_PAGE_SIZE = 10;
 
@@ -35,8 +41,7 @@ export class PortfolioService {
   readonly isLoading = this.loading.asReadonly();
   readonly lastError = this.error.asReadonly();
 
-  readonly cashTry = computed(() => this.state().cashTry);
-  readonly cashUsd = computed(() => this.state().cashUsd);
+  readonly cash = computed(() => this.state().cash);
 
   readonly transactions = this.txItems.asReadonly();
   readonly transactionsPage = this.txPage.asReadonly();
@@ -134,7 +139,7 @@ export class PortfolioService {
 
   async buyCrypto(
     symbol: string,
-    opts: { quoteUsd?: number; quantity?: number },
+    opts: { tryAmount?: number; quantity?: number },
   ): Promise<{ error: string | null; fill?: CryptoFillPreview }> {
     if (!this.auth.isLoggedIn()) return { error: 'Giriş yapmalısın.' };
     try {
@@ -162,6 +167,50 @@ export class PortfolioService {
     }
   }
 
+  /** ABD hissesi al — TL tutarı girilir, anlık kurla kesirli hisse hesaplanır. */
+  async buyUs(symbol: string, tryAmount: number): Promise<string | null> {
+    if (!this.auth.isLoggedIn()) return 'Giriş yapmalısın.';
+    if (!isUsTradingOpen()) {
+      this.showUsClosed();
+      return '__us_closed__';
+    }
+    try {
+      const p = await firstValueFrom(this.api.buyUs(symbol, tryAmount));
+      this.state.set(p);
+      await this.loadTransactions(1);
+      return null;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Alım başarısız.';
+      if (isUsClosedError(msg)) {
+        this.showUsClosed();
+        return '__us_closed__';
+      }
+      return msg;
+    }
+  }
+
+  /** ABD hissesi sat — kesirli miktar. */
+  async sellUs(symbol: string, quantity: number): Promise<string | null> {
+    if (!this.auth.isLoggedIn()) return 'Giriş yapmalısın.';
+    if (!isUsTradingOpen()) {
+      this.showUsClosed();
+      return '__us_closed__';
+    }
+    try {
+      const p = await firstValueFrom(this.api.sellUs(symbol, quantity));
+      this.state.set(p);
+      await this.loadTransactions(1);
+      return null;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Satış başarısız.';
+      if (isUsClosedError(msg)) {
+        this.showUsClosed();
+        return '__us_closed__';
+      }
+      return msg;
+    }
+  }
+
   private applyTxPage(res: PagedTransactions): void {
     this.txItems.set(res.items);
     this.txPage.set(res.page);
@@ -181,7 +230,11 @@ export class PortfolioService {
     this.alerts.show(BIST_CLOSED_TITLE, BIST_CLOSED_MESSAGE);
   }
 
+  private showUsClosed(): void {
+    this.alerts.show(US_CLOSED_TITLE, US_CLOSED_MESSAGE);
+  }
+
   private emptyState(): PortfolioState {
-    return { cashTry: 0, cashUsd: 0, cash: 0, holdings: [], transactions: [] };
+    return { cash: 0, holdings: [], transactions: [] };
   }
 }

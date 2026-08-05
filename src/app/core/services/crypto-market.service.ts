@@ -9,6 +9,15 @@ import { StockApiService } from './stock-api.service';
 
 export const CRYPTO_PAGE_SIZE = 50;
 
+/** Kripto kartı değil, sadece TL kur türetimi için kullanılan pariteler — coin listelerinde gizlenir. */
+const FX_SYMBOLS = new Set(['USDTTRY', 'PAXGTRY', 'EURUSDT']);
+const GRAMS_PER_TROY_OUNCE = 31.1034768;
+
+export interface FxQuote {
+  value: number;
+  changePct: number;
+}
+
 /** Binance Markets benzeri sıralama alanları */
 export type CryptoSortKey = 'volume' | 'price' | 'change' | 'name';
 
@@ -42,9 +51,29 @@ export class CryptoMarketService {
   private hub: signalR.HubConnection | null = null;
   private hubStarting = false;
 
+  /** FX pariteleri kripto kartı değil, portföy/header'daki anlık kur göstergelerinin kaynağı. */
+  readonly usdTryRate = computed(() => this.tickers().find((t) => t.symbol === 'USDTTRY')?.price ?? null);
+
+  readonly usdTry = computed<FxQuote | null>(() => {
+    const t = this.tickers().find((x) => x.symbol === 'USDTTRY');
+    return t ? { value: t.price, changePct: t.changePercent24h } : null;
+  });
+  readonly eurTry = computed<FxQuote | null>(() => {
+    const eur = this.tickers().find((x) => x.symbol === 'EURUSDT');
+    const usd = this.usdTry();
+    if (!eur || !usd) return null;
+    // Bileşik değişim: (1+eurChg)(1+usdChg)-1 — iki yüzdelik oranı doğru birleştirir.
+    const changePct = ((1 + eur.changePercent24h / 100) * (1 + usd.changePct / 100) - 1) * 100;
+    return { value: eur.price * usd.value, changePct };
+  });
+  readonly gramAltin = computed<FxQuote | null>(() => {
+    const t = this.tickers().find((x) => x.symbol === 'PAXGTRY');
+    return t ? { value: t.price / GRAMS_PER_TROY_OUNCE, changePct: t.changePercent24h } : null;
+  });
+
   readonly filtered = computed<CryptoTicker[]>(() => {
     const q = this.search().trim().toUpperCase();
-    const list = this.tickers();
+    const list = this.tickers().filter((t) => !FX_SYMBOLS.has(t.symbol));
     const filtered = !q
       ? list
       : list.filter(
@@ -106,7 +135,7 @@ export class CryptoMarketService {
 
   /** Header şeridi: hacme göre en popüler N coin (canlı). */
   readonly topByVolume = computed(() =>
-    sortTickers([...this.tickers()], 'volume', true).slice(0, 20),
+    sortTickers(this.tickers().filter((t) => !FX_SYMBOLS.has(t.symbol)), 'volume', true).slice(0, 20),
   );
 
   /** Sembol → canlı ticker (şerit gibi sabit listeler için). */
@@ -276,7 +305,8 @@ export class CryptoMarketService {
 
     for (const raw of incoming) {
       const t = normalizeTicker(raw);
-      if (!t.symbol || !t.symbol.endsWith('USDT')) continue;
+      if (!t.symbol) continue;
+      if (!t.symbol.endsWith('USDT') && !FX_SYMBOLS.has(t.symbol)) continue;
       const old = map.get(t.symbol);
       if (old && old.price !== t.price) {
         nextDirs[t.symbol] = t.price > old.price ? 1 : -1;

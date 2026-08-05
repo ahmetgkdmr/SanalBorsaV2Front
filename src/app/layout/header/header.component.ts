@@ -1,10 +1,11 @@
-import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
+import { CryptoMarketService } from '../../core/services/crypto-market.service';
 import { IndexService } from '../../core/services/index.service';
 import { MarketTypeService } from '../../core/services/market-type.service';
 import { ModalService } from '../../core/services/modal.service';
-import { formatTime } from '../../core/utils/format.util';
+import { formatNumber, formatTime } from '../../core/utils/format.util';
 import { MarketTickerComponent } from './market-ticker.component';
 
 @Component({
@@ -24,7 +25,7 @@ import { MarketTickerComponent } from './market-ticker.component';
               @if (marketType.type() === 'crypto') {
                 KRİPTO · BINANCE SPOT
               } @else if (marketType.type() === 'us') {
-                ABD HİSSELERİ · S&amp;P 500 PİLOTU
+                ABD HİSSELERİ · S&amp;P 500
               } @else {
                 BORSA İSTANBUL · DB FİYAT
               }
@@ -58,6 +59,33 @@ import { MarketTickerComponent } from './market-ticker.component';
       </div>
 
       <app-market-ticker />
+
+      <div class="fx-strip">
+        @if (usdTry(); as q) {
+          <span class="fx-chip" title="USD/TRY">
+            💵 {{ formatNumber(q.value, 4) }}
+            <b [style.color]="q.changePct >= 0 ? 'var(--up)' : 'var(--down)'">
+              {{ q.changePct >= 0 ? '▲' : '▼' }} %{{ formatNumber(abs(q.changePct), 2) }}
+            </b>
+          </span>
+        }
+        @if (eurTry(); as q) {
+          <span class="fx-chip" title="EUR/TRY">
+            💶 {{ formatNumber(q.value, 4) }}
+            <b [style.color]="q.changePct >= 0 ? 'var(--up)' : 'var(--down)'">
+              {{ q.changePct >= 0 ? '▲' : '▼' }} %{{ formatNumber(abs(q.changePct), 2) }}
+            </b>
+          </span>
+        }
+        @if (gramAltin(); as q) {
+          <span class="fx-chip" title="Gram Altın/TRY">
+            🥇 {{ formatNumber(q.value, 2) }}
+            <b [style.color]="q.changePct >= 0 ? 'var(--up)' : 'var(--down)'">
+              {{ q.changePct >= 0 ? '▲' : '▼' }} %{{ formatNumber(abs(q.changePct), 2) }}
+            </b>
+          </span>
+        }
+      </div>
     </header>
   `,
   styles: `
@@ -151,6 +179,37 @@ import { MarketTickerComponent } from './market-ticker.component';
       gap: 8px;
       align-items: center;
       flex-wrap: wrap;
+    }
+
+    .fx-strip {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      margin-top: 8px;
+      max-width: 1280px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .fx-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text);
+      background: var(--panel2);
+      border: 1px solid var(--line);
+      padding: 4px 9px;
+      border-radius: 999px;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+
+      b {
+        font-weight: 800;
+        font-size: 10px;
+      }
     }
 
     .live {
@@ -266,8 +325,15 @@ export class HeaderComponent implements OnInit, OnDestroy {
   readonly modals = inject(ModalService);
   readonly marketType = inject(MarketTypeService);
   private readonly indexService = inject(IndexService);
+  private readonly cryptoMarket = inject(CryptoMarketService);
 
+  readonly formatNumber = formatNumber;
+  readonly abs = Math.abs;
   readonly clock = signal(formatTime());
+
+  readonly usdTry = this.cryptoMarket.usdTry;
+  readonly eurTry = this.cryptoMarket.eurTry;
+  readonly gramAltin = this.cryptoMarket.gramAltin;
 
   private clockTimer?: ReturnType<typeof setInterval>;
   private destroyRetry?: () => void;

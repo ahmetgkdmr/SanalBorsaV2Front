@@ -9,6 +9,7 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../core/services/auth.service';
+import { CryptoMarketService } from '../../core/services/crypto-market.service';
 import { MarketService } from '../../core/services/market.service';
 import { ModalService } from '../../core/services/modal.service';
 import { PortfolioService } from '../../core/services/portfolio.service';
@@ -55,19 +56,15 @@ import { StockLogoComponent } from '../../shared/components/stock-logo/stock-log
             </div>
           </div>
 
-          @if (isUsMode()) {
-            <div class="us-note">
-              🇺🇸 ABD hisseleri şu an sadece görüntüleme + Zaman Makinesi için — alım/satım yakında.
-            </div>
-          } @else if (auth.isLoggedIn()) {
+          @if (auth.isLoggedIn()) {
             <div class="trade" style="margin-top: 16px">
               <input
                 class="f-input mono"
                 type="number"
-                min="1"
-                step="1"
+                [min]="isUsMode() ? 0 : 1"
+                [step]="isUsMode() ? 'any' : '1'"
                 [(ngModel)]="lots"
-                placeholder="Lot miktarı giriniz"
+                [placeholder]="isUsMode() ? 'TL tutar giriniz' : 'Lot miktarı giriniz'"
               />
               <button class="btn btn-buy" type="button" [disabled]="busy()" (click)="buy()">AL</button>
               <button
@@ -83,6 +80,8 @@ import { StockLogoComponent } from '../../shared/components/stock-logo/stock-log
                 {{ msg() }}
               </div>
             }
+          } @else {
+            <p class="hint">İşlem için giriş yap.</p>
           }
 
           <div class="actions">
@@ -142,15 +141,10 @@ import { StockLogoComponent } from '../../shared/components/stock-logo/stock-log
       font-weight: 600;
     }
 
-    .us-note {
-      margin-top: 16px;
-      padding: 10px 12px;
-      border-radius: 10px;
-      border: 1px dashed var(--line);
-      background: var(--panel2);
-      font-size: 12px;
-      line-height: 1.5;
+    .hint {
+      margin-top: 14px;
       color: var(--muted);
+      font-size: 13px;
     }
 
     .actions {
@@ -169,6 +163,7 @@ export class StockDetailModalComponent {
   readonly auth = inject(AuthService);
   private readonly market = inject(MarketService);
   private readonly usMarket = inject(UsMarketService);
+  private readonly crypto = inject(CryptoMarketService);
   private readonly portfolio = inject(PortfolioService);
   private readonly stockApi = inject(StockApiService);
   private readonly usStockApi = inject(UsStockApiService);
@@ -190,9 +185,10 @@ export class StockDetailModalComponent {
 
   readonly ownedLots = computed(() => {
     const sym = this.card()?.symbol;
-    if (!sym || this.isUsMode()) return 0;
+    if (!sym) return 0;
+    const marketType = this.isUsMode() ? 'us' : 'bist';
     const h = this.portfolio.portfolio().holdings.find(
-      (x) => x.marketType === 'bist' && x.symbol.toUpperCase() === sym.toUpperCase(),
+      (x) => x.marketType === marketType && x.symbol.toUpperCase() === sym.toUpperCase(),
     );
     return h?.quantity ?? h?.lots ?? 0;
   });
@@ -251,7 +247,22 @@ export class StockDetailModalComponent {
 
   async buy(): Promise<void> {
     const d = this.card();
-    if (!d || this.busy() || this.isUsMode()) return;
+    if (!d || this.busy()) return;
+
+    if (this.isUsMode()) {
+      const tl = Number(this.lots);
+      if (!Number.isFinite(tl) || tl <= 0) {
+        this.msg.set('Alım için TL tutarı gir.');
+        return;
+      }
+      this.busy.set(true);
+      const err = await this.portfolio.buyUs(d.symbol, tl);
+      if (err === '__us_closed__') this.msg.set('');
+      else this.msg.set(err ?? `✓ ${formatNumber(tl)} ₺ ile ${d.symbol} alındı.`);
+      this.busy.set(false);
+      return;
+    }
+
     const lots = Number(this.lots);
     if (!Number.isFinite(lots) || lots < 1) {
       this.msg.set('Alım için lot miktarı gir.');
@@ -266,7 +277,24 @@ export class StockDetailModalComponent {
 
   async sell(): Promise<void> {
     const d = this.card();
-    if (!d || this.busy() || !this.canSell() || this.isUsMode()) return;
+    if (!d || this.busy() || !this.canSell()) return;
+
+    if (this.isUsMode()) {
+      const tl = Number(this.lots);
+      const rate = this.crypto.usdTryRate();
+      if (!Number.isFinite(tl) || tl <= 0 || !rate || d.close <= 0) {
+        this.msg.set('Geçerli bir TL tutarı gir (kur/fiyat henüz yüklenmemiş olabilir).');
+        return;
+      }
+      const qty = tl / rate / d.close;
+      this.busy.set(true);
+      const err = await this.portfolio.sellUs(d.symbol, qty);
+      if (err === '__us_closed__') this.msg.set('');
+      else this.msg.set(err ?? `✓ ${formatNumber(tl)} ₺ değerinde ${d.symbol} satıldı.`);
+      this.busy.set(false);
+      return;
+    }
+
     const lots = Number(this.lots);
     if (!Number.isFinite(lots) || lots < 1) {
       this.msg.set('Satım için lot miktarı gir.');

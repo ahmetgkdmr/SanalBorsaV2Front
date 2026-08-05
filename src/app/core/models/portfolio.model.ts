@@ -18,19 +18,19 @@ export interface PortfolioTransaction {
   price: number;
   total: number;
   fillBreakdownJson?: string | null;
+  /** Crypto/US işlemlerinde kullanılan anlık USD/TRY kuru (BIST'te yok). */
+  exchangeRateAtTrade?: number;
   at: string;
   /** @deprecated */
   lots?: number;
 }
 
 export interface PortfolioState {
-  cashTry: number;
-  cashUsd: number;
+  /** Tek nakit havuzu (TRY) — BIST, Kripto ve ABD hisseleri ortak kullanır. */
+  cash: number;
   holdings: PortfolioHolding[];
   /** @deprecated sayfalı endpoint kullan */
   transactions: PortfolioTransaction[];
-  /** @deprecated alias */
-  cash?: number;
 }
 
 export interface PagedTransactions {

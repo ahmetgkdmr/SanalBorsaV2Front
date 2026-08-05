@@ -89,7 +89,12 @@ export class MarketTickerComponent implements AfterViewInit, OnDestroy {
   private cryptoStripDay = '';
 
   private readonly bistSlots = computed<Slot[]>(
-    () => this.indexService.quotes().map((q) => ({ id: q.symbol, name: q.displayName })),
+    () =>
+      this.indexService
+        .quotes()
+        // USD/TRY artık header'ın sağ üstünde canlı gösteriliyor — şeritte tekrar etmesin.
+        .filter((q) => q.symbol !== 'USDTRY')
+        .map((q) => ({ id: q.symbol, name: q.displayName })),
     { equal: sameSlots },
   );
 
@@ -106,12 +111,15 @@ export class MarketTickerComponent implements AfterViewInit, OnDestroy {
   private viewReady = false;
 
   constructor() {
+    // Kripto WS her modda açık kalır — BIST şeridindeki USD/TRY canlı Binance USDTTRY
+    // paritesinden okunuyor (bkz. buildLookup), o yüzden bağlantı her zaman gerekli.
+    untracked(() => {
+      if (this.cryptoMarket.tickersCount() === 0) this.cryptoMarket.load();
+    });
+
     effect(() => {
       if (this.marketType.type() !== 'crypto') return;
-      untracked(() => {
-        this.loadCryptoStrip();
-        if (this.cryptoMarket.tickersCount() === 0) this.cryptoMarket.load();
-      });
+      untracked(() => this.loadCryptoStrip());
     });
 
     effect(() => {

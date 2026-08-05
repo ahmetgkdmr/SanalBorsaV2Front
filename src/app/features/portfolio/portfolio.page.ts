@@ -5,6 +5,7 @@ import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { CryptoMarketService } from '../../core/services/crypto-market.service';
 import { MarketService } from '../../core/services/market.service';
+import { UsMarketService } from '../../core/services/us-market.service';
 import { ModalService } from '../../core/services/modal.service';
 import { PortfolioService } from '../../core/services/portfolio.service';
 import { formatInteger, formatNumber, symbolColor } from '../../core/utils/format.util';
@@ -47,16 +48,16 @@ interface HoldingRow {
           <div class="avatar">{{ avatar() }}</div>
           <div>
             <h2>{{ auth.currentUser()?.displayName }}</h2>
-            <div class="sub">Sanal yatırımcı · 1.000.000 ₺ + 100.000 $</div>
+            <div class="sub">Sanal yatırımcı · 1.000.000 ₺
+              @if (usdTryRate(); as rate) {
+                <span class="fx-badge">USD/TRY {{ formatNumber(rate, 2) }}</span>
+              }
+            </div>
           </div>
           <div class="totals">
             <div class="total">
-              <div class="k">BIST VARLIK</div>
+              <div class="k">TOPLAM VARLIK</div>
               <div class="v mono">{{ formatInteger(totalTry()) }} ₺</div>
-            </div>
-            <div class="total">
-              <div class="k">KRİPTO VARLIK</div>
-              <div class="v mono">{{ formatNumber(totalUsd()) }} $</div>
             </div>
           </div>
         </div>
@@ -64,22 +65,12 @@ interface HoldingRow {
         <div class="stat-grid" style="margin-top: 14px">
           <div class="stat">
             <div class="k">NAKİT ₺</div>
-            <div class="v mono">{{ formatInteger(portfolio.cashTry()) }} ₺</div>
+            <div class="v mono">{{ formatInteger(portfolio.cash()) }} ₺</div>
           </div>
           <div class="stat">
-            <div class="k">NAKİT $</div>
-            <div class="v mono">{{ formatNumber(portfolio.cashUsd()) }} $</div>
-          </div>
-          <div class="stat">
-            <div class="k">BIST K/Z</div>
+            <div class="k">TOPLAM K/Z</div>
             <div class="v mono" [style.color]="pnlTry() >= 0 ? 'var(--up)' : 'var(--down)'">
               {{ pnlTry() >= 0 ? '+' : '' }}{{ formatInteger(pnlTry()) }} ₺
-            </div>
-          </div>
-          <div class="stat">
-            <div class="k">KRİPTO K/Z</div>
-            <div class="v mono" [style.color]="pnlUsd() >= 0 ? 'var(--up)' : 'var(--down)'">
-              {{ pnlUsd() >= 0 ? '+' : '' }}{{ formatNumber(pnlUsd()) }} $
             </div>
           </div>
         </div>
@@ -120,14 +111,37 @@ interface HoldingRow {
             type="number"
             min="0"
             step="any"
-            [(ngModel)]="cryptoUsd"
-            placeholder="USD tutar"
+            [(ngModel)]="cryptoTry"
+            placeholder="TL tutar"
           />
           <button class="btn btn-buy" type="button" [disabled]="busyCrypto()" (click)="buyCrypto()">AL</button>
           <button class="btn btn-sell" type="button" [disabled]="busyCrypto()" (click)="sellCrypto()">SAT</button>
         </div>
         @if (cryptoMsg()) {
           <div class="trade-msg" [style.color]="cryptoMsgColor()">{{ cryptoMsg() }}</div>
+        }
+
+        <div class="sec-h">HIZLI İŞLEM (ABD)</div>
+        <div class="trade">
+          <app-symbol-select
+            [(value)]="usSymbol"
+            [options]="usOptions()"
+            market="us"
+            [disabled]="busyUs()"
+          />
+          <input
+            class="f-input mono"
+            type="number"
+            min="0"
+            step="any"
+            [(ngModel)]="usTry"
+            placeholder="TL tutar"
+          />
+          <button class="btn btn-buy" type="button" [disabled]="busyUs()" (click)="buyUs()">AL</button>
+          <button class="btn btn-sell" type="button" [disabled]="busyUs()" (click)="sellUs()">SAT</button>
+        </div>
+        @if (usMsg()) {
+          <div class="trade-msg" [style.color]="usMsgColor()">{{ usMsg() }}</div>
         }
 
         <div class="sec-h">VARLIKLARIM</div>
@@ -238,6 +252,59 @@ interface HoldingRow {
           }
         </div>
 
+        <div class="hold-group us">
+          <div class="hold-head">
+            <div class="hold-badge us">ABD</div>
+            <div class="hold-meta">
+              <div class="hold-title">ABD Hisseleri</div>
+              <div class="hold-sub">{{ usHoldings().length }} pozisyon · {{ formatNumber(stockValueUs()) }} $</div>
+            </div>
+          </div>
+          @if (!usHoldings().length) {
+            <div class="hold-empty">ABD hisse pozisyonu yok.</div>
+          } @else {
+            <div class="hold-scroll">
+              <table class="pf-table">
+                <colgroup>
+                  <col class="c-sym" />
+                  <col class="c-qty" />
+                  <col class="c-num" />
+                  <col class="c-num" />
+                  <col class="c-num" />
+                  <col class="c-pnl" />
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th>Sembol</th>
+                    <th class="r">Miktar</th>
+                    <th class="r">Ort. Maliyet</th>
+                    <th class="r">Güncel</th>
+                    <th class="r">Değer</th>
+                    <th class="r">K/Z</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (h of usHoldings(); track h.symbol) {
+                    <tr>
+                      <td class="sym-cell">
+                        <app-stock-logo [symbol]="h.symbol" [color]="h.color" market="us" size="sm" />
+                        <b>{{ h.symbol }}</b>
+                      </td>
+                      <td class="r mono num">{{ formatQty(h.quantity, 'us') }}</td>
+                      <td class="r mono num">{{ formatHoldingPrice(h.avgCost, 'us') }} $</td>
+                      <td class="r mono num">{{ formatHoldingPrice(h.price, 'us') }} $</td>
+                      <td class="r mono num">{{ formatHoldingPrice(h.value, 'us') }} $</td>
+                      <td class="r mono num" [style.color]="h.pnl >= 0 ? 'var(--up)' : 'var(--down)'">
+                        {{ h.pnl >= 0 ? '+' : '' }}{{ formatNumber(h.pnl) }}
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </div>
+
         <div class="sec-h">📜 İŞLEM GEÇMİŞİM</div>
         <div class="privacy-box">
           <label class="privacy-row">
@@ -283,9 +350,9 @@ interface HoldingRow {
               <span class="mono">
                 {{ formatQty(tx.quantity, tx.marketType) }}
                 · {{ formatHoldingPrice(tx.price, tx.marketType) }}
-                {{ tx.marketType === 'crypto' ? '$' : '₺' }}
+                {{ tx.marketType === 'bist' ? '₺' : '$' }}
               </span>
-              <span class="tag">{{ tx.marketType === 'crypto' ? 'CRYPTO' : 'BIST' }}</span>
+              <span class="tag">{{ txTag(tx.marketType) }}</span>
               <span class="when">{{ tx.at | date: 'dd.MM.yyyy HH:mm' }}</span>
             </div>
           }
@@ -366,6 +433,12 @@ interface HoldingRow {
         linear-gradient(135deg, color-mix(in srgb, #3b82f6 9%, var(--panel)), var(--panel) 42%);
       border-color: color-mix(in srgb, #3b82f6 28%, var(--line));
     }
+    .hold-group.us {
+      margin-top: 14px;
+      background:
+        linear-gradient(135deg, color-mix(in srgb, #f59e0b 9%, var(--panel)), var(--panel) 42%);
+      border-color: color-mix(in srgb, #f59e0b 28%, var(--line));
+    }
     .hold-head {
       display: flex; align-items: center; gap: 12px;
       padding: 14px 16px 12px;
@@ -377,6 +450,12 @@ interface HoldingRow {
     }
     .hold-badge.bist { background: linear-gradient(135deg, #16a34a, #0e7a55); }
     .hold-badge.crypto { background: linear-gradient(135deg, #60a5fa, #2563eb); }
+    .hold-badge.us { background: linear-gradient(135deg, #fbbf24, #d97706); }
+    .fx-badge {
+      display: inline-block; margin-left: 8px; padding: 2px 8px;
+      border-radius: 999px; background: var(--panel2); border: 1px solid var(--line);
+      font-size: 11px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums;
+    }
     .hold-title { font-size: 15px; font-weight: 800; line-height: 1.2; }
     .hold-sub { font-size: 12px; color: var(--muted); font-weight: 600; margin-top: 2px; }
     .hold-empty {
@@ -488,6 +567,7 @@ export class PortfolioPageComponent implements OnInit {
   readonly modals = inject(ModalService);
   private readonly market = inject(MarketService);
   private readonly crypto = inject(CryptoMarketService);
+  private readonly us = inject(UsMarketService);
 
   readonly formatNumber = formatNumber;
   readonly formatInteger = formatInteger;
@@ -499,9 +579,16 @@ export class PortfolioPageComponent implements OnInit {
   readonly busy = signal(false);
 
   cryptoSymbol = 'BTCUSDT';
-  cryptoUsd = 100;
+  cryptoTry = 1000;
   readonly cryptoMsg = signal('');
   readonly busyCrypto = signal(false);
+
+  usSymbol = 'AAPL';
+  usTry = 1000;
+  readonly usMsg = signal('');
+  readonly busyUs = signal(false);
+
+  readonly usdTryRate = computed(() => this.crypto.usdTryRate());
 
   readonly privacyDraft = signal(true);
   readonly privacySaving = signal(false);
@@ -536,14 +623,27 @@ export class PortfolioPageComponent implements OnInit {
     });
   });
 
+  readonly usOptions = computed<SymbolOption[]>(() => {
+    const fromMarket = this.us.symbolOptions();
+    const fromHoldings = this.portfolio
+      .portfolio()
+      .holdings.filter((h) => h.marketType === 'us')
+      .map((h) => h.symbol);
+    const symbols = [...new Set([...fromHoldings, ...fromMarket, 'AAPL', 'MSFT'])].sort();
+    return symbols.map((s) => ({ value: s, title: s, subtitle: 'ABD' }));
+  });
+
   readonly holdings = computed<HoldingRow[]>(() => {
     this.market.page();
     this.crypto.cards();
+    this.us.cards();
     return this.portfolio.portfolio().holdings.map((h) => {
-      const isCrypto = h.marketType === 'crypto';
-      const price = isCrypto
-        ? this.crypto.getPrice(h.symbol) || h.avgCost
-        : this.market.getPrice(h.symbol) || h.avgCost;
+      const price =
+        h.marketType === 'crypto'
+          ? this.crypto.getPrice(h.symbol) || h.avgCost
+          : h.marketType === 'us'
+            ? this.us.getCard(h.symbol)?.close || h.avgCost
+            : this.market.getPrice(h.symbol) || h.avgCost;
       const value = price * h.quantity;
       const cost = h.avgCost * h.quantity;
       return {
@@ -556,7 +656,7 @@ export class PortfolioPageComponent implements OnInit {
         pnl: value - cost,
         pnlPct: cost ? ((value - cost) / cost) * 100 : 0,
         color: symbolColor(h.symbol),
-        currency: isCrypto ? '$' : '₺',
+        currency: h.marketType === 'bist' ? '₺' : '$',
       };
     });
   });
@@ -573,18 +673,33 @@ export class PortfolioPageComponent implements OnInit {
       .slice()
       .sort((a, b) => a.symbol.localeCompare(b.symbol)),
   );
+  readonly usHoldings = computed(() =>
+    this.holdings()
+      .filter((h) => h.marketType === 'us')
+      .slice()
+      .sort((a, b) => a.symbol.localeCompare(b.symbol)),
+  );
 
   readonly stockValueTry = computed(() => this.bistHoldings().reduce((s, h) => s + h.value, 0));
   readonly stockValueUsd = computed(() => this.cryptoHoldings().reduce((s, h) => s + h.value, 0));
-  readonly totalTry = computed(() => this.stockValueTry() + this.portfolio.cashTry());
-  readonly totalUsd = computed(() => this.stockValueUsd() + this.portfolio.cashUsd());
+  readonly stockValueUs = computed(() => this.usHoldings().reduce((s, h) => s + h.value, 0));
+
+  /** Tek TL havuzu: BIST zaten TL, kripto/ABD değeri anlık kurla TL'ye çevrilir. */
+  readonly totalTry = computed(() => {
+    const rate = this.usdTryRate() ?? 0;
+    return (
+      this.stockValueTry() +
+      (this.stockValueUsd() + this.stockValueUs()) * rate +
+      this.portfolio.cash()
+    );
+  });
   readonly pnlTry = computed(() => this.totalTry() - 1_000_000);
-  readonly pnlUsd = computed(() => this.totalUsd() - 100_000);
 
   ngOnInit(): void {
     void this.portfolio.reload();
     this.market.loadMarket();
     this.crypto.load();
+    this.us.loadMarket();
     this.privacyDraft.set(this.auth.currentUser()?.showTradeHistoryPublic !== false);
   }
 
@@ -659,36 +774,76 @@ export class PortfolioPageComponent implements OnInit {
   }
 
   async buyCrypto(): Promise<void> {
-    const usd = Number(this.cryptoUsd);
-    if (!Number.isFinite(usd) || usd <= 0) {
-      this.cryptoMsg.set('Geçerli bir USD tutarı gir.');
+    const tl = Number(this.cryptoTry);
+    if (!Number.isFinite(tl) || tl <= 0) {
+      this.cryptoMsg.set('Geçerli bir TL tutarı gir.');
       return;
     }
     this.busyCrypto.set(true);
-    const res = await this.portfolio.buyCrypto(this.cryptoSymbol, { quoteUsd: usd });
+    const res = await this.portfolio.buyCrypto(this.cryptoSymbol, { tryAmount: tl });
     this.cryptoMsg.set(
-      res.error ?? `✓ ${formatNumber(usd)} $ ile ${this.displaySymbol(this.cryptoSymbol, 'crypto')} alındı.`,
+      res.error ?? `✓ ${formatNumber(tl)} ₺ ile ${this.displaySymbol(this.cryptoSymbol, 'crypto')} alındı.`,
     );
     this.busyCrypto.set(false);
   }
 
   async sellCrypto(): Promise<void> {
-    const usd = Number(this.cryptoUsd);
-    if (!Number.isFinite(usd) || usd <= 0) {
-      this.cryptoMsg.set('Geçerli bir USD tutarı gir.');
+    const tl = Number(this.cryptoTry);
+    if (!Number.isFinite(tl) || tl <= 0) {
+      this.cryptoMsg.set('Geçerli bir TL tutarı gir.');
       return;
     }
     const price = this.crypto.getPrice(this.cryptoSymbol);
-    if (!price || price <= 0) {
-      this.cryptoMsg.set('Fiyat bulunamadı.');
+    const rate = this.usdTryRate();
+    if (!price || price <= 0 || !rate) {
+      this.cryptoMsg.set('Fiyat veya kur bulunamadı.');
       return;
     }
-    const qty = usd / price;
+    const qty = tl / rate / price;
     this.busyCrypto.set(true);
     const res = await this.portfolio.sellCrypto(this.cryptoSymbol, qty);
     this.cryptoMsg.set(
-      res.error ?? `✓ ${formatNumber(usd)} $ değerinde ${this.displaySymbol(this.cryptoSymbol, 'crypto')} satıldı.`,
+      res.error ?? `✓ ${formatNumber(tl)} ₺ değerinde ${this.displaySymbol(this.cryptoSymbol, 'crypto')} satıldı.`,
     );
     this.busyCrypto.set(false);
+  }
+
+  usMsgColor(): string {
+    return this.usMsg().includes('✓') ? 'var(--up)' : 'var(--down)';
+  }
+
+  txTag(market: 'bist' | 'crypto' | 'us'): string {
+    if (market === 'crypto') return 'CRYPTO';
+    if (market === 'us') return 'ABD';
+    return 'BIST';
+  }
+
+  async buyUs(): Promise<void> {
+    const tl = Number(this.usTry);
+    if (!Number.isFinite(tl) || tl <= 0) {
+      this.usMsg.set('Geçerli bir TL tutarı gir.');
+      return;
+    }
+    this.busyUs.set(true);
+    const err = await this.portfolio.buyUs(this.usSymbol, tl);
+    if (err === '__us_closed__') this.usMsg.set('');
+    else this.usMsg.set(err ?? `✓ ${formatNumber(tl)} ₺ ile ${this.usSymbol} alındı.`);
+    this.busyUs.set(false);
+  }
+
+  async sellUs(): Promise<void> {
+    const tl = Number(this.usTry);
+    const price = this.us.getCard(this.usSymbol)?.close;
+    const rate = this.usdTryRate();
+    if (!Number.isFinite(tl) || tl <= 0 || !price || !rate) {
+      this.usMsg.set('Geçerli bir TL tutarı gir (fiyat/kur henüz yüklenmemiş olabilir).');
+      return;
+    }
+    const qty = tl / rate / price;
+    this.busyUs.set(true);
+    const err = await this.portfolio.sellUs(this.usSymbol, qty);
+    if (err === '__us_closed__') this.usMsg.set('');
+    else this.usMsg.set(err ?? `✓ ${formatNumber(tl)} ₺ değerinde ${this.usSymbol} satıldı.`);
+    this.busyUs.set(false);
   }
 }

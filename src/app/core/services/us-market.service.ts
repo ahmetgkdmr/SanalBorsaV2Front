@@ -28,10 +28,12 @@ export class UsMarketService {
   private readonly stocks = signal<Stock[]>([]);
 
   private readonly filtered = computed(() => {
+    // Sadece hisse kodunda ara — şirket ismini de dahil etmek kısa aramalarda alakasız
+    // sonuçlar üretiyordu (BIST tarafındaki aynı düzeltmeyle tutarlı).
     const q = this.apiSearch().trim().toUpperCase();
     const list = this.stocks();
     if (!q) return list;
-    return list.filter((s) => s.symbol.includes(q) || s.name.toUpperCase().includes(q));
+    return list.filter((s) => s.symbol.includes(q));
   });
 
   readonly serverTotalCount = computed(() => this.filtered().length);

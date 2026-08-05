@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, catchError, map, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
+  MarketType,
   PagedTransactions,
   PortfolioHolding,
   PortfolioState,
@@ -13,8 +14,7 @@ import { CryptoFillPreview } from '../models/crypto.model';
 interface ApiPortfolio {
   id: string;
   userId: string;
-  cashTry: number;
-  cashUsd: number;
+  cash: number;
   holdings: {
     symbol: string;
     marketType: string;
@@ -30,8 +30,15 @@ interface ApiPortfolio {
     price: number;
     total: number;
     fillBreakdownJson?: string | null;
+    exchangeRateAtTrade?: number | null;
     executedAt: string;
   }[];
+}
+
+function mapMarketType(mt: string): MarketType {
+  if (mt === 'crypto') return 'crypto';
+  if (mt === 'us') return 'us';
+  return 'bist';
 }
 
 interface ApiPagedTransactions {
@@ -76,7 +83,7 @@ export class PortfolioApiService {
       .pipe(map(mapPortfolio), catchError(mapHttpError));
   }
 
-  buyCrypto(symbol: string, body: { quoteUsd?: number; quantity?: number }): Observable<{
+  buyCrypto(symbol: string, body: { tryAmount?: number; quantity?: number }): Observable<{
     portfolio: PortfolioState;
     fill: CryptoFillPreview;
   }> {
@@ -99,18 +106,31 @@ export class PortfolioApiService {
         catchError(mapHttpError),
       );
   }
+
+  buyUs(symbol: string, tryAmount: number): Observable<PortfolioState> {
+    return this.http
+      .post<ApiPortfolio>(`${this.base}/us/buy`, { symbol, tryAmount })
+      .pipe(map(mapPortfolio), catchError(mapHttpError));
+  }
+
+  sellUs(symbol: string, quantity: number): Observable<PortfolioState> {
+    return this.http
+      .post<ApiPortfolio>(`${this.base}/us/sell`, { symbol, quantity })
+      .pipe(map(mapPortfolio), catchError(mapHttpError));
+  }
 }
 
 function mapTx(t: NonNullable<ApiPortfolio['transactions']>[number]): PortfolioTransaction {
   return {
     id: t.id,
     symbol: t.symbol,
-    marketType: t.marketType === 'crypto' ? 'crypto' : 'bist',
+    marketType: mapMarketType(t.marketType),
     side: t.side === 'sell' ? 'sell' : 'buy',
     quantity: Number(t.quantity),
     price: Number(t.price),
     total: Number(t.total),
     fillBreakdownJson: t.fillBreakdownJson,
+    exchangeRateAtTrade: t.exchangeRateAtTrade ?? undefined,
     at: t.executedAt,
     lots: Number(t.quantity),
   };
@@ -129,16 +149,14 @@ function mapPagedTransactions(p: ApiPagedTransactions): PagedTransactions {
 function mapPortfolio(p: ApiPortfolio): PortfolioState {
   const holdings: PortfolioHolding[] = (p.holdings ?? []).map((h) => ({
     symbol: h.symbol,
-    marketType: h.marketType === 'crypto' ? 'crypto' : 'bist',
+    marketType: mapMarketType(h.marketType),
     quantity: Number(h.quantity),
     avgCost: Number(h.avgCost),
     lots: Number(h.quantity),
   }));
 
   return {
-    cashTry: Number(p.cashTry),
-    cashUsd: Number(p.cashUsd),
-    cash: Number(p.cashTry),
+    cash: Number(p.cash),
     holdings,
     transactions: (p.transactions ?? []).map(mapTx),
   };

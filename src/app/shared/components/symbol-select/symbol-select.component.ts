@@ -146,7 +146,7 @@ export class SymbolSelectComponent {
 
   readonly value = model<string>('');
   readonly options = input<SymbolOption[]>([]);
-  readonly market = input<'bist' | 'crypto'>('bist');
+  readonly market = input<'bist' | 'crypto' | 'us'>('bist');
   readonly disabled = input(false);
 
   readonly open = signal(false);

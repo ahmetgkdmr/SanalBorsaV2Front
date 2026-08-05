@@ -40,8 +40,8 @@ import { StockLogoComponent } from '../../shared/components/stock-logo/stock-log
               </div>
             </div>
             <div class="stat">
-              <div class="k">USD BAKİYE</div>
-              <div class="v mono">{{ formatNumber(portfolio.cashUsd()) }} $</div>
+              <div class="k">TL BAKİYE</div>
+              <div class="v mono">{{ formatNumber(portfolio.cash()) }} ₺</div>
             </div>
           </div>
 
@@ -69,7 +69,7 @@ import { StockLogoComponent } from '../../shared/components/stock-logo/stock-log
           @if (auth.isLoggedIn()) {
             <div class="trade-mode">
               <button type="button" [class.active]="mode() === 'quote'" (click)="mode.set('quote')">
-                USD tutar
+                TL tutar
               </button>
               <button type="button" [class.active]="mode() === 'qty'" (click)="mode.set('qty')">
                 Miktar
@@ -82,7 +82,7 @@ import { StockLogoComponent } from '../../shared/components/stock-logo/stock-log
                 min="0"
                 step="any"
                 [(ngModel)]="amount"
-                [placeholder]="mode() === 'quote' ? 'Örn. 1000 USD' : 'Örn. 0.01'"
+                [placeholder]="mode() === 'quote' ? 'Örn. 1000 TL' : 'Örn. 0.01'"
               />
               <button class="btn btn-buy" type="button" [disabled]="busy()" (click)="buy()">AL</button>
               <button
@@ -311,14 +311,19 @@ export class CryptoDetailModalComponent {
     const amount = this.parseAmount();
     if (!sym) return;
     if (amount <= 0) {
-      this.msg.set(this.mode() === 'quote' ? 'Önizleme için USD tutarı gir.' : 'Önizleme için miktar gir.');
+      this.msg.set(this.mode() === 'quote' ? 'Önizleme için TL tutarı gir.' : 'Önizleme için miktar gir.');
+      return;
+    }
+    const rate = this.cryptoMarket.usdTryRate();
+    if (this.mode() === 'quote' && !rate) {
+      this.msg.set('Anlık USD/TRY kuru henüz yüklenmedi, birazdan tekrar dene.');
       return;
     }
     this.busy.set(true);
     try {
       const body =
         this.mode() === 'quote'
-          ? { symbol: sym, side: 'buy' as const, quoteUsd: amount }
+          ? { symbol: sym, side: 'buy' as const, quoteUsd: amount / rate! }
           : { symbol: sym, side: 'buy' as const, quantity: amount };
       const f = await firstValueFrom(this.cryptoApi.quote(body));
       this.fill.set(f);
@@ -335,12 +340,12 @@ export class CryptoDetailModalComponent {
     if (!sym || this.busy()) return;
     const amount = this.parseAmount();
     if (amount <= 0) {
-      this.msg.set(this.mode() === 'quote' ? 'Alım için USD tutarı gir.' : 'Alım için miktar gir.');
+      this.msg.set(this.mode() === 'quote' ? 'Alım için TL tutarı gir.' : 'Alım için miktar gir.');
       return;
     }
     this.busy.set(true);
     const opts =
-      this.mode() === 'quote' ? { quoteUsd: amount } : { quantity: amount };
+      this.mode() === 'quote' ? { tryAmount: amount } : { quantity: amount };
     const r = await this.portfolio.buyCrypto(sym, opts);
     if (r.error) this.msg.set(r.error);
     else {
@@ -355,14 +360,21 @@ export class CryptoDetailModalComponent {
     const sym = this.symbol();
     if (!sym || this.busy() || !this.canSell()) return;
     const amount = this.parseAmount();
+    const rate = this.cryptoMarket.usdTryRate();
     const qty =
       this.mode() === 'qty'
         ? amount
-        : this.price() > 0
-          ? amount / this.price()
+        : this.price() > 0 && rate
+          ? amount / rate / this.price()
           : 0;
     if (amount <= 0 || qty <= 0) {
-      this.msg.set(this.mode() === 'quote' ? 'Satım için USD tutarı gir.' : 'Satım için miktar gir.');
+      this.msg.set(
+        this.mode() === 'quote'
+          ? rate
+            ? 'Satım için TL tutarı gir.'
+            : 'Anlık USD/TRY kuru henüz yüklenmedi, birazdan tekrar dene.'
+          : 'Satım için miktar gir.',
+      );
       return;
     }
     this.busy.set(true);
