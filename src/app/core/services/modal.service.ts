@@ -8,6 +8,9 @@ export class ModalService {
   readonly active = signal<ModalId>(null);
   readonly stockSymbol = signal<string | null>(null);
   readonly timeMachineMarket = signal<TimeMachineMarket>('bist');
+  /** Dönem Şampiyonları kartından açılırken o dönemin başlangıç tarihi (ör. "Son 1 yıl" → 1 yıl önce).
+   *  Normal açılışlarda null — modal en erken veri tarihine snap eder. Tüketilince sıfırlanır. */
+  readonly timeMachineStartDate = signal<string | null>(null);
 
   open(id: ModalId): void {
     this.active.set(id);
@@ -32,9 +35,10 @@ export class ModalService {
     this.open('usStockDetail');
   }
 
-  openTimeMachine(symbol?: string, market: TimeMachineMarket = 'bist'): void {
+  openTimeMachine(symbol?: string, market: TimeMachineMarket = 'bist', startDate?: string): void {
     if (symbol) this.stockSymbol.set(symbol);
     this.timeMachineMarket.set(market);
+    this.timeMachineStartDate.set(startDate ?? null);
     this.open('timeMachine');
   }
 

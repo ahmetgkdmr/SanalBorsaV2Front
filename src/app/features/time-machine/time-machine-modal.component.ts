@@ -381,12 +381,12 @@ type PickerOption = {
                       <span class="alt-grown mono" [class.neg]="l.returnPct < 0">
                         <span class="grown-from">{{ formatMoneyAmount(altInvestAmount()) }} ₺</span>
                         <span class="grown-arrow">→</span>
-                        <span class="grown-to">~{{ formatMoneyAmount(grownFromReturn(l.returnPct)) }} ₺</span>
+                        <span class="grown-to">~{{ formatMoneyAmount(grownFromReturn(altAdjustedReturnPct(l.returnPct))) }} ₺</span>
                       </span>
                     </span>
                     <span class="alt-figures">
-                      <span class="alt-ret" [class.neg]="l.returnPct < 0">{{ pctText(l.returnPct) }}</span>
-                      <span class="alt-mult mono">{{ multipleText(returnMultiple(l.returnPct)) }}</span>
+                      <span class="alt-ret" [class.neg]="l.returnPct < 0">{{ pctText(altAdjustedReturnPct(l.returnPct)) }}</span>
+                      <span class="alt-mult mono">{{ multipleText(returnMultiple(altAdjustedReturnPct(l.returnPct))) }}</span>
                     </span>
                   </li>
                 }
@@ -1357,11 +1357,13 @@ export class TimeMachineModalComponent {
     const top = this.altList()[0];
     if (!top) return 'Getiriler seçilen günün kapanışından son kapanışa kadar hesaplanır.';
     const amt = this.altInvestAmount();
-    const grown = this.grownFromReturn(top.returnPct);
+    const grown = this.grownFromReturn(this.altAdjustedReturnPct(top.returnPct));
     const suffix =
       this.altTab() === 'crypto'
-        ? 'Getiriler coin fiyat değişimidir; tutarlar TL cinsinden (aynı gün yatırılan tutara uygulanır).'
-        : 'Getiri TV AdjustedClose (temettü/bölünme düzeltilmiş) oranıdır; gösterilen fiyatlar ham kapanıştır.';
+        ? 'Getiriler coin fiyat değişimi (USDT) + o dönemki USD/TRY değişimi birleştirilerek TL karşılığına çevrilir.'
+        : this.altTab() === 'us'
+          ? 'Getiriler hissenin USD getirisi (AdjustedClose) + o dönemki USD/TRY değişimi birleştirilerek TL karşılığına çevrilir.'
+          : 'Getiri TV AdjustedClose (temettü/bölünme düzeltilmiş) oranıdır; gösterilen fiyatlar ham kapanıştır.';
     if (amt <= 0) return suffix;
     return `O gün ${formatMoneyAmount(amt)} ₺ ile ${this.altTitle(top)} alsaydın bugün ~${formatMoneyAmount(grown)} ₺ olurdu. ${suffix}`;
   });
@@ -1380,14 +1382,25 @@ export class TimeMachineModalComponent {
       const tmMarket = this.modals.timeMachineMarket();
       const crypto = tmMarket === 'crypto';
       const us = tmMarket === 'us';
+      const sym = this.modals.stockSymbol();
+      const resolvedSym = sym ? (crypto || us ? sym : isIndexSymbol(sym) ? 'THYAO' : sym) : '';
+
       if (!this.tmWasOpen) {
         this.tmWasOpen = true;
         this.resetFormForOpen(tmMarket);
+
+        // Dönem Şampiyonları kartından geldiyse o dönemin başlangıç tarihine sabitle —
+        // aksi halde aşağıdaki "en erken tarihe snap" efekti bunu ezer (bkz. dateSnapSymbol eşleşmesi).
+        const pendingDate = this.modals.timeMachineStartDate();
+        if (pendingDate) {
+          this.dateStr.set(pendingDate.slice(0, 10));
+          this.dateSnapSymbol = resolvedSym;
+          this.modals.timeMachineStartDate.set(null);
+        }
       }
 
-      const sym = this.modals.stockSymbol();
       if (sym) {
-        this.symbol.set(crypto || us ? sym : isIndexSymbol(sym) ? 'THYAO' : sym);
+        this.symbol.set(resolvedSym);
       }
       if (!crypto && !us && !this.market.symbolOptions().length) this.market.loadMarket();
       if (!crypto && !us && !this.indexService.quotes().length) this.indexService.loadQuotes();
@@ -1483,6 +1496,19 @@ export class TimeMachineModalComponent {
     const amt = this.altInvestAmount();
     if (amt <= 0) return 0;
     return amt * (1 + returnPct / 100);
+  }
+
+  /**
+   * Kripto/ABD liste satırlarındaki getiri USD (veya USDT) cinsinden — TL yatırımcısı için gerçek
+   * getiriye kur farkını da eklemek gerekir (tek-hisse simülasyonundaki toTryCalc ile aynı mantık,
+   * bkz. usdTryFromLeaders). BIST/parite zaten TL cinsinden, dokunulmaz.
+   */
+  altAdjustedReturnPct(returnPct: number): number {
+    if (this.altTab() === 'bist') return returnPct;
+    const usd = this.usdTryFromLeaders(this.leaders());
+    if (!usd || usd.start <= 0) return returnPct;
+    const usdFactor = usd.end / usd.start;
+    return ((1 + returnPct / 100) * usdFactor - 1) * 100;
   }
 
   returnMultiple(returnPct: number): number {

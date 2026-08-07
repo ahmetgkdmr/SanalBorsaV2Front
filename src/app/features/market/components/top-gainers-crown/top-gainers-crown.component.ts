@@ -35,7 +35,7 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
               class="crown-card"
               [attr.data-period]="item.period"
               [title]="item.periodLabel"
-              (click)="open(item.symbol)"
+              (click)="open(item)"
             >
               <div class="ribbon">
                 <span class="crown-mini">👑</span>
@@ -274,10 +274,9 @@ export class TopGainersCrownComponent {
     return symbolColor(this.displaySymbol(item));
   }
 
-  open(symbol: string): void {
-    if (this.marketType() === 'crypto') this.modals.openCrypto(symbol);
-    else if (this.marketType() === 'us') this.modals.openUsStock(symbol);
-    else this.modals.openStock(symbol);
+  /** Karta tıklayınca doğrudan Zaman Makinesi'ni bu dönemin başlangıç tarihiyle açar. */
+  open(item: TopGainerItem): void {
+    this.modals.openTimeMachine(item.symbol, this.marketType(), item.startDate);
   }
 
   formatDate(iso: string): string {
