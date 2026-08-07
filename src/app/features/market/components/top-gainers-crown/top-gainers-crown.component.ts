@@ -227,8 +227,8 @@ export class TopGainersCrownComponent {
   private readonly api = inject(StockApiService);
   private readonly modals = inject(ModalService);
 
-  /** bist | crypto — sekme değişince yeniden yüklenir */
-  readonly marketType = input<'bist' | 'crypto'>('bist');
+  /** bist | crypto | us — sekme değişince yeniden yüklenir */
+  readonly marketType = input<'bist' | 'crypto' | 'us'>('bist');
 
   readonly items = signal<TopGainerItem[]>([]);
   readonly asOf = signal<string | null>(null);
@@ -236,7 +236,7 @@ export class TopGainersCrownComponent {
   readonly formatAssetPrice = formatAssetPrice;
 
   get currencySym(): string {
-    return this.marketType() === 'crypto' ? '$' : '₺';
+    return this.marketType() === 'bist' ? '₺' : '$';
   }
 
   constructor() {
@@ -276,6 +276,7 @@ export class TopGainersCrownComponent {
 
   open(symbol: string): void {
     if (this.marketType() === 'crypto') this.modals.openCrypto(symbol);
+    else if (this.marketType() === 'us') this.modals.openUsStock(symbol);
     else this.modals.openStock(symbol);
   }
 

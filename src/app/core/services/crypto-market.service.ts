@@ -9,9 +9,12 @@ import { StockApiService } from './stock-api.service';
 
 export const CRYPTO_PAGE_SIZE = 50;
 
-/** Kripto kartı değil, sadece TL kur türetimi için kullanılan pariteler — coin listelerinde gizlenir. */
-const FX_SYMBOLS = new Set(['USDTTRY', 'PAXGTRY', 'EURUSDT']);
-const GRAMS_PER_TROY_OUNCE = 31.1034768;
+/**
+ * Kripto kartı değil, canlı forex/emtia göstergeleri — coin listelerinde gizlenir.
+ * Backend'de TradingView'ın gerçek quote akışından (FX_IDC:USDTRY/EURTRY/XAUTRY) geliyor,
+ * TL bazlı fiyat zaten hazır (gram altın da backend'de bölünmüş halde) — burada türetme yok.
+ */
+const FX_SYMBOLS = new Set(['USDTRY', 'EURTRY', 'GRAMALTIN']);
 
 export interface FxQuote {
   value: number;
@@ -52,24 +55,16 @@ export class CryptoMarketService {
   private hubStarting = false;
 
   /** FX pariteleri kripto kartı değil, portföy/header'daki anlık kur göstergelerinin kaynağı. */
-  readonly usdTryRate = computed(() => this.tickers().find((t) => t.symbol === 'USDTTRY')?.price ?? null);
+  readonly usdTryRate = computed(() => this.fxQuote('USDTRY')?.value ?? null);
 
-  readonly usdTry = computed<FxQuote | null>(() => {
-    const t = this.tickers().find((x) => x.symbol === 'USDTTRY');
+  readonly usdTry = computed<FxQuote | null>(() => this.fxQuote('USDTRY'));
+  readonly eurTry = computed<FxQuote | null>(() => this.fxQuote('EURTRY'));
+  readonly gramAltin = computed<FxQuote | null>(() => this.fxQuote('GRAMALTIN'));
+
+  private fxQuote(symbol: string): FxQuote | null {
+    const t = this.tickers().find((x) => x.symbol === symbol);
     return t ? { value: t.price, changePct: t.changePercent24h } : null;
-  });
-  readonly eurTry = computed<FxQuote | null>(() => {
-    const eur = this.tickers().find((x) => x.symbol === 'EURUSDT');
-    const usd = this.usdTry();
-    if (!eur || !usd) return null;
-    // Bileşik değişim: (1+eurChg)(1+usdChg)-1 — iki yüzdelik oranı doğru birleştirir.
-    const changePct = ((1 + eur.changePercent24h / 100) * (1 + usd.changePct / 100) - 1) * 100;
-    return { value: eur.price * usd.value, changePct };
-  });
-  readonly gramAltin = computed<FxQuote | null>(() => {
-    const t = this.tickers().find((x) => x.symbol === 'PAXGTRY');
-    return t ? { value: t.price / GRAMS_PER_TROY_OUNCE, changePct: t.changePercent24h } : null;
-  });
+  }
 
   readonly filtered = computed<CryptoTicker[]>(() => {
     const q = this.search().trim().toUpperCase();
@@ -176,10 +171,6 @@ export class CryptoMarketService {
     void this.startHub();
   }
 
-  stopPolling(): void {
-    void this.stopHub();
-  }
-
   setSearch(term: string): void {
     this.search.set(term.trim());
     this.page.set(1);
@@ -282,18 +273,6 @@ export class CryptoMarketService {
       return;
     } finally {
       this.hubStarting = false;
-    }
-  }
-
-  private async stopHub(): Promise<void> {
-    const h = this.hub;
-    this.hub = null;
-    this.live.set(false);
-    if (!h) return;
-    try {
-      await h.stop();
-    } catch {
-      /* ignore */
     }
   }
 

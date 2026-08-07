@@ -183,6 +183,8 @@ const SORT_OPTIONS: { key: MarketSortKey & CryptoSortKey & UsSortKey; label: str
           </span>
         </div>
       } @else {
+        <app-top-gainers-crown marketType="us" />
+
         <div class="data-note">
           <span>🇺🇸</span>
           <span>
@@ -491,7 +493,7 @@ export class MarketPageComponent implements OnInit, OnDestroy {
   readonly crypto = inject(CryptoMarketService);
   readonly us = inject(UsMarketService);
   readonly marketType = inject(MarketTypeService);
-  private readonly modals = inject(ModalService);
+  readonly modals = inject(ModalService);
 
   readonly tabs = INDEX_TABS;
   readonly sortOptions = SORT_OPTIONS;
@@ -624,7 +626,9 @@ export class MarketPageComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.crypto.stopPolling();
+    // crypto.stopPolling() burada ÇAĞRILMIYOR: aynı SignalR hub'ı header'daki
+    // canlı USD/EUR/gram altın şeridi de kullanıyor (bkz. market-ticker.component.ts),
+    // o şerit her sayfada sabit — bağlantıyı kesersek orası da donuyor.
   }
 
   setMarket(type: 'bist' | 'crypto' | 'us'): void {
@@ -632,7 +636,6 @@ export class MarketPageComponent implements OnInit, OnDestroy {
     this.searchInput = '';
     this.searchFocused = false;
     this.suggestIndex = 0;
-    this.crypto.stopPolling();
     if (type === 'crypto') {
       this.crypto.setSearch('');
       this.crypto.load();

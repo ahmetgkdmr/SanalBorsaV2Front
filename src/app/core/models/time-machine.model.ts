@@ -73,6 +73,7 @@ export interface TimeMachineLeaders {
   requestedDate: string;
   bist: TimeMachineLeader[];
   crypto: TimeMachineLeader[];
+  usStocks: TimeMachineLeader[];
   parity: TimeMachineLeader[];
   computedAt?: string | null;
 }

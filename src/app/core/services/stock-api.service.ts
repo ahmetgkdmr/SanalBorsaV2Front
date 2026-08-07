@@ -115,7 +115,7 @@ export class StockApiService {
     return this.http.get<PriceHistory[]>(`${this.base}/${symbol}/price-history`, { params });
   }
 
-  getTopGainers(marketType: 'bist' | 'crypto' = 'bist'): Observable<TopGainersResponse> {
+  getTopGainers(marketType: 'bist' | 'crypto' | 'us' = 'bist'): Observable<TopGainersResponse> {
     const params = new HttpParams().set('marketType', marketType);
     return this.http.get<TopGainersResponse>(`${this.base}/top-gainers`, { params });
   }

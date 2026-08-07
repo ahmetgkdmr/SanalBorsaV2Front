@@ -142,12 +142,6 @@ type PickerOption = {
               }
             </div>
           </div>
-          @if (!isCryptoTm() && !isUsTm()) {
-            <p class="idx-note">
-              BIST endekslerinde Zaman Makinesi yok — endeks bileşimi değişir; temettü / bedelli / bedelsiz
-              hisse bazında yansıtılamaz.
-            </p>
-          }
         </div>
 
         <!-- ── Tarih seçici ───────────────────────────────── -->
@@ -362,6 +356,9 @@ type PickerOption = {
               </button>
               <button type="button" [class.active]="altTab() === 'crypto'" (click)="setAltTab('crypto')">
                 ₿ Kripto
+              </button>
+              <button type="button" [class.active]="altTab() === 'us'" (click)="setAltTab('us')">
+                🇺🇸 ABD
               </button>
             </div>
 
@@ -607,13 +604,6 @@ type PickerOption = {
       font-size: 13px;
       cursor: default !important;
       &:hover { background: transparent !important; }
-    }
-
-    .idx-note {
-      margin: 8px 0 0;
-      font-size: 11.5px;
-      line-height: 1.45;
-      color: var(--muted);
     }
 
     .pick-logo {
@@ -1307,7 +1297,7 @@ export class TimeMachineModalComponent {
 
   // ── "Aynı gün X TL ile ne alsaydın?" ────────────────────
   readonly leaders = signal<TimeMachineLeaders | null>(null);
-  readonly altTab = signal<'bist' | 'crypto'>('bist');
+  readonly altTab = signal<'bist' | 'crypto' | 'us'>('bist');
   private leadersRequestedFor = '';
 
   /** Karşılaştırma paneli için tek seferlik tutar (DCA olsa bile). */
@@ -1346,7 +1336,9 @@ export class TimeMachineModalComponent {
   readonly altList = computed<TimeMachineLeader[]>(() => {
     const lb = this.leaders();
     if (!lb) return [];
-    return this.altTab() === 'crypto' ? lb.crypto : lb.bist;
+    if (this.altTab() === 'crypto') return lb.crypto;
+    if (this.altTab() === 'us') return lb.usStocks;
+    return lb.bist;
   });
 
   readonly altWhen = computed(() => {
@@ -1355,11 +1347,11 @@ export class TimeMachineModalComponent {
     return `${formatTurkishDate(row.startDate)} → ${formatTurkishDate(row.endDate)}`;
   });
 
-  readonly altEmptyText = computed(() =>
-    this.altTab() === 'crypto'
-      ? 'Bu tarihte henüz kripto verisi yok.'
-      : 'Bu tarihte BIST verisi bulunamadı.',
-  );
+  readonly altEmptyText = computed(() => {
+    if (this.altTab() === 'crypto') return 'Bu tarihte henüz kripto verisi yok.';
+    if (this.altTab() === 'us') return 'Bu tarihte ABD hisse verisi bulunamadı.';
+    return 'Bu tarihte BIST verisi bulunamadı.';
+  });
 
   readonly altNote = computed(() => {
     const top = this.altList()[0];
@@ -1481,7 +1473,7 @@ export class TimeMachineModalComponent {
     this.resetCalc();
     this.leaders.set(null);
     this.leadersRequestedFor = '';
-    this.altTab.set(tmMarket === 'crypto' ? 'crypto' : 'bist');
+    this.altTab.set(tmMarket === 'crypto' ? 'crypto' : tmMarket === 'us' ? 'us' : 'bist');
     this.pickerQuery.set('');
     this.closePicker();
   }
@@ -1497,7 +1489,7 @@ export class TimeMachineModalComponent {
     return 1 + returnPct / 100;
   }
 
-  setAltTab(tab: 'bist' | 'crypto'): void {
+  setAltTab(tab: 'bist' | 'crypto' | 'us'): void {
     this.altTab.set(tab);
   }
 
@@ -1734,7 +1726,7 @@ export class TimeMachineModalComponent {
     };
 
     const runInvestment = (leaders: TimeMachineLeaders | null) => {
-      if (leaders && (leaders.bist.length || leaders.crypto.length || leaders.parity.length)) {
+      if (leaders && (leaders.bist.length || leaders.crypto.length || leaders.usStocks.length || leaders.parity.length)) {
         this.leaders.set(leaders);
         this.leadersRequestedFor = iso;
       }

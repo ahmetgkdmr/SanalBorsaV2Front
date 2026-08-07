@@ -34,11 +34,11 @@ import { MarketTickerComponent } from './market-ticker.component';
         </a>
 
         <div class="top-actions">
+          <a class="pill-btn gold" routerLink="/leaderboard">🏆 Liderler <span class="new-tag">YENİ</span></a>
+          <a class="pill-btn port" routerLink="/portfolio">💼 Sanal Portföy</a>
           <button class="pill-btn prem" type="button" (click)="modals.openTimeMachine()">
             🕰️ Zaman Makinesi <span class="prem-tag">PREMIUM</span>
           </button>
-          <a class="pill-btn gold" routerLink="/leaderboard">🏆 Liderler <span class="new-tag">YENİ</span></a>
-          <a class="pill-btn port" routerLink="/portfolio">💼 Sanal Portföy</a>
 
           @if (auth.isLoggedIn()) {
             <span class="user-chip">
@@ -62,16 +62,16 @@ import { MarketTickerComponent } from './market-ticker.component';
 
       <div class="fx-strip">
         @if (usdTry(); as q) {
-          <span class="fx-chip" title="USD/TRY">
-            💵 {{ formatNumber(q.value, 4) }}
+          <span class="fx-chip" title="USD/TRY (Binance USDT/TRY)">
+            💵 {{ formatNumber(q.value, 5) }}
             <b [style.color]="q.changePct >= 0 ? 'var(--up)' : 'var(--down)'">
               {{ q.changePct >= 0 ? '▲' : '▼' }} %{{ formatNumber(abs(q.changePct), 2) }}
             </b>
           </span>
         }
         @if (eurTry(); as q) {
-          <span class="fx-chip" title="EUR/TRY">
-            💶 {{ formatNumber(q.value, 4) }}
+          <span class="fx-chip" title="EUR/TRY (Binance EUR/USDT × USDT/TRY)">
+            💶 {{ formatNumber(q.value, 5) }}
             <b [style.color]="q.changePct >= 0 ? 'var(--up)' : 'var(--down)'">
               {{ q.changePct >= 0 ? '▲' : '▼' }} %{{ formatNumber(abs(q.changePct), 2) }}
             </b>
@@ -258,15 +258,6 @@ import { MarketTickerComponent } from './market-ticker.component';
         background: var(--chip-hover);
       }
 
-      &.prem {
-        border-color: color-mix(in srgb, var(--prem) 55%, var(--line));
-        background: linear-gradient(
-          135deg,
-          color-mix(in srgb, var(--prem) 22%, transparent),
-          color-mix(in srgb, var(--prem) 6%, transparent)
-        );
-      }
-
       &.port {
         border-color: color-mix(in srgb, var(--up) 55%, var(--line));
         background: linear-gradient(
@@ -285,13 +276,31 @@ import { MarketTickerComponent } from './market-ticker.component';
         );
       }
 
-      .prem-tag,
+      &.prem {
+        border-color: color-mix(in srgb, var(--prem, #b388ff) 55%, var(--line));
+        background: linear-gradient(
+          135deg,
+          color-mix(in srgb, var(--prem, #b388ff) 18%, transparent),
+          color-mix(in srgb, var(--prem, #b388ff) 4%, transparent)
+        );
+      }
+
       .new-tag {
         font-size: 8.5px;
         font-weight: 700;
         letter-spacing: 0.5px;
         padding: 2px 6px;
         border-radius: 6px;
+      }
+
+      .prem-tag {
+        font-size: 8.5px;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+        padding: 2px 6px;
+        border-radius: 6px;
+        background: var(--prem, #b388ff);
+        color: #1a0e2e;
       }
     }
 

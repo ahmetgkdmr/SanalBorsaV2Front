@@ -56,7 +56,7 @@ function significantFractionDigits(value: number): number {
  */
 export function formatAssetPrice(
   value: number,
-  market: 'bist' | 'crypto' | 'parity' = 'bist',
+  market: 'bist' | 'crypto' | 'parity' | 'us' = 'bist',
   decimals?: number | null,
 ): string {
   if (!Number.isFinite(value)) return '—';
