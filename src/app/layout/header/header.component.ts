@@ -16,45 +16,56 @@ import { MarketTickerComponent } from './market-ticker.component';
     <header>
       <div class="topbar">
         <a class="brand" routerLink="/" title="Ana ekran">
-          <div class="brand-mark">
-            {{ marketType.type() === 'crypto' ? '₿' : marketType.type() === 'us' ? 'US' : 'Bİ' }}
+          <div class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 32 32" width="24" height="24" fill="none">
+              <!-- yükselen mum/bar grafik + trend oku -->
+              <rect x="4" y="18" width="4.6" height="9" rx="1.4" fill="currentColor" opacity=".55" />
+              <rect x="11.7" y="13" width="4.6" height="14" rx="1.4" fill="currentColor" opacity=".78" />
+              <rect x="19.4" y="8" width="4.6" height="19" rx="1.4" fill="currentColor" />
+              <path
+                d="M5 13.5 L12.5 8 L19 11 L28 4"
+                stroke="currentColor"
+                stroke-width="2.4"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <path d="M22.6 4h5.6v5.4" stroke="currentColor" stroke-width="2.4"
+                    stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
           </div>
           <div>
-            <h1>Piyasa Ekranı</h1>
-            <small>
-              @if (marketType.type() === 'crypto') {
-                KRİPTO · BINANCE SPOT
-              } @else if (marketType.type() === 'us') {
-                ABD HİSSELERİ · S&amp;P 500
-              } @else {
-                BORSA İSTANBUL · DB FİYAT
-              }
-            </small>
+            <h1>Sanal Portföy</h1>
           </div>
         </a>
 
         <div class="top-actions">
-          <a class="pill-btn gold" routerLink="/leaderboard">🏆 Liderler <span class="new-tag">YENİ</span></a>
-          <a class="pill-btn port" routerLink="/portfolio">💼 Sanal Portföy</a>
-          <button class="pill-btn prem" type="button" (click)="modals.openTimeMachine()">
-            🕰️ Zaman Makinesi <span class="prem-tag">PREMIUM</span>
+          <a class="pill-btn gold" routerLink="/leaderboard" title="Liderler">
+            🏆 <span class="btn-label">Liderler</span> <span class="new-tag">YENİ</span>
+          </a>
+          <a class="pill-btn port" routerLink="/portfolio" title="Sanal Portföy">
+            💼 <span class="btn-label">Sanal Portföy</span>
+          </a>
+          <button class="pill-btn prem" type="button" title="Zaman Makinesi" (click)="modals.openTimeMachine()">
+            🕰️ <span class="btn-label">Zaman Makinesi</span> <span class="prem-tag">PREMIUM</span>
           </button>
 
           @if (auth.isLoggedIn()) {
             <span class="user-chip">
               <button class="pill-btn" type="button" routerLink="/portfolio">
-                👤 <b>{{ auth.currentUser()?.username || auth.currentUser()?.displayName }}</b>
+                👤 <b class="btn-label">{{ auth.currentUser()?.username || auth.currentUser()?.displayName }}</b>
               </button>
               <button class="logout" type="button" (click)="logout()" title="Çıkış">⏻</button>
             </span>
           } @else {
-            <button class="pill-btn" type="button" (click)="modals.open('login')">👤 Giriş</button>
+            <button class="pill-btn login-btn" type="button" title="Giriş Yap" (click)="modals.open('login')">
+              👤 <span class="btn-label">Giriş Yap</span>
+            </button>
           }
+        </div>
 
-          <div class="live">
-            <span class="dot"></span>
-            <span class="mono">{{ clock() }}</span>
-          </div>
+        <div class="live">
+          <span class="dot"></span>
+          <span class="mono">{{ clock() }}</span>
         </div>
       </div>
 
@@ -103,6 +114,11 @@ import { MarketTickerComponent } from './market-ticker.component';
       flex-wrap: wrap;
     }
 
+    /* Masaüstü sırası: marka · butonlar · saat (saat DOM'da ayrı ama en sağda kalsın). */
+    .brand { order: 1; }
+    .top-actions { order: 2; }
+    .live { order: 3; }
+
     .brand {
       display: flex;
       align-items: center;
@@ -118,9 +134,8 @@ import { MarketTickerComponent } from './market-ticker.component';
       display: flex;
       align-items: center;
       justify-content: center;
-      font-weight: 800;
-      font-size: 15px;
       color: #0b1220;
+      flex: none;
     }
 
     /* .theme-switch — şimdilik kapalı (sadece açık mod)
@@ -321,11 +336,90 @@ import { MarketTickerComponent } from './market-ticker.component';
       &:hover { color: var(--down); }
     }
 
+    /* Telefon: marka üstte tek başına, dört aksiyon butonu ALT SATIRDA yan yana.
+       Etiketler (Liderler / Sanal Portföy / …) görünür kalır; sığması için sol üçü
+       küçültülür, "Giriş" biraz daha büyük durur. */
     @media (max-width: 600px) {
       header {
         padding-left: 14px;
         padding-right: 14px;
       }
+
+      .topbar { flex-wrap: wrap; row-gap: 8px; }
+
+      /* Üst satır: marka (sol) + saat (sağ). Alt satır: butonlar, sağa yaslı ve bitişik. */
+      .live { order: 2; }
+      .top-actions {
+        order: 3;
+        width: 100%;
+        flex-wrap: nowrap;
+        justify-content: flex-end;
+        gap: 4px;
+      }
+
+      .pill-btn {
+        flex: 0 1 auto;
+        min-width: 0;
+        white-space: nowrap;
+        font-size: 10.5px;
+        padding: 7px 8px;
+        gap: 4px;
+      }
+
+      .btn-label {
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      /* Giriş Yap / kullanıcı butonu: diğerlerinden bir tık büyük ve hiç kısalmasın. */
+      .user-chip .pill-btn,
+      .login-btn {
+        flex: none;
+        font-size: 12px;
+        padding: 7px 11px;
+      }
+
+      .new-tag, .prem-tag { display: none; }
+
+      /* Saat: minimalist — çerçevesiz, sadece nokta + rakam. */
+      .live {
+        border: none;
+        background: none;
+        padding: 0;
+        font-size: 11px;
+        gap: 5px;
+      }
+      .dot { width: 6px; height: 6px; }
+
+      /* Dolar / Euro / Gram altın: üçü de sağda, tek satırda, yüzde + ok görünür. */
+      .fx-strip {
+        flex-wrap: nowrap;
+        justify-content: flex-end;
+        gap: 5px;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        &::-webkit-scrollbar { display: none; }
+      }
+
+      .fx-chip {
+        flex: none;
+        font-size: 11.5px;
+        padding: 5px 8px;
+        gap: 5px;
+
+        b { font-size: 10.5px; }
+      }
+    }
+
+    @media (max-width: 430px) {
+      .pill-btn { font-size: 9.5px; padding: 6px 7px; }
+      .user-chip .pill-btn,
+      .login-btn {
+        font-size: 11.5px;
+        padding: 7px 10px;
+      }
+      .fx-chip { font-size: 10.5px; padding: 4px 6px; gap: 4px; b { font-size: 9.5px; } }
     }
   `,
 })

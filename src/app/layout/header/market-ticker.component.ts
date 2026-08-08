@@ -274,6 +274,26 @@ export class MarketTickerComponent implements AfterViewInit, OnDestroy {
           up: q.isUp,
         });
       }
+
+      // Kur/altın: header'ın sağ üstündeki chip'ler canlı TV akışını (CryptoMarketService)
+      // kullanıyor, indexService ise gece senkronundan gelen kapanışı — ikisi farklı fiyat
+      // gösteriyordu. Canlı değer varsa şeritte de onu kullan ki tek bir doğru fiyat olsun.
+      const live: [string, ReturnType<typeof this.cryptoMarket.gramAltin>][] = [
+        ['USDTRY', untracked(() => this.cryptoMarket.usdTry())],
+        ['EURTRY', untracked(() => this.cryptoMarket.eurTry())],
+        ['GRAMALTIN', untracked(() => this.cryptoMarket.gramAltin())],
+      ];
+      for (const [symbol, q] of live) {
+        if (!q || q.value <= 0 || !map.has(symbol)) continue;
+        const decimals = untracked(() => this.indexService.quotes())
+          .find((x) => x.symbol === symbol)?.decimals ?? 2;
+        const up = q.changePct >= 0;
+        map.set(symbol, {
+          value: formatNumber(q.value, decimals),
+          change: `${up ? '▲' : '▼'} %${formatNumber(Math.abs(q.changePct))}`,
+          up,
+        });
+      }
     }
     return map;
   }

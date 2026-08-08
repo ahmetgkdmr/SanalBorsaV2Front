@@ -5,6 +5,9 @@
   inject,
   input,
   signal,
+  viewChild,
+  ElementRef,
+  afterNextRender,
 } from '@angular/core';
 import { StockApiService, TopGainerItem } from '../../../../core/services/stock-api.service';
 import { ModalService } from '../../../../core/services/modal.service';
@@ -28,7 +31,15 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
           </div>
         </div>
 
-        <div class="crown-grid">
+        <div class="crown-scroller">
+          @if (canScrollLeft()) {
+            <button class="scroll-hint left" type="button" aria-label="Sola kaydır" (click)="nudge(-1)">‹</button>
+          }
+          @if (canScrollRight()) {
+            <button class="scroll-hint right" type="button" aria-label="Sağa kaydır" (click)="nudge(1)">›</button>
+          }
+
+        <div class="crown-grid" #grid (scroll)="onScroll()">
           @for (item of items(); track item.period) {
             <button
               type="button"
@@ -64,6 +75,7 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
               </div>
             </button>
           }
+        </div>
         </div>
       </section>
     }
@@ -111,14 +123,54 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
       gap: 8px;
     }
 
+    .crown-scroller { position: relative; }
+
+    /* Kaydırma ipucu okları — sadece o yönde kaydırılacak içerik varsa görünür. */
+    .scroll-hint {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 2;
+      width: 26px;
+      height: 26px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      background: var(--panel);
+      color: var(--text);
+      font-size: 16px;
+      line-height: 1;
+      padding: 0 0 2px;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.14);
+      transition: background 0.15s, transform 0.15s;
+
+      &:hover { background: var(--chip-hover); }
+      &.left { left: -4px; }
+      &.right { right: -4px; }
+    }
+
     @media (max-width: 980px) {
       .crown-grid {
         display: flex;
         overflow-x: auto;
         gap: 8px;
-        padding-bottom: 4px;
+        padding-bottom: 2px;
         scroll-snap-type: x mandatory;
         -webkit-overflow-scrolling: touch;
+
+        /* Kalın varsayılan kaydırma çubuğu yerine ince, soluk bir çizgi. */
+        scrollbar-width: thin;
+        scrollbar-color: color-mix(in srgb, var(--text) 22%, transparent) transparent;
+
+        &::-webkit-scrollbar { height: 4px; }
+        &::-webkit-scrollbar-track { background: transparent; }
+        &::-webkit-scrollbar-thumb {
+          background: color-mix(in srgb, var(--text) 20%, transparent);
+          border-radius: 999px;
+        }
       }
 
       .crown-card {
@@ -235,6 +287,10 @@ export class TopGainersCrownComponent {
   readonly formatNumber = formatNumber;
   readonly formatAssetPrice = formatAssetPrice;
 
+  private readonly grid = viewChild<ElementRef<HTMLElement>>('grid');
+  readonly canScrollLeft = signal(false);
+  readonly canScrollRight = signal(false);
+
   get currencySym(): string {
     return this.marketType() === 'bist' ? '₺' : '$';
   }
@@ -246,10 +302,39 @@ export class TopGainersCrownComponent {
         next: (res) => {
           this.items.set(res.items ?? []);
           this.asOf.set(res.asOfDate);
+          // Kartlar DOM'a basıldıktan sonra ok görünürlüğünü hesapla.
+          setTimeout(() => this.onScroll());
         },
         error: () => this.items.set([]),
       });
     });
+
+    afterNextRender(() => {
+      this.onScroll();
+      window.addEventListener('resize', this.onResize, { passive: true });
+    });
+  }
+
+  private readonly onResize = () => this.onScroll();
+
+  /** Kaydırma konumuna göre sol/sağ ok göstergelerini günceller. */
+  onScroll(): void {
+    const el = this.grid()?.nativeElement;
+    if (!el) {
+      this.canScrollLeft.set(false);
+      this.canScrollRight.set(false);
+      return;
+    }
+    const max = el.scrollWidth - el.clientWidth;
+    this.canScrollLeft.set(el.scrollLeft > 4);
+    this.canScrollRight.set(max > 4 && el.scrollLeft < max - 4);
+  }
+
+  /** Ok tıklanınca bir kart genişliği kadar kaydırır. */
+  nudge(direction: 1 | -1): void {
+    const el = this.grid()?.nativeElement;
+    if (!el) return;
+    el.scrollBy({ left: direction * Math.max(160, el.clientWidth * 0.8), behavior: 'smooth' });
   }
 
   shortLabel(item: TopGainerItem): string {

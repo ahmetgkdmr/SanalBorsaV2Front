@@ -37,7 +37,8 @@ const SORT_OPTIONS: { key: MarketSortKey & CryptoSortKey & UsSortKey; label: str
           [class.active]="marketType.type() === 'bist'"
           (click)="setMarket('bist')"
         >
-          <span class="ms-flag">🇹🇷</span> BORSA İSTANBUL
+          <span class="ms-flag">🇹🇷</span>
+          <span class="ms-label">BORSA İSTANBUL</span>
         </button>
         <button
           type="button"
@@ -45,7 +46,9 @@ const SORT_OPTIONS: { key: MarketSortKey & CryptoSortKey & UsSortKey; label: str
           [class.active]="marketType.type() === 'crypto'"
           (click)="setMarket('crypto')"
         >
-          <span class="ms-flag">🪙</span> KRİPTO PİYASASI
+          <span class="ms-flag">🪙</span>
+          <span class="ms-long">KRİPTO PİYASASI</span><span class="ms-short">KRİPTO</span>
+
           <span class="live-badge" title="Binance spot canlı veri">CANLI VERİ</span>
         </button>
         <button
@@ -54,7 +57,8 @@ const SORT_OPTIONS: { key: MarketSortKey & CryptoSortKey & UsSortKey; label: str
           [class.active]="marketType.type() === 'us'"
           (click)="setMarket('us')"
         >
-          <span class="ms-flag">🇺🇸</span> ABD HİSSELERİ
+          <span class="ms-flag">🇺🇸</span>
+          <span class="ms-label">ABD HİSSELERİ</span>
         </button>
       </div>
 
@@ -151,6 +155,34 @@ const SORT_OPTIONS: { key: MarketSortKey & CryptoSortKey & UsSortKey; label: str
               {{ market.serverTotalCount() }} hisse
             }
           </span>
+
+          <button class="tm-cta" type="button" (click)="modals.open('dailyReport')">
+            <span class="tm-cta-body">
+              <span class="tm-cta-text">10 yıl önce 1000 ₺ ye ne alsam zengindim?</span>
+              <span class="tm-cta-btn">Dene!</span>
+            </span>
+            <span class="tm-cta-icon">
+              <svg viewBox="0 0 48 48" width="34" height="34" fill="none">
+                <path
+                  d="M24 6a18 18 0 1 1 -12.73 5.27"
+                  stroke="#e3a458"
+                  stroke-width="3"
+                  stroke-linecap="round"
+                  stroke-dasharray="1.5 6"
+                />
+                <path
+                  d="M10.5 4.5v7.5h7.5"
+                  stroke="#e3a458"
+                  stroke-width="3"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  fill="none"
+                />
+                <circle cx="24" cy="24" r="13" fill="none" stroke="#fff" stroke-width="2.5" />
+                <path d="M24 17v7l5 3" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </span>
+          </button>
         </div>
       </div>
 
@@ -160,9 +192,12 @@ const SORT_OPTIONS: { key: MarketSortKey & CryptoSortKey & UsSortKey; label: str
         @if (market.dataAsOf()) {
           <div class="data-note">
             <span>ℹ️</span>
-            <span>
+            <span class="note-long">
               Fiyatlar <b>{{ formatDate(market.dataAsOf()!) }}</b> tarihli son kapanış verilerini içermektedir.
-              Sırala: <b>{{ sortLabel() }}</b> · grafikler son 28 günlük kapanışa göre.
+              Sırala: <b>{{ sortLabel() }}</b>
+            </span>
+            <span class="note-short">
+              <b>{{ formatDate(market.dataAsOf()!) }}</b> kapanışı · <b>{{ sortLabel() }}</b>
             </span>
           </div>
         }
@@ -242,16 +277,23 @@ const SORT_OPTIONS: { key: MarketSortKey & CryptoSortKey & UsSortKey; label: str
   `,
   styles: `
     .market-switch {
-      margin-top: 20px;
       display: inline-flex;
       gap: 2px;
       background: transparent;
       border: 1px solid var(--line);
       border-radius: 10px;
       padding: 3px;
+      max-width: 100%;
+      /* overflow gizlenmiyor: sekmeler her genişlikte sığıyor ve butonun üstüne
+         taşan "CANLI VERİ" rozetinin kırpılmaması gerekiyor. */
+      margin-top: 24px;
     }
+    /* Uzun etiket masaüstünde, kısa etiket dar ekranda (aşağıdaki media query) gösterilir. */
+    .ms-short { display: none; }
     .ms-btn {
       position: relative;
+      flex: none;
+      white-space: nowrap;
       border: none;
       background: transparent;
       color: var(--muted);
@@ -281,19 +323,19 @@ const SORT_OPTIONS: { key: MarketSortKey & CryptoSortKey & UsSortKey; label: str
     }
     .live-badge {
       position: absolute;
-      top: -7px;
+      top: -8px;
       right: -2px;
-      font-size: 8px;
+      font-size: 8.5px;
       font-weight: 800;
       letter-spacing: 0.4px;
       line-height: 1;
       padding: 3px 6px;
       border-radius: 6px;
       background: var(--up);
-      color: #04180f;
+      color: #fff;
       white-space: nowrap;
       pointer-events: none;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
     }
     .controls {
       margin-top: 16px;
@@ -374,7 +416,8 @@ const SORT_OPTIONS: { key: MarketSortKey & CryptoSortKey & UsSortKey; label: str
       font-weight: 700;
       opacity: 0.75;
     }
-    .search-row { display: flex; gap: 10px; align-items: flex-start; }
+    /* flex-wrap: dar ekranda banner (order: 3) kendi satırına inebilsin diye şart. */
+    .search-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
     .search-wrap {
       position: relative;
       flex: 1;
@@ -426,6 +469,72 @@ const SORT_OPTIONS: { key: MarketSortKey & CryptoSortKey & UsSortKey; label: str
     .sg-chg.up { color: var(--up); }
     .sg-chg.down { color: var(--down); }
     .count { font-size: 12px; color: var(--muted); white-space: nowrap; padding-top: 11px; }
+    /* Sıralama sekmeleri satırının sağındaki boş alana doğru YUKARI büyür (negatif margin-top);
+       alt kenarı arama kutusuyla hizalı kalır, satırın dikey yüksekliğini artırmaz. */
+    .tm-cta {
+      margin-left: auto;
+      margin-top: -38px;
+      flex: 0 1 auto;
+      min-width: 0;
+      max-width: 420px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      height: 74px;
+      padding: 0 14px;
+      border: none;
+      border-radius: 12px;
+      background: linear-gradient(120deg, #5b2fb0, #2f1660);
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+      &:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 14px color-mix(in srgb, #2f1660 55%, transparent);
+      }
+    }
+    .tm-cta-body {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 7px;
+      min-width: 0;
+    }
+    .tm-cta-icon {
+      flex: none;
+      display: flex;
+      align-items: center;
+    }
+    .tm-cta-text {
+      font-size: 13px;
+      font-weight: 700;
+      color: #fff;
+      text-align: left;
+      line-height: 1.25;
+    }
+    .tm-cta-btn {
+      flex: none;
+      font-size: 11.5px;
+      font-weight: 800;
+      color: #3a1f00;
+      background: linear-gradient(135deg, #f0b25a, #dd9530);
+      padding: 5px 14px;
+      border-radius: 7px;
+    }
+    /* Dar ekran: yukarı taşma (negatif margin) kalkar, banner kendi satırında tam genişlik olur. */
+    @media (max-width: 900px) {
+      .tm-cta {
+        margin-top: 4px;
+        margin-left: 0;
+        width: 100%;
+        max-width: 100%;
+        order: 3;
+        height: auto;
+        min-height: 64px;
+        padding: 12px 14px;
+      }
+      .tm-cta-text { font-size: 13.5px; }
+    }
     .grid {
       margin: 16px 0 14px;
       display: grid;
@@ -471,6 +580,8 @@ const SORT_OPTIONS: { key: MarketSortKey & CryptoSortKey & UsSortKey; label: str
       font-size: 11.5px; color: var(--muted); line-height: 1.45;
       b { color: var(--text); font-weight: 600; }
     }
+    /* Uzun açıklama masaüstünde; dar ekranda tek satıra sığan kısa hali. */
+    .note-short { display: none; }
     .status {
       margin: 24px 0; color: var(--muted); font-size: 14px;
       &.error { color: var(--down); }
@@ -484,7 +595,29 @@ const SORT_OPTIONS: { key: MarketSortKey & CryptoSortKey & UsSortKey; label: str
     @media (max-width: 900px) { .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
     @media (max-width: 600px) {
       .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-      .ms-btn { font-size: 11px; padding: 8px 10px; }
+      /* Üçü de tam adıyla tek satıra sığsın: font/padding küçülür, sadece "KRİPTO
+         PİYASASI" kısalır (diğer ikisi tam ad olarak kalır). */
+      .ms-long { display: none; }
+      .ms-short { display: inline; }
+      /* overflow: visible — üçü de sığdığı için kaydırmaya gerek yok; ayrıca
+         overflow gizli kalırsa butonun üstüne taşan "CANLI VERİ" rozeti kırpılıyor. */
+      .market-switch { display: flex; width: 100%; overflow: visible; margin-top: 24px; }
+      .ms-btn {
+        flex: 1 1 0;
+        justify-content: center;
+        font-size: 9.5px;
+        padding: 8px 4px;
+        letter-spacing: 0;
+        gap: 3px;
+      }
+      .ms-flag { font-size: 10px; }
+
+      .note-long { display: none; }
+      .note-short { display: inline; white-space: nowrap; }
+      .data-note { align-items: center; font-size: 11px; }
+    }
+    @media (max-width: 380px) {
+      .ms-btn { font-size: 8.5px; padding: 8px 3px; }
     }
   `,
 })

@@ -1,6 +1,13 @@
 import { Injectable, signal } from '@angular/core';
 
-export type ModalId = 'timeMachine' | 'login' | 'stockDetail' | 'cryptoDetail' | 'usStockDetail' | null;
+export type ModalId =
+  | 'timeMachine'
+  | 'login'
+  | 'stockDetail'
+  | 'cryptoDetail'
+  | 'usStockDetail'
+  | 'dailyReport'
+  | null;
 export type TimeMachineMarket = 'bist' | 'crypto' | 'us';
 
 @Injectable({ providedIn: 'root' })

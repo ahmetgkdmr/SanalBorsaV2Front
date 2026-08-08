@@ -7,6 +7,7 @@ import { PriceHistory } from '../models/price-history.model';
 import { Stock, StockDetail } from '../models/stock.model';
 import {
   TimeMachineCalc,
+  TimeMachineDailyReport,
   TimeMachineLeaders,
   TimeMachineMode,
 } from '../models/time-machine.model';
@@ -146,6 +147,12 @@ export class StockApiService {
   getTimeMachineLeaders(date: string): Observable<TimeMachineLeaders> {
     const params = new HttpParams().set('date', date);
     return this.http.get<TimeMachineLeaders>(`${this.timeMachineBase}/leaders`, { params });
+  }
+
+  /** "O gün ne alsaydım zengin olurdum?" — BIST/Kripto/ABD için en çok kazandıran ve kaybettiren 3'er. */
+  getTimeMachineDailyReport(date: string): Observable<TimeMachineDailyReport> {
+    const params = new HttpParams().set('date', date);
+    return this.http.get<TimeMachineDailyReport>(`${this.timeMachineBase}/daily-report`, { params });
   }
 
   private mapTimeMachine(r: TimeMachineApiResponse, mode: TimeMachineMode): TimeMachineCalc {

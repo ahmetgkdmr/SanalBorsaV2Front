@@ -78,6 +78,20 @@ export interface TimeMachineLeaders {
   computedAt?: string | null;
 }
 
+/** "O gün ne alsaydım zengin olurdum?" — tek bir piyasa için kazanan/kaybeden 3'erli liste. */
+export interface TimeMachineDailyMarketReport {
+  gainers: TimeMachineLeader[];
+  losers: TimeMachineLeader[];
+}
+
+export interface TimeMachineDailyReport {
+  requestedDate: string;
+  bist: TimeMachineDailyMarketReport;
+  crypto: TimeMachineDailyMarketReport;
+  usStocks: TimeMachineDailyMarketReport;
+  computedAt?: string | null;
+}
+
 export const SIMULATION_EVENTS: Record<number, string> = {
   2013: 'Sert dalgalanma dönemi',
   2016: 'Volatilite zirvede',
