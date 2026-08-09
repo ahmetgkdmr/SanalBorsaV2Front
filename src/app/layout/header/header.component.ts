@@ -40,13 +40,16 @@ import { MarketTickerComponent } from './market-ticker.component';
 
         <div class="top-actions">
           <a class="pill-btn gold" routerLink="/leaderboard" title="Liderler">
-            🏆 <span class="btn-label">Liderler</span> <span class="new-tag">YENİ</span>
+            🏆 <span class="btn-label">Liderler</span>
+            <span class="edge-tag new-tag">YENİ</span>
           </a>
           <a class="pill-btn port" routerLink="/portfolio" title="Sanal Portföy">
             💼 <span class="btn-label">Sanal Portföy</span>
+            <span class="edge-tag prem-tag">PREMIUM</span>
           </a>
           <button class="pill-btn prem" type="button" title="Zaman Makinesi" (click)="modals.openTimeMachine()">
-            🕰️ <span class="btn-label">Zaman Makinesi</span> <span class="prem-tag">PREMIUM</span>
+            🕰️ <span class="btn-label">Zaman Makinesi</span>
+            <span class="edge-tag prem-tag">PREMIUM</span>
           </button>
 
           @if (auth.isLoggedIn()) {
@@ -59,13 +62,9 @@ import { MarketTickerComponent } from './market-ticker.component';
           } @else {
             <button class="pill-btn login-btn" type="button" title="Giriş Yap" (click)="modals.open('login')">
               👤 <span class="btn-label">Giriş Yap</span>
+              <span class="edge-tag login-hint">Sanal alım için</span>
             </button>
           }
-        </div>
-
-        <div class="live">
-          <span class="dot"></span>
-          <span class="mono">{{ clock() }}</span>
         </div>
       </div>
 
@@ -97,6 +96,13 @@ import { MarketTickerComponent } from './market-ticker.component';
           </span>
         }
       </div>
+
+      <!-- Saat: altın chip'inin hemen altında, sağa yaslı. Kendi satırında durduğu
+           için üstteki hiçbir öğenin yerleşimini kaydırmıyor. -->
+      <div class="live">
+        <span class="dot"></span>
+        <span class="mono">{{ clock() }}</span>
+      </div>
     </header>
   `,
   styles: `
@@ -114,10 +120,6 @@ import { MarketTickerComponent } from './market-ticker.component';
       flex-wrap: wrap;
     }
 
-    /* Masaüstü sırası: marka · butonlar · saat (saat DOM'da ayrı ama en sağda kalsın). */
-    .brand { order: 1; }
-    .top-actions { order: 2; }
-    .live { order: 3; }
 
     .brand {
       display: flex;
@@ -194,6 +196,9 @@ import { MarketTickerComponent } from './market-ticker.component';
       gap: 8px;
       align-items: center;
       flex-wrap: wrap;
+      /* Rozetler butonun üst kenarının dışına taştığı için üstte pay bırakılır. */
+      padding-top: 6px;
+      row-gap: 14px;
     }
 
     .fx-strip {
@@ -227,16 +232,19 @@ import { MarketTickerComponent } from './market-ticker.component';
       }
     }
 
+    /* Altın chip'inin hemen altında, sağa yaslı minimalist saat — çerçevesiz,
+       kendi satırında; hiçbir öğeyi kaydırmaz. */
     .live {
       display: flex;
       align-items: center;
-      gap: 7px;
-      font-size: 12px;
+      justify-content: flex-end;
+      gap: 6px;
+      margin-top: 5px;
+      max-width: 1280px;
+      margin-left: auto;
+      margin-right: auto;
+      font-size: 11px;
       color: var(--muted);
-      background: transparent;
-      border: 1px solid var(--line);
-      padding: 7px 11px;
-      border-radius: 9px;
     }
 
     .dot {
@@ -253,6 +261,7 @@ import { MarketTickerComponent } from './market-ticker.component';
     }
 
     .pill-btn {
+      position: relative;
       border: 1px solid var(--line);
       background: var(--panel);
       color: var(--text);
@@ -300,23 +309,45 @@ import { MarketTickerComponent } from './market-ticker.component';
         );
       }
 
-      .new-tag {
-        font-size: 8.5px;
-        font-weight: 700;
-        letter-spacing: 0.5px;
-        padding: 2px 6px;
-        border-radius: 6px;
-      }
+    }
 
-      .prem-tag {
-        font-size: 8.5px;
-        font-weight: 800;
-        letter-spacing: 0.5px;
-        padding: 2px 6px;
-        border-radius: 6px;
-        background: var(--prem, #b388ff);
-        color: #1a0e2e;
-      }
+    /* Rozetler butonun İÇİNDE yer kaplamaz; "CANLI VERİ" gibi üst kenarın üstüne
+       oturur — böylece butonlar kısalır, satırda daha az yer kaplar. */
+    .edge-tag {
+      position: absolute;
+      top: -8px;
+      right: 8px;
+      z-index: 1;
+      font-size: 8.5px;
+      font-weight: 800;
+      letter-spacing: 0.4px;
+      line-height: 1;
+      padding: 3px 6px;
+      border-radius: 6px;
+      white-space: nowrap;
+      pointer-events: none;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.16);
+    }
+
+    .new-tag {
+      background: var(--up);
+      color: #fff;
+    }
+
+    .prem-tag {
+      background: var(--prem, #b388ff);
+      color: #1a0e2e;
+    }
+
+    /* Giriş Yap üstündeki açıklama: rozetlerden bir kat daha yukarıda durur, aksi halde
+       uzun olduğu için soldaki butonun PREMIUM rozetinin üstüne biniyordu. */
+    .login-hint {
+      top: -8px;
+      right: 8px;
+      font-weight: 700;
+      background: var(--panel2, var(--panel));
+      border: 1px solid var(--line);
+      color: var(--muted);
     }
 
     .user-chip {
@@ -345,15 +376,11 @@ import { MarketTickerComponent } from './market-ticker.component';
         padding-right: 14px;
       }
 
-      .topbar { flex-wrap: wrap; row-gap: 8px; }
+      .topbar { row-gap: 8px; }
 
-      /* Üst satır: marka (sol) + saat (sağ). Alt satır: butonlar, sağa yaslı ve bitişik. */
-      .live { order: 2; }
+      /* Telefonda butonlar bitişik dursun (masaüstündeki 8px yerine 4px). */
       .top-actions {
-        order: 3;
-        width: 100%;
         flex-wrap: nowrap;
-        justify-content: flex-end;
         gap: 4px;
       }
 
@@ -379,16 +406,12 @@ import { MarketTickerComponent } from './market-ticker.component';
         padding: 7px 11px;
       }
 
-      .new-tag, .prem-tag { display: none; }
+      /* Rozetler artık satır içinde yer kaplamadığı için telefonda da kalabilir;
+         sadece uzun açıklama metni gizlenir (butondan çok daha geniş olurdu). */
+      .edge-tag { font-size: 7.5px; padding: 2px 5px; right: 6px; }
+      .login-hint { display: none; }
 
-      /* Saat: minimalist — çerçevesiz, sadece nokta + rakam. */
-      .live {
-        border: none;
-        background: none;
-        padding: 0;
-        font-size: 11px;
-        gap: 5px;
-      }
+      .live { font-size: 10.5px; }
       .dot { width: 6px; height: 6px; }
 
       /* Dolar / Euro / Gram altın: üçü de sağda, tek satırda, yüzde + ok görünür. */

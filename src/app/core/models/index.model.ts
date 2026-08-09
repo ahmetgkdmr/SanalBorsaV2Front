@@ -57,7 +57,7 @@ export const DEFAULT_INDEX_QUOTES: IndexQuote[] = [
   mkDefault('XKMYA',  'BİST KİMYA',      'INDEX'),
   mkDefault('XELKT',  'BİST ELEKTRİK',  'INDEX'),
   mkDefault('XTAST',  'BİST TAŞ TOPRAK', 'INDEX'),
-  mkDefault('XMANA',  'BİST MALİ A.Ş.', 'INDEX'),
+  mkDefault('XMANA',  'BİST METAL ANA',  'INDEX'),
   mkDefault('XSPOR',  'BİST SPOR',       'INDEX'),
   mkDefault('XKTUM',  'BİST KATILIM',    'INDEX'),
   mkDefault('XKURY',  'BİST KUR. YÖN.',  'INDEX'),

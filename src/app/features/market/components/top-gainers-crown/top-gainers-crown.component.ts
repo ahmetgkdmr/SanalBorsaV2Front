@@ -26,7 +26,12 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
           <div>
             <h3>Dönem Şampiyonları</h3>
             @if (asOf()) {
-              <p class="sub">Son kapanış: {{ formatDate(asOf()!) }} · her gece 23:05 güncellenir</p>
+              <p class="sub">
+                Son kapanış: {{ formatDate(asOf()!) }}
+                @if (computedAt()) {
+                  · güncellendi: {{ formatDateTime(computedAt()!) }}
+                }
+              </p>
             }
           </div>
         </div>
@@ -284,6 +289,7 @@ export class TopGainersCrownComponent {
 
   readonly items = signal<TopGainerItem[]>([]);
   readonly asOf = signal<string | null>(null);
+  readonly computedAt = signal<string | null>(null);
   readonly formatNumber = formatNumber;
   readonly formatAssetPrice = formatAssetPrice;
 
@@ -302,6 +308,7 @@ export class TopGainersCrownComponent {
         next: (res) => {
           this.items.set(res.items ?? []);
           this.asOf.set(res.asOfDate);
+          this.computedAt.set(res.computedAt ?? null);
           // Kartlar DOM'a basıldıktan sonra ok görünürlüğünü hesapla.
           setTimeout(() => this.onScroll());
         },
@@ -368,5 +375,17 @@ export class TopGainersCrownComponent {
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return iso.slice(0, 10);
     return d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
+  }
+
+  /** Hesaplamanın gerçekten çalıştığı an — sabit "her gece 23:05" yerine. */
+  formatDateTime(iso: string): string {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso.slice(0, 10);
+    return d.toLocaleString('tr-TR', {
+      day: 'numeric',
+      month: 'long',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   }
 }

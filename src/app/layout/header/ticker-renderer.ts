@@ -121,6 +121,13 @@ export class TickerRenderer {
       chip.change = v.change;
       chip.up = v.up;
     }
+
+    // İlk değerler geldiğinde (ya da büyüklük mertebesi değiştiğinde) sütun genişliğini
+    // bir kez düzelt. Eşik sayesinde her saniyelik güncellemede yerleşim oynamaz.
+    const slots = this.measureSlots();
+    if (Math.abs(slots.val - this.valSlotW) > 2 || Math.abs(slots.chg - this.chgSlotW) > 2) {
+      this.relayout();
+    }
   }
 
   start(): void {
@@ -136,6 +143,34 @@ export class TickerRenderer {
     this.frameId = 0;
   }
 
+  /**
+   * Değer/değişim sütunlarının genişliği, sabit bir "en kötü ihtimal" şablonu yerine
+   * ekranda gerçekten bulunan en uzun metne göre ölçülür — aksi halde kısa değerlerde
+   * (ör. "1.876,85") etiketle rakam arasında geniş bir boşluk kalıyordu.
+   * Sütun sabit kalır (rakamlar hizalı akar), sadece gereksiz payı atılır.
+   */
+  private measureSlots(): { val: number; chg: number } {
+    const ctx = this.ctx;
+    if (!ctx) return { val: 0, chg: 0 };
+
+    ctx.font = this.fonts.val;
+    let val = 0;
+    for (const chip of this.chips) {
+      if (chip.value) val = Math.max(val, ctx.measureText(chip.value).width);
+    }
+    // Değerler henüz gelmediyse makul bir başlangıç payı bırak.
+    if (val === 0) val = ctx.measureText('000.000,00').width;
+
+    ctx.font = this.fonts.chg;
+    let chg = 0;
+    for (const chip of this.chips) {
+      if (chip.change) chg = Math.max(chg, ctx.measureText(chip.change).width);
+    }
+    if (chg === 0) chg = ctx.measureText('▼ %00,00').width;
+
+    return { val: Math.ceil(val), chg: Math.ceil(chg) };
+  }
+
   private relayout(): void {
     const ctx = this.ctx;
     if (!ctx || !this.chips.length) {
@@ -143,10 +178,9 @@ export class TickerRenderer {
       return;
     }
 
-    ctx.font = this.fonts.val;
-    this.valSlotW = Math.ceil(ctx.measureText('000.000,00 $').width);
-    ctx.font = this.fonts.chg;
-    this.chgSlotW = Math.ceil(ctx.measureText('▼ %000,00').width);
+    const slots = this.measureSlots();
+    this.valSlotW = slots.val;
+    this.chgSlotW = slots.chg;
 
     let total = 0;
     ctx.font = this.fonts.name;
