@@ -184,17 +184,17 @@ type PickerOption = {
           @if (investMode() === 'wage') {
             <div class="wage-block">
               <div class="pct-row">
-                <span class="tm-label" style="margin:0">ASGARİ ÜCRETİN YÜZDE KAÇI?</span>
-                <b class="pct-val mono">%{{ pct() }}</b>
+                <span class="tm-label" style="margin:0">KAÇ ASGARİ ÜCRET?</span>
+                <b class="pct-val mono">{{ wageCount() }}×</b>
               </div>
               <input
                 type="range"
-                min="5"
-                max="100"
-                step="5"
-                [ngModel]="pct()"
-                (ngModelChange)="onPctChange($event)"
-                [style.--fill]="((pct() - 5) / 95 * 100) + '%'"
+                min="1"
+                max="5"
+                step="1"
+                [ngModel]="wageCount()"
+                (ngModelChange)="onWageCountChange($event)"
+                [style.--fill]="((wageCount() - 1) / 4 * 100) + '%'"
               />
               <div class="wage-info">
                 @if (wageInfoView(); as w) {
@@ -225,6 +225,9 @@ type PickerOption = {
               <div class="wage-info">
                 {{ mode() === 'dca' ? 'Her ay' : 'Tek seferinde' }}
                 <b>{{ formatInteger(customAmount()) }} ₺</b> yatırılacak.
+                @if (wageInfoView(); as w) {
+                  <span class="wage-ref"> · {{ w.year }} asgari ücreti: <b>{{ w.wageLabel }} ₺</b></span>
+                }
               </div>
             </div>
           }
@@ -335,13 +338,8 @@ type PickerOption = {
                     }
                   </div>
                   @if (p.leader; as row) {
-                    <span class="chip-sub mono">
-                      {{ formatAssetPrice(row.startPrice, 'parity') }} → {{ formatAssetPrice(row.endPrice, 'parity') }} ₺
-                    </span>
-                    <span class="chip-grown mono" [class.neg]="row.returnPct < 0">
-                      <span class="grown-from">{{ formatMoneyAmount(altInvestAmount()) }} ₺</span>
-                      <span class="grown-arrow">→</span>
-                      <span class="grown-to">~{{ formatMoneyAmount(grownFromReturn(row.returnPct)) }} ₺</span>
+                    <span class="chip-result mono" [class.neg]="row.returnPct < 0">
+                      ~{{ formatMoneyAmount(grownFromReturn(row.returnPct)) }} ₺
                     </span>
                   } @else {
                     <span class="chip-sub">Bu tarihte veri yok</span>
@@ -375,18 +373,10 @@ type PickerOption = {
                     />
                     <span class="alt-main">
                       <b>{{ altTitle(l) }}</b>
-                      <span class="alt-sub mono">
-                        {{ formatAssetPrice(l.startPrice, altTab()) }} → {{ formatAssetPrice(l.endPrice, altTab()) }}
-                      </span>
-                      <span class="alt-grown mono" [class.neg]="l.returnPct < 0">
-                        <span class="grown-from">{{ formatMoneyAmount(altInvestAmount()) }} ₺</span>
-                        <span class="grown-arrow">→</span>
-                        <span class="grown-to">~{{ formatMoneyAmount(grownFromReturn(altAdjustedReturnPct(l.returnPct))) }} ₺</span>
-                      </span>
-                    </span>
-                    <span class="alt-figures">
                       <span class="alt-ret" [class.neg]="l.returnPct < 0">{{ pctText(altAdjustedReturnPct(l.returnPct)) }}</span>
-                      <span class="alt-mult mono">{{ multipleText(returnMultiple(altAdjustedReturnPct(l.returnPct))) }}</span>
+                    </span>
+                    <span class="alt-result mono" [class.neg]="l.returnPct < 0">
+                      ~{{ formatMoneyAmount(grownFromReturn(altAdjustedReturnPct(l.returnPct))) }} ₺
                     </span>
                   </li>
                 }
@@ -394,8 +384,6 @@ type PickerOption = {
             } @else {
               <p class="alt-empty">{{ altEmptyText() }}</p>
             }
-
-            <p class="alt-note">{{ altNote() }}</p>
           </div>
         }
 
@@ -414,8 +402,10 @@ type PickerOption = {
       background: var(--panel);
       border: 1px solid var(--line);
       border-radius: 20px;
-      padding: 26px;
+      padding: 20px;
       position: relative;
+      max-height: 88vh;
+      overflow-y: auto;
     }
 
     .tm-scroll-target {
@@ -445,7 +435,7 @@ type PickerOption = {
     }
 
     .tm-section {
-      margin-top: 20px;
+      margin-top: 14px;
     }
 
     .tm-label {
@@ -647,8 +637,8 @@ type PickerOption = {
         background: transparent;
         color: var(--muted);
         font-weight: 700;
-        font-size: 12.5px;
-        padding: 9px 14px;
+        font-size: 12px;
+        padding: 7px 12px;
         border-radius: 8px;
         cursor: pointer;
         display: flex;
@@ -661,7 +651,7 @@ type PickerOption = {
       }
     }
 
-    .invest-mode-seg { margin-bottom: 14px; }
+    .invest-mode-seg { margin-bottom: 10px; }
 
     /* ── Wage block ──────────────────────────────────────── */
     .wage-block { margin-top: 2px; }
@@ -711,9 +701,9 @@ type PickerOption = {
 
     .custom-amount-input {
       width: 100%;
-      font-size: 22px;
+      font-size: 19px;
       font-weight: 700;
-      padding: 14px 52px 14px 18px;
+      padding: 11px 48px 11px 16px;
       border-radius: 14px;
       letter-spacing: 0.5px;
 
@@ -724,7 +714,7 @@ type PickerOption = {
     .currency-badge {
       position: absolute;
       right: 16px;
-      font-size: 18px;
+      font-size: 16px;
       font-weight: 700;
       color: var(--muted);
       pointer-events: none;
@@ -732,10 +722,10 @@ type PickerOption = {
 
     /* ── Wage info ────────────────────────────────────────── */
     .wage-info {
-      margin-top: 9px;
-      font-size: 12px;
+      margin-top: 7px;
+      font-size: 11.5px;
       color: var(--muted);
-      line-height: 1.6;
+      line-height: 1.5;
 
       b { color: var(--text); }
     }
@@ -744,14 +734,17 @@ type PickerOption = {
     .tm-actions {
       display: flex;
       gap: 10px;
-      margin-top: 24px;
+      margin-top: 16px;
       flex-wrap: wrap;
     }
 
+    /* .btn global (styles.scss) — burada sadece bu modale özel, daha kompakt boyut. */
     .btn-main, .btn-prem {
       flex: 1;
       justify-content: center;
       min-width: 140px;
+      padding: 11px 18px;
+      font-size: 13px;
     }
 
     .btn-prem:disabled {
@@ -762,41 +755,55 @@ type PickerOption = {
 
     /* ── Sonuç ───────────────────────────────────────────── */
     .result {
-      margin-top: 24px;
+      margin-top: 16px;
       border-top: 1px dashed var(--line);
-      padding-top: 22px;
+      padding-top: 14px;
 
       &.show { animation: tmIn 0.3s; }
     }
 
     .headline {
-      font-size: 15px;
-      line-height: 1.65;
+      font-size: 14px;
+      line-height: 1.5;
 
       &.err { color: var(--down); font-size: 13px; }
 
-      .big { font-size: 26px; font-weight: 800; color: var(--up); }
+      .big { font-size: 24px; font-weight: 800; color: var(--up); }
       .neg { color: var(--down); }
     }
 
     .story {
-      margin: 14px 0 18px;
+      margin: 10px 0 12px;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 6px;
     }
 
     .story-line {
       margin: 0;
-      padding: 10px 12px;
+      padding: 7px 10px;
       border-left: 3px solid var(--accent);
       background: color-mix(in srgb, var(--accent) 8%, transparent);
       border-radius: 0 10px 10px 0;
-      font-size: 13px;
-      line-height: 1.55;
+      font-size: 11.5px;
+      line-height: 1.45;
       color: var(--text);
     }
 
+    /* .stat-grid/.stat global (styles.scss, portföy/hisse detayı da kullanıyor) — burada SADECE
+       bu modal içinde geçerli yerel bir override: fiyat/rakam öne çıksın, etiket minimalist
+       kalsın. Global dosyaya dokunulmuyor. */
+    .stat { padding: 10px 12px; }
+    .stat .k {
+      font-size: 9.5px;
+      letter-spacing: 0.2px;
+      opacity: 0.7;
+    }
+    .stat .v {
+      font-size: 20px;
+      font-weight: 800;
+      margin-top: 3px;
+    }
     .stat .v.accent { color: var(--accent); }
 
     .lot-growth { color: var(--prem); }
@@ -814,8 +821,8 @@ type PickerOption = {
 
     /* ── "Aynı gün başka ne alsaydın?" paneli ─────────────── */
     .alt-panel {
-      margin-top: 18px;
-      padding: 16px;
+      margin-top: 14px;
+      padding: 12px;
       border: 1px solid var(--line);
       border-radius: 16px;
       background: var(--panel2);
@@ -828,13 +835,13 @@ type PickerOption = {
       justify-content: space-between;
       gap: 10px;
       flex-wrap: wrap;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }
 
-    .alt-title { font-size: 14px; font-weight: 800; }
+    .alt-title { font-size: 13px; font-weight: 800; }
 
     .alt-when {
-      font-size: 11px;
+      font-size: 10.5px;
       color: color-mix(in srgb, var(--text) 72%, var(--muted));
       font-weight: 650;
       letter-spacing: 0.01em;
@@ -844,14 +851,14 @@ type PickerOption = {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 8px;
-      margin-bottom: 14px;
+      margin-bottom: 10px;
     }
 
     .parity-chip {
       display: flex;
       flex-direction: column;
-      gap: 3px;
-      padding: 10px 11px;
+      gap: 2px;
+      padding: 8px 9px;
       border: 1px solid var(--line);
       border-radius: 12px;
       background: var(--panel);
@@ -885,9 +892,11 @@ type PickerOption = {
       text-overflow: ellipsis;
     }
 
+    /* Yüzde artık ikincil — isme bitişik, küçük. Asıl vurgu aşağıdaki TL sonucunda. */
     .chip-ret {
-      font-size: 11px;
-      font-weight: 800;
+      font-size: 10px;
+      font-weight: 700;
+      opacity: 0.85;
       color: var(--up);
       white-space: nowrap;
       flex: none;
@@ -896,44 +905,17 @@ type PickerOption = {
 
     .chip-ret.neg, .alt-ret.neg { color: var(--down); }
 
-    .chip-grown, .alt-grown {
-      display: flex;
-      align-items: baseline;
-      flex-wrap: nowrap;
-      gap: 4px;
+    /* Fiyat/sonuç — kartın en belirgin öğesi: büyük, kalın, renkli. */
+    .chip-result {
+      display: block;
       margin-top: 2px;
-      line-height: 1.2;
-      white-space: nowrap;
-      min-width: 0;
-    }
-
-    .grown-from {
-      font-size: 10px;
-      font-weight: 600;
-      opacity: 0.55;
-      flex: none;
-    }
-
-    .grown-arrow {
-      font-size: 11px;
-      opacity: 0.45;
-      flex: none;
-    }
-
-    .grown-to {
-      font-size: 13px;
+      font-size: 17px;
       font-weight: 800;
       color: var(--up);
       letter-spacing: -0.02em;
       white-space: nowrap;
     }
-
-    .chip-grown .grown-to { font-size: 12.5px; }
-
-    .chip-grown.neg .grown-to,
-    .alt-grown.neg .grown-to {
-      color: var(--down);
-    }
+    .chip-result.neg { color: var(--down); }
 
     .parity-chip.miss {
       opacity: 0.55;
@@ -950,7 +932,7 @@ type PickerOption = {
       opacity: 0.85;
     }
 
-    .alt-seg { margin-bottom: 12px; }
+    .alt-seg { margin-bottom: 8px; }
 
     .alt-list {
       list-style: none;
@@ -999,29 +981,42 @@ type PickerOption = {
       flex: none;
     }
 
+    /* İsim + yüzde bitişik (soldaki grup); asıl vurgu sağdaki TL sonucunda (.alt-result). */
     .alt-main {
       display: flex;
-      flex-direction: column;
+      align-items: baseline;
+      gap: 6px;
       min-width: 0;
       flex: 1;
     }
 
-    .alt-main b { font-size: 13px; }
+    .alt-main b {
+      font-size: 13px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
 
-    .alt-sub { font-size: 10px; opacity: 0.6; }
-
-    .alt-figures {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
+    .alt-ret {
+      font-size: 10.5px;
+      font-weight: 700;
+      opacity: 0.85;
+      color: var(--up);
+      white-space: nowrap;
       flex: none;
     }
 
-    .alt-ret { font-size: 13px; font-weight: 800; color: var(--up); }
+    .alt-result {
+      flex: none;
+      font-size: 15px;
+      font-weight: 800;
+      color: var(--up);
+      letter-spacing: -0.02em;
+      white-space: nowrap;
+    }
+    .alt-result.neg { color: var(--down); }
 
-    .alt-mult { font-size: 10px; opacity: 0.65; }
-
-    .alt-empty, .alt-note {
+    .alt-empty {
       margin: 10px 0 0;
       font-size: 10.5px;
       line-height: 1.5;
@@ -1055,7 +1050,8 @@ export class TimeMachineModalComponent {
 
   readonly symbol    = signal('THYAO');
   readonly mode      = signal<TimeMachineMode>('lump');
-  readonly pct       = signal(50);
+  /** Kaç asgari ücret (1-5×) — API'ye yüzde olarak gönderilir (bkz. calculate()). */
+  readonly wageCount = signal(1);
   readonly investMode = signal<InvestMode>('wage');
   /** 0 = boş özel tutar (placeholder) */
   readonly customAmount = signal(0);
@@ -1114,7 +1110,7 @@ export class TimeMachineModalComponent {
     if (!min) return `${sym} için fiyat geçmişi yükleniyor…`;
     const d = new Date(min + 'T12:00:00');
     const label = d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
-    return `${sym} için varsayılan başlangıç: ${label}`;
+    return `${sym} için en erken başlangıç tarihi: ${label}`;
   });
 
   readonly dateLabel = computed(() => formatTurkishDate(this.dateStr()));
@@ -1266,7 +1262,7 @@ export class TimeMachineModalComponent {
     const year = +iso.slice(0, 4);
     const month = +iso.slice(5, 7);
     const wage = getMinimumWage(iso);
-    const inv = wage * (this.pct() / 100);
+    const inv = wage * this.wageCount();
     const totalMonths = (new Date().getFullYear() - year) * 12 - (month - 1);
     const fmt = (n: number) =>
       n >= 100 ? formatInteger(n) : n.toLocaleString('tr-TR', { maximumFractionDigits: 2 });
@@ -1307,7 +1303,7 @@ export class TimeMachineModalComponent {
     }
     const iso = this.dateStr();
     if (!iso || iso.length < 7) return 0;
-    return getMinimumWage(iso) * (this.pct() / 100);
+    return getMinimumWage(iso) * this.wageCount();
   });
 
   /** Hesapla sonrası + geçerli tutar varken alternatif paneli göster. */
@@ -1351,21 +1347,6 @@ export class TimeMachineModalComponent {
     if (this.altTab() === 'crypto') return 'Bu tarihte henüz kripto verisi yok.';
     if (this.altTab() === 'us') return 'Bu tarihte ABD hisse verisi bulunamadı.';
     return 'Bu tarihte BIST verisi bulunamadı.';
-  });
-
-  readonly altNote = computed(() => {
-    const top = this.altList()[0];
-    if (!top) return 'Getiriler seçilen günün kapanışından son kapanışa kadar hesaplanır.';
-    const amt = this.altInvestAmount();
-    const grown = this.grownFromReturn(this.altAdjustedReturnPct(top.returnPct));
-    const suffix =
-      this.altTab() === 'crypto'
-        ? 'Getiriler coin fiyat değişimi (USDT) + o dönemki USD/TRY değişimi birleştirilerek TL karşılığına çevrilir.'
-        : this.altTab() === 'us'
-          ? 'Getiriler hissenin USD getirisi (AdjustedClose) + o dönemki USD/TRY değişimi birleştirilerek TL karşılığına çevrilir.'
-          : 'Getiri TV AdjustedClose (temettü/bölünme düzeltilmiş) oranıdır; gösterilen fiyatlar ham kapanıştır.';
-    if (amt <= 0) return suffix;
-    return `O gün ${formatMoneyAmount(amt)} ₺ ile ${this.altTitle(top)} alsaydın bugün ~${formatMoneyAmount(grown)} ₺ olurdu. ${suffix}`;
   });
 
   constructor() {
@@ -1476,7 +1457,7 @@ export class TimeMachineModalComponent {
   /** Her açılışta önceki girdi / sonucu temizle. Tarih min gelince effect doldurur. */
   private resetFormForOpen(tmMarket: 'bist' | 'crypto' | 'us'): void {
     this.mode.set('lump');
-    this.pct.set(50);
+    this.wageCount.set(1);
     this.investMode.set('wage');
     this.customAmount.set(0);
     this.dateStr.set('');
@@ -1622,8 +1603,8 @@ export class TimeMachineModalComponent {
     this.resetCalc();
   }
 
-  onPctChange(val: number): void {
-    this.pct.set(+val);
+  onWageCountChange(val: number): void {
+    this.wageCount.set(Math.min(5, Math.max(1, Math.round(+val))));
     this.resetCalc();
   }
 
@@ -1655,7 +1636,7 @@ export class TimeMachineModalComponent {
     if (this.investMode() === 'custom') return Math.max(0, this.customAmount());
     const iso = this.dateStr();
     if (!iso || iso.length < 7) return 0;
-    return getMinimumWage(iso) * (this.pct() / 100);
+    return getMinimumWage(iso) * this.wageCount();
   }
 
   private usdTryFromLeaders(leaders: TimeMachineLeaders | null): { start: number; end: number } | null {
@@ -1787,7 +1768,7 @@ export class TimeMachineModalComponent {
         : this.market.calculateInvestment(
             this.symbol(),
             iso,
-            this.pct(),
+            this.wageCount() * 100,
             this.mode(),
             amountForApi,
             crypto ? 'crypto' : 'bist',
