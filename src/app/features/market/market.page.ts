@@ -303,7 +303,7 @@ const SORT_OPTIONS: { key: MarketSortKey & CryptoSortKey & UsSortKey; label: str
       max-width: 100%;
       /* overflow gizlenmiyor: sekmeler her genişlikte sığıyor ve butonun üstüne
          taşan "CANLI VERİ" rozetinin kırpılmaması gerekiyor. */
-      margin-top: 24px;
+      margin-top: 10px;
     }
     /* Uzun etiket masaüstünde, kısa etiket dar ekranda (aşağıdaki media query) gösterilir. */
     .ms-short { display: none; }
@@ -632,7 +632,7 @@ const SORT_OPTIONS: { key: MarketSortKey & CryptoSortKey & UsSortKey; label: str
       .ms-short { display: inline; }
       /* overflow: visible — üçü de sığdığı için kaydırmaya gerek yok; ayrıca
          overflow gizli kalırsa butonun üstüne taşan "CANLI VERİ" rozeti kırpılıyor. */
-      .market-switch { display: flex; width: 100%; overflow: visible; margin-top: 24px; }
+      .market-switch { display: flex; width: 100%; overflow: visible; margin-top: 10px; }
       .ms-btn {
         flex: 1 1 0;
         justify-content: center;

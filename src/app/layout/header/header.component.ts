@@ -18,24 +18,28 @@ import { MarketTickerComponent } from './market-ticker.component';
       <div class="topbar">
         <a class="brand" routerLink="/" title="Ana ekran">
           <div class="brand-mark" aria-hidden="true">
-            <svg viewBox="0 0 32 32" width="24" height="24" fill="none">
-              <!-- yükselen mum/bar grafik + trend oku -->
-              <rect x="4" y="18" width="4.6" height="9" rx="1.4" fill="currentColor" opacity=".55" />
-              <rect x="11.7" y="13" width="4.6" height="14" rx="1.4" fill="currentColor" opacity=".78" />
-              <rect x="19.4" y="8" width="4.6" height="19" rx="1.4" fill="currentColor" />
+            <svg viewBox="0 0 32 32" width="32" height="32" fill="none">
+              <!-- 3 mum grafiği (candlestick), sabit taban yükselen boy + tepe noktasında fiyat işaretçisi -->
+              <line x1="7.5" y1="17" x2="7.5" y2="29" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" opacity=".5" />
+              <rect x="5" y="20" width="5" height="7" rx="1.4" fill="currentColor" opacity=".5" />
+              <line x1="16" y1="11" x2="16" y2="29" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" opacity=".72" />
+              <rect x="13.5" y="14" width="5" height="13" rx="1.4" fill="currentColor" opacity=".72" />
+              <line x1="24.5" y1="4" x2="24.5" y2="29" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+              <rect x="22" y="7" width="5" height="20" rx="1.4" fill="currentColor" />
               <path
-                d="M5 13.5 L12.5 8 L19 11 L28 4"
+                d="M4 24 Q11 22 16 15 T25 4"
                 stroke="currentColor"
-                stroke-width="2.4"
+                stroke-width="1.1"
                 stroke-linecap="round"
-                stroke-linejoin="round"
+                stroke-dasharray="0.5 3.2"
+                opacity=".5"
               />
-              <path d="M22.6 4h5.6v5.4" stroke="currentColor" stroke-width="2.4"
-                    stroke-linecap="round" stroke-linejoin="round" />
+              <circle cx="25" cy="4" r="2.1" fill="currentColor" />
+              <circle cx="25" cy="4" r="2.1" fill="none" stroke="#fff" stroke-width=".6" opacity=".6" />
             </svg>
           </div>
-          <div>
-            <h1>Sanal Portföy</h1>
+          <div class="brand-text">
+            <h1><span class="brand-grad">Sanal</span> Portföy</h1>
           </div>
         </a>
 
@@ -164,15 +168,30 @@ import { MarketTickerComponent } from './market-ticker.component';
     }
 
     .brand-mark {
-      width: 40px;
-      height: 40px;
-      border-radius: 10px;
-      background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #e8632c));
+      width: 52px;
+      height: 52px;
+      border-radius: 13px;
+      background:
+        radial-gradient(circle at 26% 22%, rgba(255, 255, 255, 0.4), transparent 45%),
+        linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #e8632c));
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.35),
+        inset 0 -6px 10px rgba(0, 0, 0, 0.12),
+        0 3px 10px color-mix(in srgb, var(--accent) 45%, transparent);
       display: flex;
       align-items: center;
       justify-content: center;
       color: #0b1220;
       flex: none;
+    }
+
+    .brand-text { display: flex; flex-direction: column; gap: 1px; }
+
+    .brand-grad {
+      background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #e8632c));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
     }
 
     /* .theme-switch — şimdilik kapalı (sadece açık mod)
@@ -216,6 +235,7 @@ import { MarketTickerComponent } from './market-ticker.component';
       font-size: 19px;
       font-weight: 800;
       letter-spacing: -0.3px;
+      line-height: 1.15;
     }
 
     .brand small {
