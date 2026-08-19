@@ -173,14 +173,25 @@ const SORT_OPTIONS: { key: MarketSortKey & CryptoSortKey & UsSortKey; label: str
             }
           </span>
 
-          <button class="tm-cta" type="button" (click)="modals.open('dailyReport')">
+          <button
+            class="tm-cta"
+            [class.tm-plain]="tmCtaStyle === 'plain'"
+            [class.tm-bold]="tmCtaStyle === 'bold'"
+            [class.tm-animated]="tmCtaStyle === 'animated'"
+            type="button"
+            (click)="modals.open('dailyReport')"
+          >
+            @if (tmCtaStyle === 'animated') {
+              <span class="tm-shine" aria-hidden="true"></span>
+            }
             <span class="tm-cta-body">
               <span class="tm-cta-text">10 yıl önce 1000 ₺ ye ne alsam zengindim?</span>
-              <span class="tm-cta-btn">Dene!</span>
+              <span class="tm-cta-btn">{{ tmCtaStyle === 'plain' ? 'Dene!' : 'Hemen Dene!' }}</span>
             </span>
             <span class="tm-cta-icon">
-              <svg viewBox="0 0 48 48" width="34" height="34" fill="none">
+              <svg viewBox="0 0 48 48" fill="none">
                 <path
+                  class="tm-icon-ring"
                   d="M24 6a18 18 0 1 1 -12.73 5.27"
                   stroke="#e3a458"
                   stroke-width="3"
@@ -502,27 +513,86 @@ const SORT_OPTIONS: { key: MarketSortKey & CryptoSortKey & UsSortKey; label: str
     .count { font-size: 12px; color: var(--muted); white-space: nowrap; padding-top: 11px; }
     /* Sıralama sekmeleri satırının sağındaki boş alana doğru YUKARI büyür (negatif margin-top);
        alt kenarı arama kutusuyla hizalı kalır, satırın dikey yüksekliğini artırmaz. */
+    @keyframes tmGlow {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(240, 178, 90, 0), 0 4px 14px rgba(47, 22, 96, 0.4); }
+      50% { box-shadow: 0 0 0 9px rgba(240, 178, 90, 0.16), 0 6px 22px rgba(47, 22, 96, 0.55); }
+    }
+    @keyframes tmShine {
+      0% { transform: translateX(-140%) skewX(-18deg); }
+      55%, 100% { transform: translateX(260%) skewX(-18deg); }
+    }
+    @keyframes tmBtnPulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(240, 178, 90, 0.55); }
+      70% { box-shadow: 0 0 0 7px rgba(240, 178, 90, 0); }
+    }
+    @keyframes tmRing {
+      to { transform: rotate(360deg); }
+    }
+    /* Ortak (3 hâlde de aynı) yerleşim. Boyut/renk/gölge her hâlin kendi bloğunda. */
     .tm-cta {
+      position: relative;
+      overflow: hidden;
       margin-left: auto;
-      margin-top: -38px;
       flex: 0 1 auto;
       min-width: 0;
-      max-width: 420px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      height: 74px;
-      padding: 0 14px;
       border: none;
-      border-radius: 12px;
-      background: linear-gradient(120deg, #5b2fb0, #2f1660);
       cursor: pointer;
       transition: transform 0.15s, box-shadow 0.15s;
+    }
+    /* 'plain' — ilk/sade hâl. */
+    .tm-cta.tm-plain {
+      margin-top: -38px;
+      max-width: 420px;
+      height: 74px;
+      padding: 0 14px;
+      border-radius: 12px;
+      background: linear-gradient(120deg, #5b2fb0, #2f1660);
+      &:hover { transform: translateY(-1px); box-shadow: 0 4px 14px color-mix(in srgb, #2f1660 55%, transparent); }
+      .tm-cta-text { font-size: 13px; font-weight: 700; text-shadow: none; }
+      .tm-cta-btn { font-size: 11.5px; padding: 5px 14px; border-radius: 7px; box-shadow: none; }
+      .tm-cta-icon svg { width: 34px; height: 34px; }
+    }
+    /* 'bold' ve 'animated' — büyük, çerçeveli, gölgeli ortak görünüm; animated buna hareket ekler. */
+    .tm-cta.tm-bold,
+    .tm-cta.tm-animated {
+      margin-top: -44px;
+      max-width: 440px;
+      height: 86px;
+      padding: 0 16px;
+      border: 2px solid #f0b25a;
+      border-radius: 14px;
+      background:
+        radial-gradient(circle at 18% 15%, rgba(255, 255, 255, 0.16), transparent 45%),
+        linear-gradient(120deg, #6c34d6, #2a1454);
+      box-shadow:
+        0 8px 22px rgba(47, 22, 96, 0.45),
+        0 0 0 4px color-mix(in srgb, #f0b25a 20%, transparent);
       &:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 4px 14px color-mix(in srgb, #2f1660 55%, transparent);
+        transform: translateY(-2px) scale(1.015);
+        box-shadow:
+          0 10px 26px rgba(47, 22, 96, 0.55),
+          0 0 0 4px color-mix(in srgb, #f0b25a 32%, transparent);
       }
+      .tm-cta-text { font-size: 15px; font-weight: 800; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35); }
+      .tm-cta-btn { font-size: 12.5px; padding: 6px 16px; border-radius: 8px; box-shadow: 0 2px 8px rgba(221, 149, 48, 0.5); }
+      .tm-cta-icon svg { width: 40px; height: 40px; }
+    }
+    .tm-cta.tm-animated {
+      animation: tmGlow 2.2s ease-in-out infinite;
+      .tm-icon-ring { animation: tmRing 4.5s linear infinite; }
+      .tm-cta-btn { animation: tmBtnPulse 1.6s ease-in-out infinite; }
+    }
+    .tm-shine {
+      position: absolute;
+      inset: 0;
+      width: 40%;
+      background: linear-gradient(115deg, transparent, rgba(255, 255, 255, 0.32), transparent);
+      animation: tmShine 3.4s ease-in-out infinite;
+      pointer-events: none;
     }
     .tm-cta-body {
       display: flex;
@@ -536,25 +606,26 @@ const SORT_OPTIONS: { key: MarketSortKey & CryptoSortKey & UsSortKey; label: str
       display: flex;
       align-items: center;
     }
+    .tm-icon-ring {
+      transform-box: fill-box;
+      transform-origin: center;
+    }
     .tm-cta-text {
-      font-size: 13px;
-      font-weight: 700;
       color: #fff;
       text-align: left;
       line-height: 1.25;
     }
     .tm-cta-btn {
       flex: none;
-      font-size: 11.5px;
       font-weight: 800;
       color: #3a1f00;
       background: linear-gradient(135deg, #f0b25a, #dd9530);
-      padding: 5px 14px;
-      border-radius: 7px;
     }
     /* Dar ekran: yukarı taşma (negatif margin) kalkar, banner kendi satırında tam genişlik olur. */
     @media (max-width: 900px) {
-      .tm-cta {
+      .tm-cta.tm-plain,
+      .tm-cta.tm-bold,
+      .tm-cta.tm-animated {
         margin-top: 4px;
         margin-left: 0;
         width: 100%;
@@ -659,6 +730,10 @@ export class MarketPageComponent implements OnInit, OnDestroy {
   readonly us = inject(UsMarketService);
   readonly marketType = inject(MarketTypeService);
   readonly modals = inject(ModalService);
+
+  /** Zaman Makinesi CTA'sı — 3 görsel hâl saklanıyor, tek kelimeyle değiştirilebilir:
+   * 'plain' = ilk/sade hâl, 'bold' = büyük+çerçeveli statik hâl, 'animated' = parıltılı/hareketli hâl. */
+  readonly tmCtaStyle: 'plain' | 'bold' | 'animated' = 'bold';
 
   readonly tabs = INDEX_TABS;
   readonly sortOptions = SORT_OPTIONS;
