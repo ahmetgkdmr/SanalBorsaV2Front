@@ -82,6 +82,10 @@ export interface TimeMachineLeaders {
 export interface TimeMachineDailyMarketReport {
   gainers: TimeMachineLeader[];
   losers: TimeMachineLeader[];
+  /** O tarihte bu piyasada fiyat verisi olan enstrüman sayısı — küçük evrenlerde
+   * (ör. eski tarihte sadece birkaç kripto) "kaybettirenler"in aslında en-az-kazananlar
+   * olabileceğini göstermek için. */
+  universeCount: number;
 }
 
 export interface TimeMachineDailyReport {

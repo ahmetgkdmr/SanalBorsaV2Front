@@ -124,6 +124,20 @@ export function formatLotRange(initial: number, final: number): string {
   return Math.abs(initial - final) > 0.0005 ? `${a} → ${b}` : b;
 }
 
+/** "3 dk önce" / "2 sa önce" / "5 g önce" — bildirim listesi için göreceli zaman. */
+export function formatRelativeTime(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  const seconds = Math.max(0, (Date.now() - d.getTime()) / 1000);
+  if (seconds < 60) return 'az önce';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} dk önce`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} sa önce`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days} g önce`;
+  return d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
+}
+
 export function changePercent(current: number, base: number): number {
   if (!base) return 0;
   return ((current - base) / base) * 100;

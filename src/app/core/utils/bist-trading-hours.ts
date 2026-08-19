@@ -1,12 +1,12 @@
-/** BIST sanal işlem penceresi — Türkiye saati 18:45–10:00 açık. */
+/** BIST sanal işlem penceresi — Türkiye saati 19:00–09:30 açık. */
 export const BIST_CLOSED_CODE = 'BIST_CLOSED';
 
 export const BIST_CLOSED_TITLE = 'Borsa İstanbul kapalı';
 
 export const BIST_CLOSED_MESSAGE =
   'Sanal portföyde BIST alım-satımı, günün kapanış fiyatı netleştikten sonra açılır.\n\n' +
-  'İşlem saati: her gün 18:45 – ertesi sabah 10:00 (Türkiye saati).\n\n' +
-  'Seans boyunca (10:00–18:45) fiyatlar henüz kesinleşmediği için işlem yapılamaz.\n\n' +
+  'İşlem saati: her gün 19:00 – ertesi sabah 09:30 (Türkiye saati).\n\n' +
+  'Seans boyunca (09:30–19:00) fiyatlar henüz kesinleşmediği için işlem yapılamaz.\n\n' +
   'Kripto alım-satımı 7/24 açıktır.';
 
 export function isBistTradingOpen(now: Date = new Date()): boolean {
@@ -20,8 +20,8 @@ export function isBistTradingOpen(now: Date = new Date()): boolean {
   const hour = Number(parts.find((p) => p.type === 'hour')?.value ?? '0');
   const minute = Number(parts.find((p) => p.type === 'minute')?.value ?? '0');
   const mins = hour * 60 + minute;
-  // 18:45 → 10:00
-  return mins >= 18 * 60 + 45 || mins < 10 * 60;
+  // 19:00 → 09:30
+  return mins >= 19 * 60 || mins < 9 * 60 + 30;
 }
 
 export function isBistClosedError(message: string | null | undefined): boolean {

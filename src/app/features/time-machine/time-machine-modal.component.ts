@@ -157,7 +157,7 @@ type PickerOption = {
         </div>
 
         <!-- ── Alım şekli ─────────────────────────────────── -->
-        <div class="tm-section">
+        <div class="tm-section" #modeSection>
           <div class="tm-label">ALIM ŞEKLİ</div>
           <div class="seg">
             <button type="button" [class.active]="mode() === 'lump'" (click)="setMode('lump')">
@@ -187,22 +187,32 @@ type PickerOption = {
                 <span class="tm-label" style="margin:0">KAÇ ASGARİ ÜCRET?</span>
                 <b class="pct-val mono">{{ wageCount() }}×</b>
               </div>
-              <input
-                type="range"
-                min="1"
-                max="5"
-                step="1"
-                [ngModel]="wageCount()"
-                (ngModelChange)="onWageCountChange($event)"
-                [style.--fill]="((wageCount() - 1) / 4 * 100) + '%'"
-              />
+              <div class="slider-wrap">
+                <input
+                  type="range"
+                  min="1"
+                  max="5"
+                  step="1"
+                  [ngModel]="wageCount()"
+                  (ngModelChange)="onWageCountChange($event)"
+                  [style.--fill]="(wageCount() / 5 * 100) + '%'"
+                />
+                <!-- Native thumb, gerçek (value-min)/(max-min) pozisyonunda kalır — value=1'de bu
+                     hep sol uçtur. Sahte tutamak, doluluk yüzdesiyle (wageCount/5) aynı noktada
+                     duruyor, value=1'de bile "boşta" değil "1'in sonunda" görünsün diye. -->
+                <div class="slider-fake-thumb" [style.left]="(wageCount() / 5 * 100) + '%'"></div>
+              </div>
               <div class="wage-info">
                 @if (wageInfoView(); as w) {
-                  {{ w.year }} asgari ücreti: <b>{{ w.wageLabel }} ₺</b>
+                  {{ w.year }} asgari ücreti: <b>{{ w.wageLabel }} {{ w.oldTlNote ? 'TL' : '₺' }}</b>
                   @if (w.oldTlNote) {
-                    <span class="wage-note">(2005 öncesi Yeni TL karşılığı)</span>
+                    <span class="wage-note">({{ w.wageNewTlLabel }} ₺ Yeni TL karşılığı)</span>
                   }
-                  → {{ w.modePrefix }} <b>{{ w.investLabel }} ₺</b>{{ w.modeSuffix }}
+                  → {{ w.modePrefix }} <b>{{ w.investLabel }} {{ w.oldTlNote ? 'TL' : '₺' }}</b>
+                  @if (w.oldTlNote) {
+                    <span class="wage-note">({{ w.investNewTlLabel }} ₺ Yeni TL karşılığı)</span>
+                  }
+                  {{ w.modeSuffix }}
                 } @else {
                   Asgari ücret için tarih seç…
                 }
@@ -212,13 +222,12 @@ type PickerOption = {
             <div class="custom-block">
               <div class="custom-input-wrap">
                 <input
-                  type="number"
+                  type="text"
+                  inputmode="numeric"
                   class="f-input custom-amount-input"
-                  [ngModel]="customAmount() > 0 ? customAmount() : null"
-                  (ngModelChange)="onCustomAmountChange($event)"
+                  [ngModel]="customAmountDisplay()"
+                  (ngModelChange)="onCustomAmountInput($event)"
                   placeholder="Tutar girin (₺)"
-                  min="1"
-                  step="100"
                 />
                 <span class="currency-badge">₺</span>
               </div>
@@ -226,7 +235,12 @@ type PickerOption = {
                 {{ mode() === 'dca' ? 'Her ay' : 'Tek seferinde' }}
                 <b>{{ formatInteger(customAmount()) }} ₺</b> yatırılacak.
                 @if (wageInfoView(); as w) {
-                  <span class="wage-ref"> · {{ w.year }} asgari ücreti: <b>{{ w.wageLabel }} ₺</b></span>
+                  <span class="wage-ref">
+                    · {{ w.year }} asgari ücreti: <b>{{ w.wageLabel }} {{ w.oldTlNote ? 'TL' : '₺' }}</b>
+                    @if (w.oldTlNote) {
+                      ({{ w.wageNewTlLabel }} ₺ Yeni TL karşılığı)
+                    }
+                  </span>
                 }
               </div>
             </div>
@@ -253,57 +267,30 @@ type PickerOption = {
           } @else {
             <div class="result show">
               <p class="headline">
-                <span class="big">{{ formatInteger(r.currentValue) }} ₺</span> bugünkü değer —
-                <span [class.neg]="r.gainPct < 0">
+                <span class="big" [class.neg]="r.gainPct < 0">{{ formatInteger(r.currentValue) }} ₺</span> bugünkü değer —
+                <span class="pct-badge" [class.neg]="r.gainPct < 0">
                   {{ r.gainPct >= 0 ? '+' : '' }}%{{ formatNumber(r.gainPct) }}
                 </span>
               </p>
 
               @if (r.storyLines.length) {
                 <div class="story">
-                  @for (line of r.storyLines; track $index) {
-                    <p class="story-line">{{ line }}</p>
+                  @if (r.storyLines[0]; as first) {
+                    <p class="story-line">{{ first }}</p>
+                  }
+                  <p class="story-line">
+                    Bu da güncel olarak
+                    <b class="story-tl" [class.neg]="r.gainPct < 0">{{ formatInteger(r.currentValue) }} ₺</b>
+                    yapardı.
+                  </p>
+                  @for (line of r.storyLines; track $index; let i = $index) {
+                    @if (i > 0) {
+                      <p class="story-line">{{ line }}</p>
+                    }
                   }
                 </div>
               }
 
-              <div class="stat-grid">
-                <div class="stat">
-                  <div class="k">YATIRILAN</div>
-                  <div class="v mono">{{ formatInteger(r.invested) }} ₺</div>
-                </div>
-                <div class="stat">
-                  <div class="k">ALIM FİYATI</div>
-                  <div class="v mono">{{ formatAssetPrice(r.buyPrice, showsDollar() ? 'crypto' : 'bist') }} {{ showsDollar() ? '$' : '₺' }}</div>
-                </div>
-                <div class="stat">
-                  <div class="k">{{ lotLabel() }}</div>
-                  <div class="v mono" [class.lot-growth]="r.initialLots !== r.lots">
-                    {{ formatLotRange(r.initialLots, r.lots) }}
-                  </div>
-                  @if (r.initialLots !== r.lots && !isInstrumentMode()) {
-                    <div class="k sub">başlangıç → bugün</div>
-                  }
-                </div>
-                <div class="stat">
-                  <div class="k">BUGÜN</div>
-                  <div class="v mono">{{ formatAssetPrice(r.currentPrice, showsDollar() ? 'crypto' : 'bist') }} {{ showsDollar() ? '$' : '₺' }}</div>
-                </div>
-                @if (!isInstrumentMode() && r.dividendsReceived > 0) {
-                  <div class="stat">
-                    <div class="k">TEMETTÜ</div>
-                    <div class="v mono">{{ formatInteger(r.dividendsReceived) }} ₺</div>
-                    <div class="k sub">toplam gelir</div>
-                  </div>
-                  <div class="stat">
-                    <div class="k">GERİ YATIRILAN</div>
-                    <div class="v mono accent">{{ formatInteger(r.dividendsReinvested) }} ₺</div>
-                    @if (r.lotsFromReinvestment > 0) {
-                      <div class="k sub">+{{ formatInteger(r.lotsFromReinvestment) }} lot</div>
-                    }
-                  </div>
-                }
-              </div>
             </div>
           }
           </div>
@@ -317,17 +304,21 @@ type PickerOption = {
               <span class="alt-when">{{ altWhen() }}</span>
             </div>
 
-            @if (mode() === 'dca') {
-              <p class="alt-dca-note">
-                Düzenli aylık alım seçili; aşağıdaki karşılaştırmalar tek seferlik alımla
-                {{ formatMoneyAmount(altInvestAmount()) }} ₺
-                yatırılmış gibi hesaplanmıştır (her ay tekrar eden alım değil).
-              </p>
-            }
+            <div class="alt-body" [class.blurred]="mode() === 'dca'">
+              @if (mode() === 'dca') {
+                <button type="button" class="alt-lock-btn" (click)="scrollToModeSection()">
+                  🔒 Sadece ALIM ŞEKLİ "Tek Seferlik" olanlarda gösterilmektedir
+                </button>
+              }
 
             <div class="parity-row">
               @for (p of parityChips(); track p.symbol) {
-                <div class="parity-chip" [class.miss]="!p.leader">
+                <div
+                  class="parity-chip"
+                  [class.miss]="!p.leader"
+                  [class.clickable]="!!p.leader"
+                  (click)="p.leader && selectLeaderSymbol(p.symbol, 'bist')"
+                >
                   <div class="chip-top">
                     <span class="chip-ico">{{ parityIcon(p.symbol) }}</span>
                     <b class="chip-name">{{ parityLabel(p.symbol) }}</b>
@@ -340,6 +331,9 @@ type PickerOption = {
                   @if (p.leader; as row) {
                     <span class="chip-result mono" [class.neg]="row.returnPct < 0">
                       ~{{ formatMoneyAmount(grownFromReturn(row.returnPct)) }} ₺
+                    </span>
+                    <span class="chip-hist mono">
+                      {{ formatMoneyAmount(row.startPrice) }} ₺ → {{ formatMoneyAmount(row.endPrice) }} ₺
                     </span>
                   } @else {
                     <span class="chip-sub">Bu tarihte veri yok</span>
@@ -363,7 +357,11 @@ type PickerOption = {
             @if (altList().length) {
               <ol class="alt-list">
                 @for (l of altList(); track l.symbol) {
-                  <li class="alt-item" [attr.data-rank]="l.rank">
+                  <li
+                    class="alt-item clickable"
+                    [attr.data-rank]="l.rank"
+                    (click)="selectLeaderSymbol(l.symbol, altTab())"
+                  >
                     <span class="alt-rank">{{ l.rank }}</span>
                     <app-stock-logo
                       [symbol]="l.symbol"
@@ -372,8 +370,18 @@ type PickerOption = {
                       size="sm"
                     />
                     <span class="alt-main">
-                      <b>{{ altTitle(l) }}</b>
-                      <span class="alt-ret" [class.neg]="l.returnPct < 0">{{ pctText(altAdjustedReturnPct(l.returnPct)) }}</span>
+                      <span class="alt-top">
+                        <b>{{ altTitle(l) }}</b>
+                        <span class="alt-ret" [class.neg]="l.returnPct < 0">{{ pctText(altAdjustedReturnPct(l.returnPct)) }}</span>
+                      </span>
+                      <span class="alt-hist mono">
+                        {{ formatMoneyAmount(altAdjustedStartPrice(l)) }} {{ histCurrency() }} → {{ formatMoneyAmount(l.endPrice) }} {{ histCurrency() }}
+                      </span>
+                      @if (altTab() !== 'bist') {
+                        <span class="alt-hist alt-hist-tl mono">
+                          {{ formatMoneyAmount(altStartPriceTry(l)) }} ₺ → {{ formatMoneyAmount(l.endPrice * altUsdEnd()) }} ₺
+                        </span>
+                      }
                     </span>
                     <span class="alt-result mono" [class.neg]="l.returnPct < 0">
                       ~{{ formatMoneyAmount(grownFromReturn(altAdjustedReturnPct(l.returnPct))) }} ₺
@@ -384,6 +392,7 @@ type PickerOption = {
             } @else {
               <p class="alt-empty">{{ altEmptyText() }}</p>
             }
+            </div>
           </div>
         }
 
@@ -669,6 +678,16 @@ type PickerOption = {
       color: var(--text);
     }
 
+    /* Native tutamak gerçek (value-min)/(max-min) pozisyonunda kalır — min=1 iken bu hep sol uçtur.
+       Sahte tutamak (.slider-fake-thumb) doluluk yüzdesiyle aynı noktada durur, en düşük değerde
+       bile "boşta" değil "dolu kısmın sonunda" görünsün diye — native tutamak burada tamamen
+       şeffaf, sadece sürükleme/tıklama alanı olarak kalıyor. */
+    .slider-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
     input[type='range'] {
       width: 100%;
       -webkit-appearance: none;
@@ -684,10 +703,32 @@ type PickerOption = {
         width: 18px;
         height: 18px;
         border-radius: 50%;
-        background: var(--accent);
+        background: transparent;
+        border: none;
         cursor: pointer;
-        border: 2px solid var(--bg);
       }
+
+      &::-moz-range-thumb {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+      }
+    }
+
+    .slider-fake-thumb {
+      position: absolute;
+      top: 50%;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: 2px solid var(--bg);
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
     }
 
     /* ── Custom amount block ─────────────────────────────── */
@@ -768,8 +809,11 @@ type PickerOption = {
 
       &.err { color: var(--down); font-size: 13px; }
 
-      .big { font-size: 24px; font-weight: 800; color: var(--up); }
-      .neg { color: var(--down); }
+      .big { font-size: 32px; font-weight: 800; color: var(--up); }
+      .big.neg { color: var(--down); }
+
+      .pct-badge { font-size: 14px; font-weight: 700; color: var(--up); }
+      .pct-badge.neg { color: var(--down); }
     }
 
     .story {
@@ -788,6 +832,14 @@ type PickerOption = {
       font-size: 11.5px;
       line-height: 1.45;
       color: var(--text);
+    }
+
+    .story-tl {
+      color: var(--up);
+      font-weight: 800;
+    }
+    .story-tl.neg {
+      color: color-mix(in srgb, var(--down) 85%, black);
     }
 
     /* .stat-grid/.stat global (styles.scss, portföy/hisse detayı da kullanıyor) — burada SADECE
@@ -865,6 +917,18 @@ type PickerOption = {
       min-width: 0;
     }
 
+    .parity-chip.clickable,
+    .alt-item.clickable {
+      cursor: pointer;
+      transition: border-color 0.15s, transform 0.15s;
+
+      &:hover {
+        border-color: var(--accent);
+        transform: translateY(-1px);
+      }
+      &:active { transform: translateY(0); }
+    }
+
     .chip-top {
       display: flex;
       align-items: center;
@@ -917,19 +981,57 @@ type PickerOption = {
     }
     .chip-result.neg { color: var(--down); }
 
+    /* Doğrulama amaçlı: o günkü/bugünkü birim fiyat — ana rakamdan küçük ama okunaklı. */
+    .chip-hist {
+      display: block;
+      margin-top: 1px;
+      font-size: 10.5px;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
     .parity-chip.miss {
       opacity: 0.55;
     }
 
-    .alt-dca-note {
-      margin: 0 0 12px;
-      padding: 8px 10px;
-      border-radius: 10px;
-      border: 1px dashed var(--line);
-      background: color-mix(in srgb, var(--panel) 80%, transparent);
-      font-size: 11px;
-      line-height: 1.45;
-      opacity: 0.85;
+    .alt-body {
+      position: relative;
+    }
+
+    .alt-body.blurred > *:not(.alt-lock-btn) {
+      filter: blur(5px);
+      pointer-events: none;
+      user-select: none;
+    }
+
+    .alt-lock-btn {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      gap: 6px;
+      margin: auto;
+      max-width: 220px;
+      max-height: 70px;
+      padding: 10px 16px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--panel);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+      color: var(--text);
+      font-size: 11.5px;
+      font-weight: 700;
+      line-height: 1.4;
+      cursor: pointer;
+      transition: transform 0.15s, border-color 0.15s;
+
+      &:hover { border-color: var(--accent); transform: translateY(-1px); }
+      &:active { transform: translateY(0); }
     }
 
     .alt-seg { margin-bottom: 8px; }
@@ -981,13 +1083,21 @@ type PickerOption = {
       flex: none;
     }
 
-    /* İsim + yüzde bitişik (soldaki grup); asıl vurgu sağdaki TL sonucunda (.alt-result). */
+    /* İsim + yüzde (üst satır) + doğrulama amaçlı o günkü/bugünkü fiyat (alt satır, soluk);
+       asıl vurgu sağdaki TL sonucunda (.alt-result) kalmaya devam ediyor. */
     .alt-main {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .alt-top {
       display: flex;
       align-items: baseline;
       gap: 6px;
       min-width: 0;
-      flex: 1;
     }
 
     .alt-main b {
@@ -995,6 +1105,18 @@ type PickerOption = {
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+    }
+
+    .alt-hist {
+      font-size: 10.5px;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .alt-hist-tl {
+      opacity: 0.65;
     }
 
     .alt-ret {
@@ -1062,6 +1184,7 @@ export class TimeMachineModalComponent {
 
   private readonly resultEl = viewChild<ElementRef<HTMLElement>>('tmResult');
   private readonly simEl = viewChild<ElementRef<HTMLElement>>('tmSim');
+  private readonly modeSectionEl = viewChild<ElementRef<HTMLElement>>('modeSection');
 
   /** Modal bu oturumda açık mı — her yeni açılışta formu sıfırlamak için */
   private tmWasOpen = false;
@@ -1261,17 +1384,23 @@ export class TimeMachineModalComponent {
     if (!iso || iso.length < 7) return null;
     const year = +iso.slice(0, 4);
     const month = +iso.slice(5, 7);
-    const wage = getMinimumWage(iso);
+    const wage = getMinimumWage(iso); // Yeni TL (2005 öncesi için 1.000.000'a bölünmüş kayıtlı)
     const inv = wage * this.wageCount();
     const totalMonths = (new Date().getFullYear() - year) * 12 - (month - 1);
     const fmt = (n: number) =>
       n >= 100 ? formatInteger(n) : n.toLocaleString('tr-TR', { maximumFractionDigits: 2 });
     const lump = this.mode() === 'lump';
+    // 2005 öncesi: gerçek (eski) nominal tutar öne çıkar, Yeni TL karşılığı parantezde ayrıca
+    // gösterilir — proje sohbeti: "1993 asgari ücreti 1,56 ₺'ydi" demek yanıltıcı, o dönem
+    // gerçekte "1.563.473 TL" yazıyordu.
+    const isOld = iso < '2005-01-01';
     return {
       year,
-      wageLabel: fmt(wage),
-      investLabel: fmt(inv),
-      oldTlNote: year < 2005,
+      wageLabel: fmt(isOld ? wage * 1_000_000 : wage),
+      wageNewTlLabel: isOld ? fmt(wage) : null,
+      investLabel: fmt(isOld ? inv * 1_000_000 : inv),
+      investNewTlLabel: isOld ? fmt(inv) : null,
+      oldTlNote: isOld,
       modePrefix: lump ? 'tek seferde:' : 'her ay:',
       modeSuffix: lump ? '' : ` × ~${Math.max(totalMonths, 1)} ay`,
     };
@@ -1492,12 +1621,41 @@ export class TimeMachineModalComponent {
     return ((1 + returnPct / 100) * usdFactor - 1) * 100;
   }
 
+  /**
+   * l.startPrice ham (bölünmeler dahil değil) geçmiş fiyat — büyük getiri yüzdesiyle görsel olarak
+   * çelişebiliyor (ör. MNST: ham ×13,5 ama gerçek/düzeltilmiş getiri ×2599, çünkü hisse çok bölündü).
+   * Ham fiyat yerine, HER ZAMAN güvenilir olan bugünkü fiyattan (l.endPrice) geriye, l.returnPct
+   * (zaten AdjustedClose bazlı) ile türetilen "bugünün fiyat biriminde o gün ne değerdeydi" rakamını
+   * gösteriyoruz — TimeMachineCalculator'daki "bugünün alım gücüyle" mantığıyla birebir aynı.
+   */
+  altAdjustedStartPrice(l: TimeMachineLeader): number {
+    const multiple = 1 + l.returnPct / 100;
+    return multiple > 0 ? l.endPrice / multiple : l.startPrice;
+  }
+
+  /** Kripto/ABD satırlarında $ fiyatların yanına TL karşılığını da yazmak için — o günkü ve
+   * bugünkü USD/TRY kuruyla çarpılır, böylece TL oranı üstteki rozet %'siyle birebir tutar
+   * (kur farkı da dahil olduğu için). */
+  altStartPriceTry(l: TimeMachineLeader): number {
+    const usd = this.usdTryFromLeaders(this.leaders());
+    return usd ? this.altAdjustedStartPrice(l) * usd.start : 0;
+  }
+
+  altUsdEnd(): number {
+    return this.usdTryFromLeaders(this.leaders())?.end ?? 0;
+  }
+
   returnMultiple(returnPct: number): number {
     return 1 + returnPct / 100;
   }
 
   setAltTab(tab: 'bist' | 'crypto' | 'us'): void {
     this.altTab.set(tab);
+  }
+
+  /** startPrice/endPrice ham fiyat — BIST native TL, kripto/ABD ise dolar cinsinden gelir. */
+  histCurrency(): string {
+    return this.altTab() === 'bist' ? '₺' : '$';
   }
 
   parityLabel(symbol: string): string {
@@ -1586,6 +1744,14 @@ export class TimeMachineModalComponent {
     if (!inside) this.closePicker();
   }
 
+  /** "Aynı gün X ile ne alsaydın" panelindeki bir satıra/chip'e tıklanınca — o sembole ve piyasaya
+   * geçip aynı tarih için sonucu doğrudan hesaplar, elle "Hisse Seç"e dönmeye gerek kalmaz. */
+  selectLeaderSymbol(sym: string, targetMarket: 'bist' | 'crypto' | 'us'): void {
+    this.modals.timeMachineMarket.set(targetMarket);
+    this.onSymbolChange(sym);
+    this.calculate();
+  }
+
   onSymbolChange(sym: string): void {
     if (isIndexSymbol(sym)) return;
     this.symbol.set(sym);
@@ -1610,6 +1776,18 @@ export class TimeMachineModalComponent {
 
   onCustomAmountChange(val: number): void {
     this.customAmount.set(+val || 0);
+    this.resetCalc();
+  }
+
+  /** Yazarken 3 hanede bir otomatik nokta göstermek için — girilen metinden noktaları/harfleri
+   * atıp saf sayıyı çıkarıyoruz, gösterim `customAmountDisplay` ile ayrıca formatlanıyor. */
+  readonly customAmountDisplay = computed(() =>
+    this.customAmount() > 0 ? formatInteger(this.customAmount()) : '',
+  );
+
+  onCustomAmountInput(raw: string): void {
+    const digits = (raw || '').replace(/[^\d]/g, '');
+    this.customAmount.set(digits ? +digits : 0);
     this.resetCalc();
   }
 
@@ -1798,6 +1976,16 @@ export class TimeMachineModalComponent {
     this.showSim.set(true);
     this.simTrigger.update((n) => n + 1);
     this.scrollToAnchor('sim');
+  }
+
+  /** "Aynı gün ne alsaydın" bulanıklaştırılmış kilit butonu — ALIM ŞEKLİ bölümüne kaydırır,
+   * kullanıcı "Tek Seferlik"e geçmek isterse elle aramasın diye. */
+  scrollToModeSection(): void {
+    this.modeSectionEl()?.nativeElement.scrollIntoView({
+      behavior: 'smooth',
+      block: 'center',
+      inline: 'nearest',
+    });
   }
 
   /** Overlay scroll: sonuç / simülasyon bloğuna kaydır. */

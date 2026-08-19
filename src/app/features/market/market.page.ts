@@ -37,7 +37,15 @@ const SORT_OPTIONS: { key: MarketSortKey & CryptoSortKey & UsSortKey; label: str
           [class.active]="marketType.type() === 'bist'"
           (click)="setMarket('bist')"
         >
-          <span class="ms-flag">🇹🇷</span>
+          <svg class="ms-flag" viewBox="0 0 3 2" width="18" height="12" aria-hidden="true">
+            <rect width="3" height="2" fill="#E30A17" />
+            <circle cx="1.1" cy="1" r="0.5" fill="#fff" />
+            <circle cx="1.25" cy="1" r="0.4" fill="#E30A17" />
+            <polygon
+              points="1.5,0.62 1.58,0.86 1.83,0.86 1.62,1 1.7,1.24 1.5,1.1 1.3,1.24 1.38,1 1.17,0.86 1.42,0.86"
+              fill="#fff"
+            />
+          </svg>
           <span class="ms-label">BORSA İSTANBUL</span>
         </button>
         <button
@@ -46,7 +54,7 @@ const SORT_OPTIONS: { key: MarketSortKey & CryptoSortKey & UsSortKey; label: str
           [class.active]="marketType.type() === 'crypto'"
           (click)="setMarket('crypto')"
         >
-          <span class="ms-flag">🪙</span>
+          <span class="ms-flag ms-crypto-badge" aria-hidden="true">₿</span>
           <span class="ms-long">KRİPTO PİYASASI</span><span class="ms-short">KRİPTO</span>
 
           <span class="live-badge" title="Binance spot canlı veri">CANLI VERİ</span>
@@ -57,7 +65,16 @@ const SORT_OPTIONS: { key: MarketSortKey & CryptoSortKey & UsSortKey; label: str
           [class.active]="marketType.type() === 'us'"
           (click)="setMarket('us')"
         >
-          <span class="ms-flag">🇺🇸</span>
+          <svg class="ms-flag" viewBox="0 0 3 2" width="18" height="12" aria-hidden="true">
+            <rect width="3" height="2" fill="#B22234" />
+            <rect y="0.1538" width="3" height="0.1538" fill="#fff" />
+            <rect y="0.4615" width="3" height="0.1538" fill="#fff" />
+            <rect y="0.7692" width="3" height="0.1538" fill="#fff" />
+            <rect y="1.0769" width="3" height="0.1538" fill="#fff" />
+            <rect y="1.3846" width="3" height="0.1538" fill="#fff" />
+            <rect y="1.6923" width="3" height="0.1538" fill="#fff" />
+            <rect width="1.2" height="1.0769" fill="#3C3B6E" />
+          </svg>
           <span class="ms-label">ABD HİSSELERİ</span>
         </button>
       </div>
@@ -317,9 +334,23 @@ const SORT_OPTIONS: { key: MarketSortKey & CryptoSortKey & UsSortKey; label: str
       padding-right: 18px;
     }
     .ms-flag {
-      font-size: 13px;
-      margin-right: 2px;
-      filter: grayscale(0);
+      flex: none;
+      border-radius: 2px;
+      margin-right: 4px;
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--text) 12%, transparent);
+    }
+    .ms-crypto-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #f7931a;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1;
     }
     .live-badge {
       position: absolute;
@@ -610,7 +641,8 @@ const SORT_OPTIONS: { key: MarketSortKey & CryptoSortKey & UsSortKey; label: str
         letter-spacing: 0;
         gap: 3px;
       }
-      .ms-flag { font-size: 10px; }
+      .ms-flag { width: 15px; height: 10px; margin-right: 2px; }
+      .ms-crypto-badge { width: 15px; height: 15px; font-size: 10px; }
 
       .note-long { display: none; }
       .note-short { display: inline; white-space: nowrap; }

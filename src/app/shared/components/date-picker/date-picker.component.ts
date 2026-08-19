@@ -100,12 +100,9 @@ interface CalCell {
     /* ── Hint ──────────────────────────────────────── */
     .dp-hint {
       font-size: 11.5px;
-      color: var(--muted);
+      color: var(--text);
       margin-bottom: 8px;
-      padding: 7px 11px;
-      background: var(--panel2);
-      border: 1px solid var(--line);
-      border-radius: 10px;
+      padding: 0 2px;
       line-height: 1.5;
     }
 
@@ -130,7 +127,13 @@ interface CalCell {
     }
 
     .dp-icon { font-size: 16px; flex-shrink: 0; }
-    .dp-val  { flex: 1; text-align: left; letter-spacing: 0.3px; }
+    .dp-val  {
+      flex: 1;
+      text-align: left;
+      letter-spacing: 0.3px;
+      color: color-mix(in srgb, var(--text) 88%, black);
+      font-weight: 700;
+    }
     .dp-caret {
       font-size: 11px;
       color: var(--muted);

@@ -29,6 +29,7 @@ interface MarketSection {
   icon: string;
   gainers: TimeMachineLeader[];
   losers: TimeMachineLeader[];
+  universeCount: number;
 }
 
 /** sections() ve heroFromLeaders() aynı piyasa listesini paylaşır. */
@@ -146,10 +147,21 @@ interface Hero {
                   <span class="parity-name">{{ parityIcon(p.symbol) }} {{ parityLabel(p.symbol) }}</span>
                   <span class="parity-tl mono">{{ formatMoneyAmount(resultAmount(p.returnPct)) }} ₺</span>
                   <span class="parity-pct">{{ pctText(p.returnPct) }}</span>
+                  <span class="parity-hist mono">
+                    {{ formatMoneyAmount(p.startPrice) }} → {{ formatMoneyAmount(p.endPrice) }} ₺
+                  </span>
                 </div>
               }
             </div>
           }
+
+          <p class="universe-note">
+            Kazanan/kaybeden yarışı, seçilen tarihte zaten fiyatı olan enstrümanlar arasından
+            yapılır — başlıktaki parantez o tarihte kaçının verisi olduğunu gösterir. Şu an
+            toplamda ~650 BIST hissesi, ~500 ABD hissesi ve Binance'te işlem gören ~490 kripto
+            parite takip ediliyor; eski tarihlerde bunların çoğu henüz yoktu (ör. 2016'da sadece
+            birkaç kripto vardı) — "kaybettiren" listesi o günkü küçük evrenden geliyor olabilir.
+          </p>
 
           <div class="sections">
             @for (section of sections(); track section.key) {
@@ -157,6 +169,7 @@ interface Hero {
                 <div class="section-head">
                   <span class="section-icon">{{ section.icon }}</span>
                   <b>{{ section.label }}</b>
+                  <span class="section-universe">({{ section.universeCount }})</span>
                 </div>
 
                 <div class="cols">
@@ -168,8 +181,13 @@ interface Hero {
                           <li class="row">
                             <span class="rank">{{ l.rank }}</span>
                             <app-stock-logo [symbol]="l.symbol" [color]="symbolColor(l.symbol)" [market]="section.key" size="sm" />
-                            <span class="sym">{{ displaySymbol(section.key, l.symbol) }}</span>
-                            <span class="ret up">{{ pctText(l.returnPct) }}</span>
+                            <span class="sym-wrap">
+                              <span class="sym-top">
+                                <span class="sym">{{ displaySymbol(section.key, l.symbol) }}</span>
+                                <span class="ret up">{{ pctText(l.returnPct) }}</span>
+                              </span>
+                              <span class="hist mono">{{ formatMoneyAmount(l.startPrice) }} → {{ formatMoneyAmount(l.endPrice) }} {{ histCurrency(section.key) }}</span>
+                            </span>
                             <span class="tl up mono">{{ formatMoneyAmount(resultAmount(l.returnPct)) }} ₺</span>
                           </li>
                         }
@@ -187,8 +205,13 @@ interface Hero {
                           <li class="row">
                             <span class="rank">{{ l.rank }}</span>
                             <app-stock-logo [symbol]="l.symbol" [color]="symbolColor(l.symbol)" [market]="section.key" size="sm" />
-                            <span class="sym">{{ displaySymbol(section.key, l.symbol) }}</span>
-                            <span class="ret down">{{ pctText(l.returnPct) }}</span>
+                            <span class="sym-wrap">
+                              <span class="sym-top">
+                                <span class="sym">{{ displaySymbol(section.key, l.symbol) }}</span>
+                                <span class="ret down">{{ pctText(l.returnPct) }}</span>
+                              </span>
+                              <span class="hist mono">{{ formatMoneyAmount(l.startPrice) }} → {{ formatMoneyAmount(l.endPrice) }} {{ histCurrency(section.key) }}</span>
+                            </span>
                             <span class="tl down mono">{{ formatMoneyAmount(resultAmount(l.returnPct)) }} ₺</span>
                           </li>
                         }
@@ -383,6 +406,13 @@ interface Hero {
       color: var(--muted);
     }
 
+    /* Doğrulama amaçlı: o günkü → bugünkü ham kur/fiyat — ana rakamdan küçük ama okunaklı. */
+    .parity-hist {
+      font-size: 10px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
     .hero {
       border-radius: 14px;
       padding: 16px;
@@ -575,6 +605,24 @@ interface Hero {
     }
     .section-icon { font-size: 13px; }
 
+    /* O tarihte yarışa girebilecek toplam enstrüman sayısı — başlığın hemen yanında, ikincil. */
+    .section-universe {
+      font-size: 10.5px;
+      font-weight: 600;
+      color: var(--muted);
+    }
+
+    .universe-note {
+      margin: 0 0 12px;
+      font-size: 10.5px;
+      line-height: 1.5;
+      color: var(--muted);
+      background: var(--panel2, var(--panel));
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      padding: 8px 10px;
+    }
+
     .cols {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -595,7 +643,7 @@ interface Hero {
     .list {
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 8px;
     }
 
     .row {
@@ -615,11 +663,38 @@ interface Hero {
 
     /* Sembol içeriğine göre daralır — yüzdenin hemen yanında durabilsin diye artık
        satırı esnetip diğer her şeyi sağa itmiyor (eskiden .sym{flex:1} yüzdeyi de
-       tutarı da sağ kenara yapıştırıyordu, ikisi arasında büyük boşluk kalıyordu). */
-    .sym {
+       tutarı da sağ kenara yapıştırıyordu, ikisi arasında büyük boşluk kalıyordu).
+       İçi iki satır: üstte isim+yüzde (.sym-top), altta soluk fiyat aralığı (.hist) —
+       yüzde artık satırın ortasına değil, isimle AYNI üst satıra sabit (bkz. .sym-top). */
+    .sym-wrap {
       flex: 0 1 auto;
       min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+
+    .sym-top {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    /* Sabit genişlik: sembol adı 3-5 harf arası değişse de yüzde her satırda AYNI x konumunda
+       başlasın diye (eskiden sembole bitişikti, kısa/uzun isimlerde yüzde kayardı). */
+    .sym {
+      flex: 0 0 44px;
       font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Doğrulama amaçlı: o günkü → bugünkü fiyat — ana rakamdan küçük ama okunaklı. */
+    .hist {
+      font-size: 10px;
+      color: var(--muted);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -693,7 +768,12 @@ export class DailyReportModalComponent {
     const r = this.report();
     if (!r) return [];
     const rows: Record<Market, TimeMachineDailyReport['bist']> = { bist: r.bist, crypto: r.crypto, us: r.usStocks };
-    return MARKET_META.map((m) => ({ ...m, gainers: rows[m.key].gainers, losers: rows[m.key].losers }));
+    return MARKET_META.map((m) => ({
+      ...m,
+      gainers: rows[m.key].gainers,
+      losers: rows[m.key].losers,
+      universeCount: rows[m.key].universeCount,
+    }));
   });
 
   /** BIST/Kripto/ABD kazananları arasından tek en iyi sonuç — hero kart için. */
@@ -893,6 +973,11 @@ export class DailyReportModalComponent {
   displaySymbol(market: Market, symbol: string): string {
     if (market !== 'crypto') return symbol;
     return symbol.endsWith('USDT') ? symbol.slice(0, -4) : symbol;
+  }
+
+  /** startPrice/endPrice ham fiyat — BIST native TL, kripto/ABD ise dolar cinsinden gelir. */
+  histCurrency(market: Market): string {
+    return market === 'bist' ? '₺' : '$';
   }
 
   pctText(pct: number): string {

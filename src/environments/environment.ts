@@ -1,8 +1,8 @@
 export const environment = {
   production: false,
-  /** dotnet run (Mac/Linux/Windows). IIS Express için: https://localhost:44356/api */
-  apiUrl: 'http://localhost:5042/api',
-  hubUrl: 'http://localhost:5042/hubs/crypto',
+  /** https launch-profile ile doğrudan 7285'e (http→https redirect hop'u CORS'u kırıyor). */
+  apiUrl: 'https://localhost:7285/api',
+  hubUrl: 'https://localhost:7285/hubs/crypto',
 
   firebase: {
     apiKey:            'AIzaSyC_klYwoZvXsxSfDHMxcxzpURGPcFXUMnY',

@@ -1235,6 +1235,9 @@ function shortEventLabel(marker: LotEventMarker): string {
 }
 
 function compactLotRange(before: number, after: number): string {
+  // Backend artık kurumsal olaylarda kesin lot değişimi iddia etmiyor (bkz. TimeMachineCalculator)
+  // — önce/sonra eşitse ok yerine tek bir sayı gösteriyoruz, sahte bir "değişim" izlenimi vermesin.
+  if (before === after) return compactNum(after);
   return `${compactNum(before)}→${compactNum(after)}`;
 }
 

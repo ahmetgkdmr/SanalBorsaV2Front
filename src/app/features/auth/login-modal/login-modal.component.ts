@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
 import { ModalService } from '../../../core/services/modal.service';
+import { NotificationService } from '../../../core/services/notification.service';
 import { PortfolioService } from '../../../core/services/portfolio.service';
 import { OverlayComponent } from '../../../shared/components/overlay/overlay.component';
 
@@ -322,6 +323,7 @@ export class LoginModalComponent {
   readonly modals = inject(ModalService);
   private readonly auth = inject(AuthService);
   private readonly portfolio = inject(PortfolioService);
+  private readonly notifications = inject(NotificationService);
 
   readonly step = signal<AuthStep>('choose');
   readonly loading = signal(false);
@@ -394,6 +396,7 @@ export class LoginModalComponent {
     try {
       await this.auth.loginWithPassword(this.username.trim(), this.password);
       await this.portfolio.reload();
+      void this.notifications.reload();
       this.resetTransient();
       this.modals.close();
     } catch (e: any) {
@@ -436,6 +439,7 @@ export class LoginModalComponent {
         this.displayName.trim() || null,
       );
       await this.portfolio.reload();
+      void this.notifications.reload();
       this.resetTransient();
       this.modals.close();
     } catch (e: any) {
@@ -472,6 +476,7 @@ export class LoginModalComponent {
         this.displayName.trim() || null,
       );
       await this.portfolio.reload();
+      void this.notifications.reload();
       this.resetTransient();
       this.modals.close();
     } catch (e: any) {
@@ -486,6 +491,7 @@ export class LoginModalComponent {
   ): Promise<void> {
     if (outcome.kind === 'session') {
       await this.portfolio.reload();
+      void this.notifications.reload();
       this.resetTransient();
       this.modals.close();
       return;

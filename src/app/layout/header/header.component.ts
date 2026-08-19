@@ -5,7 +5,8 @@ import { CryptoMarketService } from '../../core/services/crypto-market.service';
 import { IndexService } from '../../core/services/index.service';
 import { MarketTypeService } from '../../core/services/market-type.service';
 import { ModalService } from '../../core/services/modal.service';
-import { formatNumber, formatTime } from '../../core/utils/format.util';
+import { NotificationService } from '../../core/services/notification.service';
+import { formatNumber, formatRelativeTime, formatTime } from '../../core/utils/format.util';
 import { MarketTickerComponent } from './market-ticker.component';
 
 @Component({
@@ -53,6 +54,40 @@ import { MarketTickerComponent } from './market-ticker.component';
           </button>
 
           @if (auth.isLoggedIn()) {
+            <span class="notif-wrap">
+              <button
+                class="bell-btn"
+                type="button"
+                title="Bildirimler"
+                (click)="toggleNotifications()"
+              >
+                🔔
+                @if (notifications.unreadCount() > 0) {
+                  <span class="bell-badge">{{ notifications.unreadCount() > 9 ? '9+' : notifications.unreadCount() }}</span>
+                }
+              </button>
+
+              @if (notifOpen()) {
+                <div class="notif-backdrop" (click)="notifOpen.set(false)"></div>
+                <div class="notif-panel">
+                  <div class="notif-panel-head">Bildirimler</div>
+                  @if (notifications.items().length === 0) {
+                    <div class="notif-empty">Henüz bildirim yok.</div>
+                  } @else {
+                    <div class="notif-list">
+                      @for (n of notifications.items(); track n.id) {
+                        <div class="notif-item" [class.unread]="!n.isRead">
+                          <div class="notif-title">{{ n.title }}</div>
+                          <div class="notif-msg">{{ n.message }}</div>
+                          <div class="notif-time">{{ formatRelativeTime(n.createdAt) }}</div>
+                        </div>
+                      }
+                    </div>
+                  }
+                </div>
+              }
+            </span>
+
             <span class="user-chip">
               <button class="pill-btn" type="button" routerLink="/portfolio">
                 👤 <b class="btn-label">{{ auth.currentUser()?.username || auth.currentUser()?.displayName }}</b>
@@ -350,6 +385,120 @@ import { MarketTickerComponent } from './market-ticker.component';
       color: var(--muted);
     }
 
+    .notif-wrap {
+      position: relative;
+      display: inline-flex;
+    }
+
+    .bell-btn {
+      position: relative;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--text);
+      font-size: 16px;
+      width: 38px;
+      height: 38px;
+      border-radius: 9px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: border-color 0.15s, background 0.15s, transform 0.15s;
+
+      &:hover {
+        transform: translateY(-1px);
+        border-color: color-mix(in srgb, var(--text) 18%, var(--line));
+        background: var(--chip-hover);
+      }
+    }
+
+    .bell-badge {
+      position: absolute;
+      top: -5px;
+      right: -5px;
+      min-width: 17px;
+      height: 17px;
+      padding: 0 4px;
+      border-radius: 999px;
+      background: var(--down);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 800;
+      line-height: 17px;
+      text-align: center;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+    }
+
+    .notif-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+    }
+
+    .notif-panel {
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      z-index: 41;
+      width: 330px;
+      max-width: calc(100vw - 32px);
+      max-height: 420px;
+      display: flex;
+      flex-direction: column;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
+      overflow: hidden;
+    }
+
+    .notif-panel-head {
+      padding: 12px 14px;
+      font-size: 13px;
+      font-weight: 800;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .notif-empty {
+      padding: 24px 14px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 12.5px;
+    }
+
+    .notif-list {
+      overflow-y: auto;
+    }
+
+    .notif-item {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--line);
+
+      &:last-child { border-bottom: none; }
+
+      &.unread {
+        background: color-mix(in srgb, var(--accent) 8%, transparent);
+      }
+    }
+
+    .notif-title {
+      font-size: 12.5px;
+      font-weight: 800;
+      margin-bottom: 2px;
+    }
+
+    .notif-msg {
+      font-size: 12px;
+      color: var(--text);
+      opacity: 0.85;
+      margin-bottom: 4px;
+    }
+
+    .notif-time {
+      font-size: 10.5px;
+      color: var(--muted);
+    }
+
     .user-chip {
       display: inline-flex;
       align-items: center;
@@ -450,12 +599,15 @@ export class HeaderComponent implements OnInit, OnDestroy {
   readonly auth = inject(AuthService);
   readonly modals = inject(ModalService);
   readonly marketType = inject(MarketTypeService);
+  readonly notifications = inject(NotificationService);
   private readonly indexService = inject(IndexService);
   private readonly cryptoMarket = inject(CryptoMarketService);
 
   readonly formatNumber = formatNumber;
+  readonly formatRelativeTime = formatRelativeTime;
   readonly abs = Math.abs;
   readonly clock = signal(formatTime());
+  readonly notifOpen = signal(false);
 
   readonly usdTry = this.cryptoMarket.usdTry;
   readonly eurTry = this.cryptoMarket.eurTry;
@@ -479,14 +631,24 @@ export class HeaderComponent implements OnInit, OnDestroy {
       this.indexService.loadQuotes(true);
     }, 8000);
     this.destroyRetry = () => clearInterval(retry);
+
+    this.notifications.startPolling();
   }
 
   ngOnDestroy(): void {
     if (this.clockTimer) clearInterval(this.clockTimer);
     this.destroyRetry?.();
+    this.notifications.stopPolling();
+  }
+
+  toggleNotifications(): void {
+    const next = !this.notifOpen();
+    this.notifOpen.set(next);
+    if (next) void this.notifications.markAllRead();
   }
 
   logout(): void {
     this.auth.logout().catch(() => null);
+    void this.notifications.reload();
   }
 }
