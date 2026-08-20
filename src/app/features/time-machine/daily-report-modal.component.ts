@@ -121,11 +121,19 @@ interface Hero {
                 @if (heroCalcLoading()) {
                   <p class="hero-story-status">Hikaye hesaplanıyor…</p>
                 } @else if (heroCalc(); as hc) {
-                  <ul class="hero-story">
-                    @for (line of hc.storyLines; track $index) {
-                      <li>{{ line }}</li>
-                    }
-                  </ul>
+                  @if (!hc.error && hc.buyPrice > 0) {
+                    <div class="hero-story-col">
+                      <div class="hero-price-story">
+                        <span class="hero-price-line mono">{{ formatMoneyAmount(hc.buyPrice) }} ₺ → {{ formatMoneyAmount(hc.currentPrice) }} ₺</span>
+                        <span class="hero-lots-line">{{ formatMoneyAmount(amount()) }} ₺'lik alımla {{ formatNumber(hc.lots, 2) }} hissen olurdu</span>
+                      </div>
+                      <ul class="hero-story">
+                        @for (line of hc.storyLines; track $index) {
+                          <li>{{ line }}</li>
+                        }
+                      </ul>
+                    </div>
+                  }
                 }
               </div>
             </div>
@@ -502,7 +510,26 @@ interface Hero {
     }
     /* Sonuç solda sabit genişlikte, hikaye sağdaki kalan alanı doldurur. */
     .hero-result { flex: none; }
-    .hero-story, .hero-story-status { flex: 1; min-width: 0; }
+    .hero-story-col, .hero-story-status { flex: 1; min-width: 0; }
+    .hero-story-col {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .hero-price-story {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .hero-price-line {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--text);
+    }
+    .hero-lots-line {
+      font-size: 11px;
+      color: var(--muted);
+    }
 
     @media (max-width: 560px) {
       .hero-bottom { flex-direction: column; gap: 10px; }
@@ -811,6 +838,7 @@ export class DailyReportModalComponent {
 
   readonly formatTurkishDate = formatTurkishDate;
   readonly formatMoneyAmount = formatMoneyAmount;
+  readonly formatNumber = formatNumber;
   readonly symbolColor = symbolColor;
 
   readonly dateStr = signal('');
