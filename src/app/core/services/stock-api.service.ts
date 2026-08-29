@@ -9,6 +9,7 @@ import {
   TimeMachineCalc,
   TimeMachineDailyReport,
   TimeMachineLeaders,
+  TimeMachineLeaderStats,
   TimeMachineMode,
 } from '../models/time-machine.model';
 
@@ -153,6 +154,11 @@ export class StockApiService {
   getTimeMachineDailyReport(date: string): Observable<TimeMachineDailyReport> {
     const params = new HttpParams().set('date', date);
     return this.http.get<TimeMachineDailyReport>(`${this.timeMachineBase}/daily-report`, { params });
+  }
+
+  /** Kategori bazlı satır sayısı / tarih aralığı — takvimde gerçekten veri olan en erken tarihi bulmak için. */
+  getTimeMachineLeaderStats(): Observable<TimeMachineLeaderStats[]> {
+    return this.http.get<TimeMachineLeaderStats[]>(`${this.timeMachineBase}/leaders/stats`);
   }
 
   private mapTimeMachine(r: TimeMachineApiResponse, mode: TimeMachineMode): TimeMachineCalc {

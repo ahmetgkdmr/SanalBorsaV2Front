@@ -12,6 +12,7 @@ import { StockApiService } from '../../core/services/stock-api.service';
 import { UsStockApiService } from '../../core/services/us-stock-api.service';
 import {
   formatInteger,
+  formatLots,
   formatMoneyAmount,
   formatNumber,
   formatTurkishDate,
@@ -60,7 +61,7 @@ interface Hero {
         <div class="inputs-row">
           <div class="tm-section">
             <div class="tm-label">TARİH SEÇ</div>
-            <app-date-picker [(value)]="dateStr" maxDate="" />
+            <app-date-picker [(value)]="dateStr" [minDate]="minAvailableDate()" maxDate="" />
           </div>
 
           <div class="tm-section amount-section">
@@ -109,13 +110,13 @@ interface Hero {
                     {{ displaySymbol(h.market, h.leader.symbol) }}
                     <span class="hero-market">{{ h.marketIcon }} {{ h.marketLabel }}</span>
                   </div>
-                  <div class="hero-pct">{{ pctText(h.leader.returnPct) }}</div>
+                  <div class="hero-pct">{{ pctText(heroVerified()?.gainPct ?? h.leader.returnPct) }}</div>
                 </div>
               </div>
               <div class="hero-bottom">
                 <div class="hero-result">
                   <span class="hero-result-label">{{ formatMoneyAmount(amount()) }} ₺ →</span>
-                  <span class="hero-result-value">{{ formatMoneyAmount(resultAmount(h.leader.returnPct)) }} ₺</span>
+                  <span class="hero-result-value">{{ formatMoneyAmount(heroVerified()?.currentValue ?? resultAmount(h.leader.returnPct)) }} ₺</span>
                 </div>
 
                 @if (heroCalcLoading()) {
@@ -124,8 +125,13 @@ interface Hero {
                   @if (!hc.error && hc.buyPrice > 0) {
                     <div class="hero-story-col">
                       <div class="hero-price-story">
-                        <span class="hero-price-line mono">{{ formatMoneyAmount(hc.buyPrice) }} ₺ → {{ formatMoneyAmount(hc.currentPrice) }} ₺</span>
-                        <span class="hero-lots-line">{{ formatMoneyAmount(amount()) }} ₺'lik alımla {{ formatNumber(hc.lots, 2) }} hissen olurdu</span>
+                        <span class="hero-price-line mono">{{ formatMoneyAmount(hc.buyPrice) }} {{ histCurrency(h.market) }} → {{ formatMoneyAmount(hc.currentPrice) }} {{ histCurrency(h.market) }}</span>
+                        @if (heroBuyPriceTry(); as buyTry) {
+                          @if (heroCurrentPriceTry(); as curTry) {
+                            <span class="hero-price-line-tl mono">bugünkü kurla {{ formatMoneyAmount(buyTry) }} ₺ → {{ formatMoneyAmount(curTry) }} ₺</span>
+                          }
+                        }
+                        <span class="hero-lots-line">{{ formatMoneyAmount(amount()) }} ₺'lik alımla {{ formatLots(hc.lots) }} hissen olurdu</span>
                       </div>
                       <ul class="hero-story">
                         @for (line of hc.storyLines; track $index) {
@@ -164,11 +170,10 @@ interface Hero {
           }
 
           <p class="universe-note">
-            Kazanan/kaybeden yarışı, seçilen tarihte zaten fiyatı olan enstrümanlar arasından
-            yapılır — başlıktaki parantez o tarihte kaçının verisi olduğunu gösterir. Şu an
-            toplamda ~650 BIST hissesi, ~500 ABD hissesi ve Binance'te işlem gören ~490 kripto
-            parite takip ediliyor; eski tarihlerde bunların çoğu henüz yoktu (ör. 2016'da sadece
-            birkaç kripto vardı) — "kaybettiren" listesi o günkü küçük evrenden geliyor olabilir.
+            {{ formatTurkishDate(r.requestedDate) }} tarihinde {{ universeSummary() }} enstrümanın
+            fiyat hareketi arasından kontrol yapılmıştır. Kazanan/kaybeden yarışı bu evrenle
+            sınırlıdır — eski tarihlerde evren küçük olabilir (ör. 2016'da sadece birkaç kripto
+            vardı), bu yüzden "kaybettiren" listesi o günkü küçük evrenden geliyor olabilir.
           </p>
 
           <div class="sections">
@@ -526,6 +531,11 @@ interface Hero {
       font-weight: 800;
       color: var(--text);
     }
+    .hero-price-line-tl {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+    }
     .hero-lots-line {
       font-size: 11px;
       color: var(--muted);
@@ -839,6 +849,7 @@ export class DailyReportModalComponent {
   readonly formatTurkishDate = formatTurkishDate;
   readonly formatMoneyAmount = formatMoneyAmount;
   readonly formatNumber = formatNumber;
+  readonly formatLots = formatLots;
   readonly symbolColor = symbolColor;
 
   readonly dateStr = signal('');
@@ -848,6 +859,9 @@ export class DailyReportModalComponent {
   readonly report = signal<TimeMachineDailyReport | null>(null);
   readonly heroCalc = signal<TimeMachineCalc | null>(null);
   readonly heroCalcLoading = signal(false);
+  /** ABD/kripto'da hero fiyat satırı $ gösterir — altında TL karşılığı için (BIST'te null kalır). */
+  readonly heroBuyPriceTry = signal<number | null>(null);
+  readonly heroCurrentPriceTry = signal<number | null>(null);
   readonly sharing = signal(false);
   readonly downloading = signal(false);
   readonly parity = signal<TimeMachineLeader[]>([]);
@@ -868,6 +882,34 @@ export class DailyReportModalComponent {
         universeCount: rows[m.key].universeCount,
       };
     });
+  });
+
+  private static readonly UNIVERSE_UNIT_LABEL: Record<Market, string> = {
+    bist: 'BIST hissesi',
+    crypto: 'kripto parite',
+    us: 'ABD hissesi',
+  };
+
+  /** Seçilen tarihte piyasa başına kaç enstrümanda veri olduğunu özetleyen cümle. */
+  readonly universeSummary = computed<string>(() => {
+    const parts = this.sections()
+      .filter((s) => s.universeCount > 0)
+      .map((s) => `${s.universeCount} ${DailyReportModalComponent.UNIVERSE_UNIT_LABEL[s.key]}`);
+    if (!parts.length) return '0';
+    if (parts.length === 1) return parts[0];
+    return `${parts.slice(0, -1).join(', ')} ve ${parts[parts.length - 1]}`;
+  });
+
+  /**
+   * Hero kartının üst kısmı önceden çoktan hesaplanmış (ve arada bozuk veri içerebilen —
+   * bkz. proje sohbeti) TimeMachineLeaders.returnPct yerine, mümkün olduğunda canlı/doğrulanmış
+   * tekil hisse hesabını (heroCalc) kullanır — böylece "1.000 ₺ → X ₺" ile altındaki "Y hisse,
+   * Z ₺'den" hikayesi her zaman birbiriyle tutarlı çıkar (aksi halde ikisi ayrı kaynaktan gelip
+   * matematiksel olarak birbirini tutmayabiliyordu).
+   */
+  readonly heroVerified = computed<TimeMachineCalc | null>(() => {
+    const hc = this.heroCalc();
+    return hc && !hc.error && hc.buyPrice > 0 ? hc : null;
   });
 
   /** BIST/Kripto/ABD kazananları arasından tek en iyi sonuç — hero kart için. */
@@ -904,6 +946,10 @@ export class DailyReportModalComponent {
     return candidates.reduce((best, c) => (c.leader.returnPct > best.leader.returnPct ? c : best));
   }
 
+  /** Takvimde gerçekten veri olan en erken tarih — stats gelene kadar geniş bir üst sınır. */
+  readonly minAvailableDate = signal<string>('1985-01-01');
+  private statsRequested = false;
+
   constructor() {
     effect(() => {
       const open = this.modals.active() === 'dailyReport';
@@ -913,6 +959,21 @@ export class DailyReportModalComponent {
         const d = new Date();
         d.setFullYear(d.getFullYear() - 10);
         this.dateStr.set(d.toISOString().slice(0, 10));
+      }
+      if (!this.statsRequested) {
+        this.statsRequested = true;
+        this.api.getTimeMachineLeaderStats().subscribe((stats) => {
+          const dates = stats
+            .filter((s) => s.category !== 'Parity')
+            .map((s) => s.earliestStartDate)
+            .filter((d): d is string => !!d);
+          if (!dates.length) return;
+          const min = dates.reduce((a, b) => (a < b ? a : b)).slice(0, 10);
+          this.minAvailableDate.set(min);
+          // Stats gelmeden önce (hâlâ geniş fallback varken) kullanıcı gerçek sınırın
+          // öncesinde bir tarih seçmiş olabilir — takvim şimdi kısıtlandığına göre düzelt.
+          if (this.dateStr() && this.dateStr() < min) this.dateStr.set(min);
+        });
       }
     });
   }
@@ -928,6 +989,8 @@ export class DailyReportModalComponent {
     this.error.set(null);
     this.heroCalc.set(null);
     this.heroCalcLoading.set(true);
+    this.heroBuyPriceTry.set(null);
+    this.heroCurrentPriceTry.set(null);
     this.parity.set([]);
 
     // Rapor (tablolar) ve liderler (parite) tam paralel atılıyor, kazananın hikayesi de
@@ -1006,6 +1069,8 @@ export class DailyReportModalComponent {
    */
   private fetchHeroStory(h: Hero, iso: string, leaders: TimeMachineLeaders | null, onDone?: () => void): void {
     this.heroCalcLoading.set(true);
+    this.heroBuyPriceTry.set(null);
+    this.heroCurrentPriceTry.set(null);
     const amountTry = this.amount();
 
     if (h.market === 'bist') {
@@ -1023,15 +1088,19 @@ export class DailyReportModalComponent {
       return;
     }
 
+    // Sadece BUGÜNKÜ kur (endPrice) kullanılıyor — o günkü kur (startPrice) bilinçli olarak
+    // hesabın hiçbir yerine girmiyor, bkz. aşağıdaki açıklama.
     const row = leaders?.parity?.find((p) => p.symbol === 'USDTRY');
-    if (!row || row.startPrice <= 0 || row.endPrice <= 0) {
+    if (!row || row.endPrice <= 0) {
       this.heroCalcLoading.set(false);
       onDone?.();
       return;
     }
-    const usdStart = row.startPrice;
     const usdEnd = row.endPrice;
-    const amountUsd = amountTry / usdStart;
+    // Kullanıcının girdiği tutar BUGÜNÜN parası (modern ₺) — kaç USD'ye denk geldiğini
+    // bulmak için BUGÜNÜN kuruyla bölünür. row.startPrice (o günkü/1989 kuru) kullanılırsa
+    // bugünkü 1000 ₺, o günün kurundaki devasa bir USD tutarına (~434.783 $) dönüşüyordu.
+    const amountUsd = amountTry / usdEnd;
     const result$ =
       h.market === 'us'
         ? this.usStockApi.calculateTimeMachine(h.leader.symbol, iso, 'lump', amountUsd)
@@ -1046,6 +1115,12 @@ export class DailyReportModalComponent {
           dividendsReinvested: r.dividendsReinvested * usdEnd,
           cashRemaining: r.cashRemaining * usdEnd,
         });
+        // $ fiyatların TL karşılığı — İKİSİ DE bugünkü kurla. Senaryo "bugünkü 1.000 ₺'yi
+        // 1989'a götürsen" olduğu için (tutar da bugünkü kurla $'a çevriliyor) alım fiyatını
+        // o günkü kurla çevirmek zinciri kırıyordu: 1.000 ₺ / 0,0001 ₺ ≠ 590 lot. Aynı kur
+        // kullanılınca 1.000 ₺ / 1,70 ₺ = 590 lot ve 590 × 7.902 ₺ = sonuç — hepsi tutarlı.
+        this.heroBuyPriceTry.set(r.buyPrice * usdEnd);
+        this.heroCurrentPriceTry.set(r.currentPrice * usdEnd);
         this.heroCalcLoading.set(false);
         onDone?.();
       },
@@ -1076,12 +1151,19 @@ export class DailyReportModalComponent {
 
   /** Kripto/ABD satırlarındaki $ fiyatların, o günkü ve bugünkü USD/TRY kuruyla TL karşılığı —
    * BIST zaten native TL olduğu için null döner (alt satır hiç gösterilmez). */
+  /**
+   * $ fiyatların TL karşılığı — İKİ UÇ DA bugünkü kurla çevrilir. Senaryo baştan sona
+   * "bugünkü parayla" kurgulu (girilen tutar bugünkü kurla $'a çevriliyor, sonuç da
+   * bugünkü kurla ₺'ye dönüyor); başlangıcı o günkü kurla çevirmek zinciri kırıyordu —
+   * tutar/lot/sonuç üçlüsü, aradaki kur değişimi katsayısı kadar (1989 için ~20.000×)
+   * birbirini tutmuyordu. Aynı kur kullanılınca oran (endPrice/startPrice) korunur.
+   */
   histTlLine(market: Market, l: TimeMachineLeader): string | null {
     if (market === 'bist') return null;
     const usd = this.parity().find((p) => p.symbol === 'USDTRY');
-    if (!usd || usd.startPrice <= 0 || usd.endPrice <= 0) return null;
+    if (!usd || usd.endPrice <= 0) return null;
 
-    const tlStart = l.startPrice * usd.startPrice;
+    const tlStart = l.startPrice * usd.endPrice;
     const tlEnd = l.endPrice * usd.endPrice;
     return `${formatMoneyAmount(tlStart)} → ${formatMoneyAmount(tlEnd)} ₺`;
   }
@@ -1394,7 +1476,7 @@ export class DailyReportModalComponent {
 
     ctx.fillStyle = '#22c98a';
     ctx.font = `900 92px ${FONT}`;
-    const resultLabel = `${this.formatMoneyAmount(this.resultAmount(h.leader.returnPct))} ₺`;
+    const resultLabel = `${this.formatMoneyAmount(this.heroVerified()?.currentValue ?? this.resultAmount(h.leader.returnPct))} ₺`;
     if (ctx.measureText(resultLabel).width > CW) {
       ctx.font = `900 68px ${FONT}`;
     }

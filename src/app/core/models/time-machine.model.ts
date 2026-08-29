@@ -96,6 +96,16 @@ export interface TimeMachineDailyReport {
   computedAt?: string | null;
 }
 
+/** GET /api/time-machine/leaders/stats — kategori bazlı satır sayısı ve tarih aralığı. */
+export interface TimeMachineLeaderStats {
+  category: 'Bist' | 'Crypto' | 'Parity' | 'UsStocks';
+  rows: number;
+  earliestStartDate: string | null;
+  latestStartDate: string | null;
+  endDate: string | null;
+  computedAt: string | null;
+}
+
 export const SIMULATION_EVENTS: Record<number, string> = {
   2013: 'Sert dalgalanma dönemi',
   2016: 'Volatilite zirvede',

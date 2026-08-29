@@ -113,14 +113,16 @@ export function formatTime(date = new Date()): string {
   return date.toLocaleTimeString('tr-TR');
 }
 
+/** Hisse adedi — büyük lotlarda küsuratı gizler (25.018,99 yerine 25.019). */
+export function formatLots(n: number): string {
+  if (n >= 100) return Math.round(n).toLocaleString('tr-TR');
+  if (n >= 10) return n.toLocaleString('tr-TR', { maximumFractionDigits: 1 });
+  return n.toLocaleString('tr-TR', { maximumFractionDigits: 2 });
+}
+
 export function formatLotRange(initial: number, final: number): string {
-  const fmt = (n: number) => {
-    if (n >= 100) return Math.round(n).toLocaleString('tr-TR');
-    if (n >= 10) return n.toLocaleString('tr-TR', { maximumFractionDigits: 1 });
-    return n.toLocaleString('tr-TR', { maximumFractionDigits: 2 });
-  };
-  const a = fmt(initial);
-  const b = fmt(final);
+  const a = formatLots(initial);
+  const b = formatLots(final);
   return Math.abs(initial - final) > 0.0005 ? `${a} → ${b}` : b;
 }
 

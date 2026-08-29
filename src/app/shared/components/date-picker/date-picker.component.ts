@@ -9,6 +9,7 @@ import {
   model,
   signal,
   OnInit,
+  OnDestroy,
 } from '@angular/core';
 
 const TR_DAYS_SHORT = ['Pt', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct', 'Pz'];
@@ -43,22 +44,33 @@ interface CalCell {
 
       <!-- ── Popover takvim ─────────────────────────────────── -->
       @if (open()) {
-        <div class="dp-pop" (click)="$event.stopPropagation()">
+        <div
+          class="dp-pop"
+          [class.up]="openUpward()"
+          [style.top.px]="popTop()"
+          [style.bottom.px]="popBottom()"
+          [style.left.px]="popLeft()"
+          (click)="$event.stopPropagation()"
+        >
 
           <!-- Ay/yıl header -->
           <div class="dph">
             <button type="button" class="dph-nav" (click)="prev()">‹</button>
             <div class="dph-title">
-              <select (change)="onMonthSelect($event)">
-                @for (m of MONTHS; track $index) {
-                  <option [value]="$index" [selected]="vm() === $index">{{ m }}</option>
-                }
-              </select>
-              <select (change)="onYearSelect($event)">
-                @for (y of yearList(); track y) {
-                  <option [value]="y" [selected]="vy() === y">{{ y }}</option>
-                }
-              </select>
+              <span class="dph-select-wrap">
+                <select (change)="onMonthSelect($event)">
+                  @for (m of MONTHS; track $index) {
+                    <option [value]="$index" [selected]="vm() === $index">{{ m }}</option>
+                  }
+                </select>
+              </span>
+              <span class="dph-select-wrap dph-select-wrap-year">
+                <select (change)="onYearSelect($event)">
+                  @for (y of yearList(); track y) {
+                    <option [value]="y" [selected]="vy() === y">{{ y }}</option>
+                  }
+                </select>
+              </span>
             </div>
             <button type="button" class="dph-nav" (click)="next()">›</button>
           </div>
@@ -142,13 +154,15 @@ interface CalCell {
     }
 
     /* ── Popover ────────────────────────────────────── */
+    /* position: fixed — modal'ın kendi overflow-y:auto kırpmasından (ve viewport
+       sınırlarından) kaçınmak için top/bottom/left JS'te hesaplanıp inline set edilir
+       (bkz. _updatePopPosition). Böylece takvim, modal içinde nerede açılırsa açılsın
+       her zaman tam görünür kalır. */
     .dp-pop {
-      position: absolute;
-      top: calc(100% + 6px);
-      left: 0;
+      position: fixed;
       width: 268px;
-      max-width: 100%;
-      z-index: 200;
+      max-width: calc(100vw - 16px);
+      z-index: 400;
       background: var(--surface-elevated, var(--panel));
       border: 1.5px solid var(--line);
       border-radius: 12px;
@@ -206,24 +220,49 @@ interface CalCell {
     .dph-title {
       flex: 1;
       display: flex;
-      gap: 5px;
+      gap: 6px;
       justify-content: center;
+    }
 
-      select {
-        background: var(--panel2);
-        border: 1px solid var(--line);
-        color: var(--text);
-        font-weight: 700;
-        font-size: 12.5px;
-        padding: 4px 8px;
-        border-radius: 7px;
-        cursor: pointer;
-        -webkit-appearance: none;
-        appearance: none;
-        text-align: center;
-        text-align-last: center;
-        &:focus { outline: 1px solid var(--accent); }
+    /* Native <select>'in üstüne, "bu bir dropdown" diye görsel olarak belli eden ok ikonu. */
+    .dph-select-wrap {
+      position: relative;
+      display: inline-flex;
+
+      &::after {
+        content: '';
+        position: absolute;
+        right: 7px;
+        top: 50%;
+        width: 5px;
+        height: 5px;
+        border-right: 1.5px solid var(--muted);
+        border-bottom: 1.5px solid var(--muted);
+        transform: translateY(-65%) rotate(45deg);
+        pointer-events: none;
       }
+
+      &:hover::after { border-color: var(--accent); }
+    }
+
+    .dph-select-wrap-year select { min-width: 62px; }
+
+    .dph-title select {
+      background: var(--panel2);
+      border: 1px solid var(--line);
+      color: var(--text);
+      font-weight: 700;
+      font-size: 12.5px;
+      padding: 4px 20px 4px 10px;
+      border-radius: 7px;
+      cursor: pointer;
+      -webkit-appearance: none;
+      appearance: none;
+      text-align: center;
+      text-align-last: center;
+      transition: border-color 0.15s;
+      &:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+      &:focus { outline: 1px solid var(--accent); outline-offset: 1px; }
     }
 
     .dph-nav {
@@ -319,7 +358,7 @@ interface CalCell {
     .dp-trigger:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
   `,
 })
-export class DatePickerComponent implements OnInit {
+export class DatePickerComponent implements OnInit, OnDestroy {
   readonly value  = model.required<string>();
   readonly minDate = input<string>('');
   readonly maxDate = input<string>(new Date().toISOString().slice(0, 10));
@@ -329,6 +368,10 @@ export class DatePickerComponent implements OnInit {
   readonly MONTHS = TR_MONTHS;
 
   readonly open = signal(false);
+  readonly openUpward = signal(false);
+  readonly popTop = signal<number | null>(null);
+  readonly popBottom = signal<number | null>(null);
+  readonly popLeft = signal<number>(0);
   readonly vy   = signal(new Date().getFullYear());
   readonly vm   = signal(new Date().getMonth());
 
@@ -378,6 +421,8 @@ export class DatePickerComponent implements OnInit {
     return cells;
   });
 
+  private readonly _reposition = () => this._updatePopPosition();
+
   constructor(private readonly _el: ElementRef) {
     // Parent değeri sonradan set edilince (ör. en eski tarih) görünümü güncelle.
     effect(() => {
@@ -385,10 +430,27 @@ export class DatePickerComponent implements OnInit {
       if (!v || this.open()) return;
       this._syncView();
     });
+
+    // Popover açıkken sayfa/modal kaydırılırsa veya pencere yeniden boyutlanırsa konumu tazele
+    // (fixed positioning artık local scroll'a bağlı değil, elle senkron tutulmalı).
+    effect(() => {
+      if (this.open()) {
+        document.addEventListener('scroll', this._reposition, true);
+        window.addEventListener('resize', this._reposition);
+      } else {
+        document.removeEventListener('scroll', this._reposition, true);
+        window.removeEventListener('resize', this._reposition);
+      }
+    });
   }
 
   ngOnInit(): void {
     this._syncView();
+  }
+
+  ngOnDestroy(): void {
+    document.removeEventListener('scroll', this._reposition, true);
+    window.removeEventListener('resize', this._reposition);
   }
 
   toggle(): void {
@@ -397,6 +459,7 @@ export class DatePickerComponent implements OnInit {
       return;
     }
     this._syncView();
+    this._updatePopPosition();
     this.suppressSelect = true;
     this.open.set(true);
     // Select mount + olası sahte change sonrası seçili aya geri kilitle.
@@ -404,6 +467,32 @@ export class DatePickerComponent implements OnInit {
       this._syncView();
       this.suppressSelect = false;
     });
+  }
+
+  /**
+   * Takvimi tetikleyiciye göre konumlar — position:fixed olduğu için viewport
+   * koordinatları kullanılır (modal'ın overflow-y:auto'suyla kırpılmasın diye).
+   * Altta sığmıyorsa ve üstte daha çok yer varsa yukarı açılır.
+   */
+  private _updatePopPosition(): void {
+    const estimatedPopHeight = 360;
+    const popWidth = 268;
+    const rect = (this._el.nativeElement as HTMLElement).getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    const openUp = spaceBelow < estimatedPopHeight && spaceAbove > spaceBelow;
+    this.openUpward.set(openUp);
+
+    const maxLeft = window.innerWidth - popWidth - 8;
+    this.popLeft.set(Math.round(Math.min(Math.max(rect.left, 8), Math.max(8, maxLeft))));
+
+    if (openUp) {
+      this.popBottom.set(Math.round(window.innerHeight - rect.top + 6));
+      this.popTop.set(null);
+    } else {
+      this.popTop.set(Math.round(rect.bottom + 6));
+      this.popBottom.set(null);
+    }
   }
 
   prev(): void {
@@ -419,11 +508,35 @@ export class DatePickerComponent implements OnInit {
   onMonthSelect(e: Event): void {
     if (this.suppressSelect) return;
     this.vm.set(+(e.target as HTMLSelectElement).value);
+    this._applyViewAsValue();
   }
 
   onYearSelect(e: Event): void {
     if (this.suppressSelect) return;
     this.vy.set(+(e.target as HTMLSelectElement).value);
+    this._applyViewAsValue();
+  }
+
+  /**
+   * Ay/yıl dropdown'dan seçim, gün tıklamadan sadece görünümü değiştiriyordu —
+   * kullanıcı takvimden çıkınca eski (farklı yıldaki) gün seçili kalıyordu. Artık
+   * dropdown değişince önceki seçili gün yeni ay/yıla taşınıp otomatik seçili sayılır.
+   */
+  private _applyViewAsValue(): void {
+    const y = this.vy(), m = this.vm();
+    const curVal = this.value();
+    const curDay = curVal ? new Date(curVal + 'T00:00:00').getDate() : this._today.getDate();
+    const lastDay = new Date(y, m + 1, 0).getDate();
+    let d = new Date(y, m, Math.min(curDay, lastDay));
+
+    const minD = this.minDate() ? new Date(this.minDate() + 'T00:00:00') : null;
+    const maxD = this.maxDate() ? new Date(this.maxDate() + 'T00:00:00') : null;
+    if (minD && d < minD) d = minD;
+    if (maxD && d > maxD) d = maxD;
+
+    this.value.set(this._iso(d));
+    this.vy.set(d.getFullYear());
+    this.vm.set(d.getMonth());
   }
 
   pick(c: CalCell): void {

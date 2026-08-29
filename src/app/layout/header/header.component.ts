@@ -547,19 +547,23 @@ import { MarketTickerComponent } from './market-ticker.component';
 
       .topbar { row-gap: 8px; }
 
-      /* Telefonda butonlar bitişik dursun (masaüstündeki 8px yerine 4px). */
+      /* Telefonda butonlar bitişik (masaüstündeki 8px yerine 4px) ve kendi satırlarının
+         SAĞINA yaslı dursun — marka sola, aksiyonlar sağa. .topbar space-between olsa da
+         satır kaydığında tek başına kalan bu blok sola düşüyordu. */
       .top-actions {
         flex-wrap: nowrap;
         gap: 4px;
+        width: 100%;
+        justify-content: flex-end;
       }
 
       .pill-btn {
         flex: 0 1 auto;
         min-width: 0;
         white-space: nowrap;
-        font-size: 10.5px;
-        padding: 7px 8px;
-        gap: 4px;
+        font-size: 9.5px;
+        padding: 6px 7px;
+        gap: 3px;
       }
 
       .btn-label {
@@ -571,13 +575,13 @@ import { MarketTickerComponent } from './market-ticker.component';
       .user-chip .pill-btn,
       .login-btn {
         flex: none;
-        font-size: 12px;
-        padding: 7px 11px;
+        font-size: 10.5px;
+        padding: 6px 9px;
       }
 
       /* Rozetler artık satır içinde yer kaplamadığı için telefonda da kalabilir;
          sadece uzun açıklama metni gizlenir (butondan çok daha geniş olurdu). */
-      .edge-tag { font-size: 7.5px; padding: 2px 5px; right: 6px; }
+      .edge-tag { font-size: 7px; padding: 1.5px 4px; right: 5px; }
       .login-hint { display: none; }
 
       .live { font-size: 10.5px; }
@@ -605,12 +609,14 @@ import { MarketTickerComponent } from './market-ticker.component';
     }
 
     @media (max-width: 430px) {
-      .pill-btn { font-size: 9.5px; padding: 6px 7px; }
+      .top-actions { gap: 3px; }
+      .pill-btn { font-size: 8.5px; padding: 5px 6px; gap: 2px; }
       .user-chip .pill-btn,
       .login-btn {
-        font-size: 11.5px;
-        padding: 7px 10px;
+        font-size: 9.5px;
+        padding: 5px 8px;
       }
+      .edge-tag { font-size: 6.5px; padding: 1px 3.5px; right: 4px; }
       .fx-chip { font-size: 10.5px; padding: 4px 6px; gap: 4px; b { font-size: 9.5px; } }
     }
   `,
