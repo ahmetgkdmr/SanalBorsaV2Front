@@ -1,0 +1,249 @@
+:host { display: block; position: relative; }
+
+/* ── Hint ──────────────────────────────────────── */
+.dp-hint {
+  font-size: 11.5px;
+  color: var(--text);
+  margin-bottom: 8px;
+  padding: 0 2px;
+  line-height: 1.5;
+}
+
+/* ── Tetikleyici ────────────────────────────────── */
+.dp-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--panel2);
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: border-color 0.18s;
+
+  &:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+  &:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+}
+
+.dp-icon { font-size: 16px; flex-shrink: 0; }
+.dp-val  {
+  flex: 1;
+  text-align: left;
+  letter-spacing: 0.3px;
+  color: color-mix(in srgb, var(--text) 88%, black);
+  font-weight: 700;
+}
+.dp-caret {
+  font-size: 11px;
+  color: var(--muted);
+  transition: transform 0.18s;
+  &.open { transform: rotate(180deg); }
+}
+
+/* ── Popover ────────────────────────────────────── */
+/* position: fixed — modal'ın kendi overflow-y:auto kırpmasından (ve viewport
+   sınırlarından) kaçınmak için top/bottom/left JS'te hesaplanıp inline set edilir
+   (bkz. _updatePopPosition). Böylece takvim, modal içinde nerede açılırsa açılsın
+   her zaman tam görünür kalır. */
+.dp-pop {
+  position: fixed;
+  width: 268px;
+  max-width: calc(100vw - 16px);
+  z-index: 400;
+  background: var(--surface-elevated, var(--panel));
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  padding: 10px;
+  box-shadow: var(--shadow);
+  animation: dpIn 0.15s ease;
+  color: var(--text);
+}
+
+/* Açık modda takvim her zaman açık zemin + koyu yazı (kontrast garantisi) */
+:host-context([data-theme='light']) .dp-pop {
+  background: #ffffff;
+  border-color: #d5dee9;
+  color: #152033;
+  box-shadow: 0 8px 28px rgba(21, 32, 51, 0.14);
+}
+
+:host-context([data-theme='light']) .dph-title select,
+:host-context([data-theme='light']) .dph-nav {
+  background: #f0f4fa;
+  border-color: #d5dee9;
+  color: #152033;
+}
+
+:host-context([data-theme='light']) .dpg-dow {
+  color: #5a6b84;
+}
+
+:host-context([data-theme='light']) .dpg-day {
+  color: #152033;
+  &.dim { color: #9aa8bc; }
+  &.today:not(.sel) { color: #d4921a; }
+  &.off, &:disabled { color: #b8c2d1; }
+  &:hover:not(:disabled):not(.sel) { background: rgba(21, 32, 51, 0.06); }
+}
+
+:host-context([data-theme='light']) .dpf-btn {
+  color: #d4921a;
+  &:hover { background: rgba(21, 32, 51, 0.05); }
+}
+
+@keyframes dpIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ── Header ─────────────────────────────────────── */
+.dph {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.dph-title {
+  flex: 1;
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+}
+
+/* Native <select>'in üstüne, "bu bir dropdown" diye görsel olarak belli eden ok ikonu. */
+.dph-select-wrap {
+  position: relative;
+  display: inline-flex;
+
+  &::after {
+    content: '';
+    position: absolute;
+    right: 7px;
+    top: 50%;
+    width: 5px;
+    height: 5px;
+    border-right: 1.5px solid var(--muted);
+    border-bottom: 1.5px solid var(--muted);
+    transform: translateY(-65%) rotate(45deg);
+    pointer-events: none;
+  }
+
+  &:hover::after { border-color: var(--accent); }
+}
+
+.dph-select-wrap-year select { min-width: 62px; }
+
+.dph-title select {
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  color: var(--text);
+  font-weight: 700;
+  font-size: 12.5px;
+  padding: 4px 20px 4px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  text-align: center;
+  text-align-last: center;
+  transition: border-color 0.15s;
+  &:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+  &:focus { outline: 1px solid var(--accent); outline-offset: 1px; }
+}
+
+.dph-nav {
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  color: var(--text);
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  flex-shrink: 0;
+  &:hover { background: var(--line); }
+}
+
+/* ── Grid ───────────────────────────────────────── */
+.dpg {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+}
+
+.dpg-dow {
+  text-align: center;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--muted);
+  padding: 2px 0 4px;
+  letter-spacing: 0.2px;
+}
+
+.dpg-day {
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background 0.1s;
+
+  &:hover:not(:disabled):not(.sel) {
+    background: var(--chip-hover);
+  }
+  &.dim   { color: color-mix(in srgb, var(--muted) 55%, transparent); font-weight: 500; }
+  &.today:not(.sel) {
+    font-weight: 800;
+    color: var(--accent);
+  }
+  &.sel {
+    background: var(--accent);
+    color: #1a1206;
+    font-weight: 800;
+  }
+  &.off, &:disabled {
+    color: color-mix(in srgb, var(--muted) 40%, transparent);
+    cursor: not-allowed;
+    text-decoration: line-through;
+    opacity: 0.55;
+  }
+}
+
+/* ── Footer kısayollar ──────────────────────────── */
+.dpf {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+}
+
+.dpf-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 3px 6px;
+  border-radius: 6px;
+  &:hover { background: var(--chip-hover); }
+}
+
+.dp-trigger:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }

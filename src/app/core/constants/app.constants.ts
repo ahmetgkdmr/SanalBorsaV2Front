@@ -1,14 +1,3 @@
-export interface IndexTicker {
-  name: string;
-  symbol: string;
-  value: number;
-  decimals?: number;
-  change?: number;
-  up?: boolean;
-}
-
-export const STARTING_CASH = 1_000_000;
-
 /**
  * Net asgari ücret dönemleri (Yeni TL).
  * 2005 öncesi resmi eski TL / 1_000_000 — fiyat serisi ile aynı birim.
@@ -78,13 +67,6 @@ const MINIMUM_WAGE_PERIODS: { from: string; net: number }[] = [
   { from: '2026-01-01', net: 30000 },
 ];
 
-/** @deprecated Yıllık bakış — tercih et: getMinimumWage(isoDate) */
-export const MINIMUM_WAGE_BY_YEAR: Record<number, number> = Object.fromEntries(
-  MINIMUM_WAGE_PERIODS.filter((p) => p.from.endsWith('-01-01')).map((p) => [
-    +p.from.slice(0, 4),
-    p.net,
-  ]),
-);
 
 export function getMinimumWage(isoDate: string): number {
   const d = isoDate.slice(0, 10);

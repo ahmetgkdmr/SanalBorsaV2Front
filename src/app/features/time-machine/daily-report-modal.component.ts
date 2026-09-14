@@ -21,6 +21,7 @@ import {
 import { OverlayComponent } from '../../shared/components/overlay/overlay.component';
 import { DatePickerComponent } from '../../shared/components/date-picker/date-picker.component';
 import { StockLogoComponent } from '../../shared/components/stock-logo/stock-logo.component';
+import { downloadBlob, roundRectPath, wrapTextLines } from '../../core/utils/canvas.util';
 
 type Market = 'bist' | 'crypto' | 'us';
 
@@ -100,6 +101,11 @@ interface Hero {
               {{ formatTurkishDate(r.requestedDate) }} tarihinde {{ formatMoneyAmount(amount()) }} ₺ ile
               {{ displaySymbol(h.market, h.leader.symbol) }} alsaydım ne olurdu?
             </p>
+            <p class="framing-note">
+              💡 Girdiğin tutar <b>o günün parası</b>dır — yani "{{ formatTurkishDate(r.requestedDate) }}
+              günü cebinde {{ formatMoneyAmount(amount()) }} ₺ olsaydı". O tarihte bu para bugünkünden
+              çok daha değerliydi, sonuçların bu kadar büyük çıkmasının sebebi budur.
+            </p>
 
             <div class="hero">
               <div class="hero-tag">🏆 KAZANAN</div>
@@ -128,10 +134,10 @@ interface Hero {
                         <span class="hero-price-line mono">{{ formatMoneyAmount(hc.buyPrice) }} {{ histCurrency(h.market) }} → {{ formatMoneyAmount(hc.currentPrice) }} {{ histCurrency(h.market) }}</span>
                         @if (heroBuyPriceTry(); as buyTry) {
                           @if (heroCurrentPriceTry(); as curTry) {
-                            <span class="hero-price-line-tl mono">bugünkü kurla {{ formatMoneyAmount(buyTry) }} ₺ → {{ formatMoneyAmount(curTry) }} ₺</span>
+                            <span class="hero-price-line-tl mono">o günkü kurla {{ formatMoneyAmount(buyTry) }} ₺ → bugün {{ formatMoneyAmount(curTry) }} ₺</span>
                           }
                         }
-                        <span class="hero-lots-line">{{ formatMoneyAmount(amount()) }} ₺'lik alımla {{ formatLots(hc.lots) }} hissen olurdu</span>
+                        <span class="hero-lots-line">o günün {{ formatMoneyAmount(amount()) }} ₺'siyle {{ formatLots(hc.lots) }} hissen olurdu</span>
                       </div>
                       <ul class="hero-story">
                         @for (line of hc.storyLines; track $index) {
@@ -274,572 +280,7 @@ interface Hero {
       </div>
     </app-overlay>
   `,
-  styles: `
-    .modal {
-      max-width: 720px;
-      margin: 0 auto;
-      background: var(--panel);
-      border-radius: 16px;
-      padding: 24px;
-      position: relative;
-      max-height: 85vh;
-      overflow-y: auto;
-    }
-
-    .m-close {
-      position: absolute;
-      top: 16px;
-      right: 16px;
-      background: none;
-      border: none;
-      font-size: 18px;
-      color: var(--muted);
-      cursor: pointer;
-      padding: 4px;
-    }
-
-    h2 {
-      font-size: 18px;
-      font-weight: 800;
-      margin: 0 0 6px;
-      padding-right: 24px;
-    }
-
-    .sub {
-      font-size: 12.5px;
-      color: var(--muted);
-      margin: 0 0 18px;
-      line-height: 1.5;
-    }
-
-    .inputs-row {
-      display: flex;
-      gap: 14px;
-      align-items: flex-start;
-    }
-    .inputs-row .tm-section { flex: 1; min-width: 0; }
-
-    /* app-date-picker'ın tetikleyici düğmesi kendi bileşeninde stillenir (view
-       encapsulation); tutar input'uyla aynı yükseklikte durması için burada
-       ::ng-deep ile bu modalin kapsamına özel yeniden boyutlandırılır. */
-    .inputs-row ::ng-deep .dp-trigger {
-      height: 40px;
-      box-sizing: border-box;
-      padding-top: 0;
-      padding-bottom: 0;
-    }
-
-    .tm-section { margin-bottom: 14px; }
-    .tm-label {
-      font-size: 10.5px;
-      font-weight: 700;
-      letter-spacing: 0.4px;
-      color: var(--muted);
-      margin-bottom: 6px;
-    }
-
-    .amount-input {
-      width: 100%;
-      box-sizing: border-box;
-      height: 40px;
-      padding: 0 12px;
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      background: var(--panel2, var(--panel));
-      color: var(--text);
-      font-size: 14px;
-      font-weight: 700;
-      font-family: inherit;
-
-      &:focus { outline: none; border-color: var(--accent); }
-      /* Tarayıcı spinner oklarını kaldır — sayısal input daha temiz görünür. */
-      &::-webkit-inner-spin-button, &::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-    }
-
-    .calc-btn {
-      width: 100%;
-      height: 42px;
-      margin-bottom: 18px;
-      border: none;
-      border-radius: 10px;
-      background: linear-gradient(135deg, #7c4dff, #5e35b1);
-      color: #fff;
-      font-size: 13.5px;
-      font-weight: 800;
-      letter-spacing: 0.3px;
-      cursor: pointer;
-      transition: opacity 0.15s, transform 0.15s;
-
-      &:hover:not(:disabled) { transform: translateY(-1px); }
-      &:disabled { opacity: 0.65; cursor: default; }
-    }
-
-    .question {
-      font-size: 16px;
-      font-weight: 800;
-      line-height: 1.4;
-      margin: 0 0 10px;
-      color: var(--text);
-    }
-
-    .share-row {
-      display: flex;
-      gap: 10px;
-      margin: -8px 0 16px;
-    }
-
-    .share-btn {
-      flex: 1;
-      height: 40px;
-      border: 1px solid color-mix(in srgb, #7c4dff 45%, var(--line));
-      border-radius: 10px;
-      background: transparent;
-      color: #b388ff;
-      font-size: 12.5px;
-      font-weight: 800;
-      letter-spacing: 0.3px;
-      cursor: pointer;
-      transition: background 0.15s;
-
-      &:hover:not(:disabled) { background: color-mix(in srgb, #7c4dff 10%, transparent); }
-      &:disabled { opacity: 0.6; cursor: default; }
-
-      &.download {
-        border-color: var(--line);
-        color: var(--text);
-        &:hover:not(:disabled) { background: color-mix(in srgb, var(--text) 6%, transparent); }
-      }
-    }
-
-    /* Dolar/Euro/Gram Altın — sade, üç eş parçalı mini şerit. */
-    .parity-row {
-      display: flex;
-      gap: 8px;
-      margin: 0 0 12px;
-    }
-
-    .parity-chip {
-      flex: 1;
-      min-width: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 2px;
-      padding: 8px 6px;
-      border: 1px solid var(--line);
-      border-radius: 9px;
-      background: var(--panel2, var(--panel));
-    }
-
-    .parity-name {
-      font-size: 9.5px;
-      font-weight: 700;
-      letter-spacing: 0.2px;
-      color: var(--muted);
-      white-space: nowrap;
-    }
-
-    .parity-tl {
-      font-size: 12.5px;
-      font-weight: 800;
-      color: var(--up);
-    }
-    .parity-chip.down .parity-tl { color: var(--down); }
-
-    .parity-pct {
-      font-size: 10px;
-      font-weight: 600;
-      color: var(--muted);
-    }
-
-    /* Doğrulama amaçlı: o günkü → bugünkü ham kur/fiyat — ana rakamdan küçük ama okunaklı. */
-    .parity-hist {
-      font-size: 10px;
-      color: var(--muted);
-      white-space: nowrap;
-    }
-
-    .hero {
-      border-radius: 14px;
-      padding: 16px;
-      margin-bottom: 18px;
-      background: linear-gradient(135deg, color-mix(in srgb, #7c4dff 16%, var(--panel)), color-mix(in srgb, #7c4dff 4%, var(--panel)));
-      border: 1px solid color-mix(in srgb, #7c4dff 45%, var(--line));
-    }
-
-    .hero-tag {
-      font-size: 10.5px;
-      font-weight: 800;
-      letter-spacing: 0.6px;
-      color: #b388ff;
-      margin-bottom: 10px;
-    }
-
-    .hero-body {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .hero-meta { min-width: 0; flex: 1; }
-
-    .hero-sym {
-      font-size: 16px;
-      font-weight: 800;
-      display: flex;
-      align-items: baseline;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .hero-market {
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--muted);
-    }
-
-    .hero-pct {
-      font-size: 14px;
-      font-weight: 700;
-      color: var(--up);
-      margin-top: 2px;
-    }
-
-    .hero-bottom {
-      margin-top: 12px;
-      padding-top: 12px;
-      border-top: 1px solid color-mix(in srgb, #7c4dff 25%, var(--line));
-      display: flex;
-      gap: 16px;
-      align-items: flex-start;
-    }
-    /* Sonuç solda sabit genişlikte, hikaye sağdaki kalan alanı doldurur. */
-    .hero-result { flex: none; }
-    .hero-story-col, .hero-story-status { flex: 1; min-width: 0; }
-    .hero-story-col {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    .hero-price-story {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-    .hero-price-line {
-      font-size: 13px;
-      font-weight: 800;
-      color: var(--text);
-    }
-    .hero-price-line-tl {
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--muted);
-    }
-    .hero-lots-line {
-      font-size: 11px;
-      color: var(--muted);
-    }
-
-    @media (max-width: 560px) {
-      .hero-bottom { flex-direction: column; gap: 10px; }
-    }
-
-    .hero-result {
-      display: flex;
-      align-items: baseline;
-      gap: 6px;
-      flex-wrap: wrap;
-    }
-
-    .hero-result-label {
-      font-size: 12px;
-      font-weight: 700;
-      color: var(--text);
-    }
-
-    .hero-result-value {
-      font-size: 26px;
-      font-weight: 900;
-      color: var(--up);
-      letter-spacing: -0.2px;
-    }
-
-    .hero-story {
-      list-style: none;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-    .hero-story li {
-      font-size: 11px;
-      line-height: 1.5;
-      color: var(--muted);
-    }
-
-    .hero-story-status {
-      font-size: 11px;
-      color: var(--muted);
-      margin: 0;
-    }
-
-    .status {
-      text-align: center;
-      color: var(--muted);
-      font-size: 13px;
-      padding: 24px 0;
-    }
-    .status.error { color: var(--down); }
-
-    /* Hesaplanıyor ekranı — dönen bir halka + sırayla zıplayan borsa ikonları. */
-    .calc-loading {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 18px;
-      padding: 40px 0 32px;
-    }
-
-    .calc-loading-ring {
-      width: 46px;
-      height: 46px;
-      border-radius: 50%;
-      border: 3px solid color-mix(in srgb, #7c4dff 20%, transparent);
-      border-top-color: #7c4dff;
-      animation: cl-spin 0.9s linear infinite;
-    }
-
-    .calc-loading-icons {
-      display: flex;
-      gap: 16px;
-      margin-top: -4px;
-    }
-    .calc-loading-icons span {
-      font-size: 26px;
-      display: inline-block;
-      animation: cl-bounce 1.2s ease-in-out infinite;
-    }
-    .calc-loading-icons span:nth-child(1) { animation-delay: 0s; }
-    .calc-loading-icons span:nth-child(2) { animation-delay: 0.15s; }
-    .calc-loading-icons span:nth-child(3) { animation-delay: 0.3s; }
-    .calc-loading-icons span:nth-child(4) { animation-delay: 0.45s; }
-
-    .calc-loading-text {
-      font-size: 12.5px;
-      font-weight: 700;
-      letter-spacing: 0.3px;
-      color: var(--muted);
-      animation: cl-fade 1.4s ease-in-out infinite;
-    }
-
-    @keyframes cl-spin {
-      to { transform: rotate(360deg); }
-    }
-    @keyframes cl-bounce {
-      0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
-      30% { transform: translateY(-9px); opacity: 1; }
-    }
-    @keyframes cl-fade {
-      0%, 100% { opacity: 0.6; }
-      50% { opacity: 1; }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      .calc-loading-ring, .calc-loading-icons span, .calc-loading-text { animation: none; }
-    }
-
-    .sections {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      margin-top: 4px;
-    }
-
-    /* Hero'dan sonra bu bölümler bilinçli olarak sade: ince çerçeve, az iç boşluk,
-       birbirine yakın (gap 6px) — dikkat hero karttan kaçmasın. */
-    .section {
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      padding: 8px 12px;
-    }
-
-    .section-head {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 12px;
-      margin-bottom: 8px;
-      opacity: 0.85;
-    }
-    .section-flag {
-      flex: none;
-      border-radius: 2px;
-      box-shadow: 0 0 0 1px color-mix(in srgb, var(--text) 12%, transparent);
-    }
-    .section-crypto-badge {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 20px;
-      height: 20px;
-      border-radius: 50%;
-      background: #f7931a;
-      color: #fff;
-      font-size: 13px;
-      font-weight: 800;
-      line-height: 1;
-      flex: none;
-    }
-
-    /* O tarihte yarışa girebilecek toplam enstrüman sayısı — başlığın hemen yanında, ikincil. */
-    .section-universe {
-      font-size: 10.5px;
-      font-weight: 600;
-      color: var(--muted);
-    }
-
-    .universe-note {
-      margin: 0 0 12px;
-      font-size: 10.5px;
-      line-height: 1.5;
-      color: var(--muted);
-      background: var(--panel2, var(--panel));
-      border: 1px solid var(--line);
-      border-radius: 9px;
-      padding: 8px 10px;
-    }
-
-    .cols {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 14px;
-    }
-    @media (max-width: 560px) {
-      .cols { grid-template-columns: 1fr; }
-    }
-
-    .col-title {
-      font-size: 11px;
-      font-weight: 700;
-      margin-bottom: 8px;
-    }
-    .col-title.up { color: var(--up); }
-    .col-title.down { color: var(--down); }
-
-    .list {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .row {
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      font-size: 11.5px;
-    }
-
-    .rank {
-      flex: none;
-      width: 16px;
-      color: var(--muted);
-      font-weight: 700;
-      font-size: 11px;
-    }
-
-    /* Sembol içeriğine göre daralır — yüzdenin hemen yanında durabilsin diye artık
-       satırı esnetip diğer her şeyi sağa itmiyor (eskiden .sym{flex:1} yüzdeyi de
-       tutarı da sağ kenara yapıştırıyordu, ikisi arasında büyük boşluk kalıyordu).
-       İçi iki satır: üstte isim+yüzde (.sym-top), altta soluk fiyat aralığı (.hist) —
-       yüzde artık satırın ortasına değil, isimle AYNI üst satıra sabit (bkz. .sym-top). */
-    .sym-wrap {
-      flex: 0 1 auto;
-      min-width: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 1px;
-    }
-
-    .sym-top {
-      display: flex;
-      align-items: baseline;
-      gap: 6px;
-      min-width: 0;
-    }
-
-    /* Sabit genişlik: sembol adı 3-5 harf arası değişse de yüzde her satırda AYNI x konumunda
-       başlasın diye (eskiden sembole bitişikti, kısa/uzun isimlerde yüzde kayardı). */
-    .sym {
-      flex: 0 0 44px;
-      font-weight: 700;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    /* Doğrulama amaçlı: o günkü → bugünkü fiyat — ana rakamdan küçük ama okunaklı. */
-    .hist {
-      font-size: 10px;
-      color: var(--muted);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .hist-tl {
-      display: block;
-      font-size: 9.5px;
-      color: var(--muted);
-      opacity: 0.75;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    /* Yüzde artık hissenin hemen yanında — ikincil ama okunaklı. */
-    .ret {
-      flex: none;
-      font-weight: 700;
-      font-size: 11px;
-      opacity: 0.9;
-    }
-    .ret.up { color: var(--up); }
-    .ret.down { color: var(--down); }
-
-    /* TL tutarı satırın en sağına yaslanır — asıl vurgu burada. */
-    .tl {
-      flex: none;
-      margin-left: auto;
-      color: var(--muted);
-      font-size: 10.5px;
-      min-width: 56px;
-      text-align: right;
-    }
-    .tl.up {
-      font-size: 13px;
-      font-weight: 800;
-      color: var(--up);
-    }
-    .tl.down {
-      font-size: 13px;
-      font-weight: 800;
-      color: var(--down);
-    }
-
-    .empty {
-      font-size: 12px;
-      color: var(--muted);
-      margin: 0;
-    }
-
-    .note {
-      margin-top: 16px;
-      font-size: 11px;
-      color: var(--muted);
-      line-height: 1.5;
-    }
-  `,
+  styleUrl: './daily-report-modal.component.css',
 })
 export class DailyReportModalComponent {
   readonly modals = inject(ModalService);
@@ -1096,30 +537,36 @@ export class DailyReportModalComponent {
       onDone?.();
       return;
     }
+    const usdStart = row.startPrice;
     const usdEnd = row.endPrice;
-    // Kullanıcının girdiği tutar BUGÜNÜN parası (modern ₺) — kaç USD'ye denk geldiğini
-    // bulmak için BUGÜNÜN kuruyla bölünür. row.startPrice (o günkü/1989 kuru) kullanılırsa
-    // bugünkü 1000 ₺, o günün kurundaki devasa bir USD tutarına (~434.783 $) dönüşüyordu.
-    const amountUsd = amountTry / usdEnd;
+    // Girilen tutar SEÇİLEN TARİHİN parasıdır ("o gün cebinde 1.000 ₺ olsaydı") — bu yüzden
+    // O GÜNKÜ kurla dolara çevrilir. Backend'in liderlik tablosu da ABD/kripto getirisini aynı
+    // şekilde TL bazlı kuruyor (bkz. ComputeTimeMachineLeadersCommandHandler'daki TL kompozisyonu:
+    // tlStart = fiyat × o günkü kur, tlEnd = fiyat × bugünkü kur). Burada bugünkü kuru kullanmak
+    // hikayeyi tablodan kopartıyordu — hero kartı 4,66M ₺ derken tablo 95 milyar ₺ diyordu.
+    const amountUsd = amountTry / usdStart;
     const result$ =
       h.market === 'us'
         ? this.usStockApi.calculateTimeMachine(h.leader.symbol, iso, 'lump', amountUsd)
         : this.api.calculateTimeMachine(h.leader.symbol, iso, 50, 'lump', amountUsd, 'crypto');
     result$.subscribe({
       next: (r) => {
+        const currentValueTry = r.currentValue * usdEnd;
         this.heroCalc.set({
           ...r,
           invested: amountTry,
-          currentValue: r.currentValue * usdEnd,
+          currentValue: currentValueTry,
+          // r.gainPct DOLAR bazlı gelir; kart TL gösterdiği için TL bazlı orana çevrilir,
+          // aksi halde "+%465.793" rozetinin altında TL sonucu bambaşka bir katsayı gösterir.
+          gainPct: amountTry > 0 ? ((currentValueTry - amountTry) / amountTry) * 100 : r.gainPct,
           dividendsReceived: r.dividendsReceived * usdEnd,
           dividendsReinvested: r.dividendsReinvested * usdEnd,
           cashRemaining: r.cashRemaining * usdEnd,
         });
-        // $ fiyatların TL karşılığı — İKİSİ DE bugünkü kurla. Senaryo "bugünkü 1.000 ₺'yi
-        // 1989'a götürsen" olduğu için (tutar da bugünkü kurla $'a çevriliyor) alım fiyatını
-        // o günkü kurla çevirmek zinciri kırıyordu: 1.000 ₺ / 0,0001 ₺ ≠ 590 lot. Aynı kur
-        // kullanılınca 1.000 ₺ / 1,70 ₺ = 590 lot ve 590 × 7.902 ₺ = sonuç — hepsi tutarlı.
-        this.heroBuyPriceTry.set(r.buyPrice * usdEnd);
+        // $ fiyatların TL karşılığı — alım O GÜNKÜ, bugünkü fiyat BUGÜNKÜ kurla. Zincir:
+        // amountTry / (buyPrice × usdStart) = lot, lot × (currentPrice × usdEnd) = sonuç.
+        // Backend'in TL kompozisyonuyla birebir aynı iki uç, o yüzden tablo ile tutarlı.
+        this.heroBuyPriceTry.set(r.buyPrice * usdStart);
         this.heroCurrentPriceTry.set(r.currentPrice * usdEnd);
         this.heroCalcLoading.set(false);
         onDone?.();
@@ -1152,18 +599,18 @@ export class DailyReportModalComponent {
   /** Kripto/ABD satırlarındaki $ fiyatların, o günkü ve bugünkü USD/TRY kuruyla TL karşılığı —
    * BIST zaten native TL olduğu için null döner (alt satır hiç gösterilmez). */
   /**
-   * $ fiyatların TL karşılığı — İKİ UÇ DA bugünkü kurla çevrilir. Senaryo baştan sona
-   * "bugünkü parayla" kurgulu (girilen tutar bugünkü kurla $'a çevriliyor, sonuç da
-   * bugünkü kurla ₺'ye dönüyor); başlangıcı o günkü kurla çevirmek zinciri kırıyordu —
-   * tutar/lot/sonuç üçlüsü, aradaki kur değişimi katsayısı kadar (1989 için ~20.000×)
-   * birbirini tutmuyordu. Aynı kur kullanılınca oran (endPrice/startPrice) korunur.
+   * $ fiyatların TL karşılığı — başlangıç O GÜNKÜ, bitiş BUGÜNKÜ kurla. Backend'in
+   * returnPct'i (ve dolayısıyla yanındaki TL sonucu) tam olarak bu iki uçtan hesaplanıyor
+   * (bkz. ComputeTimeMachineLeadersCommandHandler'daki tlStart/tlEnd), o yüzden ikisi de
+   * aynı kuru kullanmak ZORUNDA — iki ucu da bugünkü kura çekmek satırı yanındaki
+   * yüzde/tutarla çelişkiye düşürüyor.
    */
   histTlLine(market: Market, l: TimeMachineLeader): string | null {
     if (market === 'bist') return null;
     const usd = this.parity().find((p) => p.symbol === 'USDTRY');
-    if (!usd || usd.endPrice <= 0) return null;
+    if (!usd || usd.startPrice <= 0 || usd.endPrice <= 0) return null;
 
-    const tlStart = l.startPrice * usd.endPrice;
+    const tlStart = l.startPrice * usd.startPrice;
     const tlEnd = l.endPrice * usd.endPrice;
     return `${formatMoneyAmount(tlStart)} → ${formatMoneyAmount(tlEnd)} ₺`;
   }
@@ -1227,7 +674,7 @@ export class DailyReportModalComponent {
       const nav = navigator as Navigator & { canShare?: (data?: { files?: File[] }) => boolean };
 
       if (!nav.share || !nav.canShare?.({ files: [file] })) {
-        this.downloadBlob(blob, fileName);
+        downloadBlob(blob, fileName);
         return;
       }
 
@@ -1250,19 +697,10 @@ export class DailyReportModalComponent {
       const blob = await this.getShareBlob(h);
       if (!blob) return;
       const { fileName } = this.shareMeta(h);
-      this.downloadBlob(blob, fileName);
+      downloadBlob(blob, fileName);
     } finally {
       this.downloading.set(false);
     }
-  }
-
-  private downloadBlob(blob: Blob, fileName: string): void {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = fileName;
-    a.click();
-    URL.revokeObjectURL(url);
   }
 
   /** Mini bölümlerdeki tek satır: sembol + yüzde solda bitişik, TL tutarı sütunun sağına yaslı. */
@@ -1294,38 +732,6 @@ export class DailyReportModalComponent {
     ctx.font = `800 19px ${font}`;
     ctx.fillText(`${this.formatMoneyAmount(this.resultAmount(l.returnPct))} ₺`, x + width, y);
     ctx.textAlign = 'left';
-  }
-
-  private roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
-    ctx.beginPath();
-    const anyCtx = ctx as CanvasRenderingContext2D & { roundRect?: (...a: number[]) => void };
-    if (typeof anyCtx.roundRect === 'function') {
-      anyCtx.roundRect(x, y, w, h, r);
-      return;
-    }
-    ctx.moveTo(x + r, y);
-    ctx.arcTo(x + w, y, x + w, y + h, r);
-    ctx.arcTo(x + w, y + h, x, y + h, r);
-    ctx.arcTo(x, y + h, x, y, r);
-    ctx.arcTo(x, y, x + w, y, r);
-    ctx.closePath();
-  }
-
-  private wrapLines(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
-    const words = text.split(' ');
-    const lines: string[] = [];
-    let cur = '';
-    for (const w of words) {
-      const test = cur ? `${cur} ${w}` : w;
-      if (ctx.measureText(test).width > maxWidth && cur) {
-        lines.push(cur);
-        cur = w;
-      } else {
-        cur = test;
-      }
-    }
-    if (cur) lines.push(cur);
-    return lines;
   }
 
   /**
@@ -1380,18 +786,18 @@ export class DailyReportModalComponent {
     const logoGrad = ctx.createLinearGradient(PAD, y, PAD + logoSize, y + logoSize);
     logoGrad.addColorStop(0, '#f5b944');
     logoGrad.addColorStop(1, '#e8632c');
-    this.roundRect(ctx, PAD, y, logoSize, logoSize, 20);
+    roundRectPath(ctx, PAD, y, logoSize, logoSize, 20);
     ctx.fillStyle = logoGrad;
     ctx.fill();
 
     ctx.fillStyle = 'rgba(11,15,26,0.85)';
     const bx = PAD + 16;
     const baseline = y + logoSize - 16;
-    this.roundRect(ctx, bx, baseline - 20, 12, 20, 3);
+    roundRectPath(ctx, bx, baseline - 20, 12, 20, 3);
     ctx.fill();
-    this.roundRect(ctx, bx + 20, baseline - 34, 12, 34, 3);
+    roundRectPath(ctx, bx + 20, baseline - 34, 12, 34, 3);
     ctx.fill();
-    this.roundRect(ctx, bx + 40, baseline - 50, 12, 50, 3);
+    roundRectPath(ctx, bx + 40, baseline - 50, 12, 50, 3);
     ctx.fill();
 
     ctx.textAlign = 'left';
@@ -1410,7 +816,7 @@ export class DailyReportModalComponent {
     ctx.fillStyle = '#f5f7fb';
     ctx.font = `800 54px ${FONT}`;
     const displaySymForQuestion = this.displaySymbol(h.market, h.leader.symbol);
-    const qLines = this.wrapLines(
+    const qLines = wrapTextLines(
       ctx,
       `${dateLabel} tarihinde ${amountLabel} ₺ ile ${displaySymForQuestion} alsaydım ne olurdu?`,
       CW,
@@ -1489,7 +895,7 @@ export class DailyReportModalComponent {
       ctx.fillStyle = '#a3adc2';
       ctx.font = `500 27px ${FONT}`;
       for (const line of storyLines) {
-        for (const wrapped of this.wrapLines(ctx, line, CW)) {
+        for (const wrapped of wrapTextLines(ctx, line, CW)) {
           y += 40;
           ctx.fillText(wrapped, PAD, y);
         }
@@ -1520,10 +926,10 @@ export class DailyReportModalComponent {
       let cx = PAD;
       for (const p of parityRows) {
         const up = p.returnPct >= 0;
-        this.roundRect(ctx, cx, y, chipW, chipH, 12);
+        roundRectPath(ctx, cx, y, chipW, chipH, 12);
         ctx.fillStyle = 'rgba(255,255,255,0.05)';
         ctx.fill();
-        this.roundRect(ctx, cx, y, chipW, chipH, 12);
+        roundRectPath(ctx, cx, y, chipW, chipH, 12);
         ctx.strokeStyle = 'rgba(255,255,255,0.12)';
         ctx.lineWidth = 1.5;
         ctx.stroke();

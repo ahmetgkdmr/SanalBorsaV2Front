@@ -73,14 +73,22 @@ export function normalizeAuthUser(
   };
 }
 
+// localStorage'a erişimin KENDİSİ bazı bağlamlarda exception atar (gizli sekme, tarayıcı
+// ayarıyla site verisi engellenmiş, yerleşik iframe). Sarmalanmazsa saveSession bir giriş
+// akışının ortasında patlayıp kullanıcıyı oturum açamaz hâlde bırakıyordu — bu yüzden
+// depolama "en iyi çaba" olarak ele alınır: başarısız olursa oturum sadece bellekte yaşar.
 export function saveSession(session: AuthSession): void {
-  localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  try {
+    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  } catch {
+    /* depolama yok/dolu — oturum bellekte devam eder */
+  }
 }
 
 export function loadSession(): AuthSession | null {
-  const raw = localStorage.getItem(SESSION_KEY);
-  if (!raw) return null;
   try {
+    const raw = localStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
     const parsed = JSON.parse(raw) as AuthSession;
     return {
       ...parsed,
@@ -92,5 +100,9 @@ export function loadSession(): AuthSession | null {
 }
 
 export function clearSession(): void {
-  localStorage.removeItem(SESSION_KEY);
+  try {
+    localStorage.removeItem(SESSION_KEY);
+  } catch {
+    /* yoksayılır — çıkış akışı depolama hatasında kesilmemeli */
+  }
 }

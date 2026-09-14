@@ -1,0 +1,474 @@
+header {
+  padding: 20px 24px 0;
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.brand-mark {
+  width: 52px;
+  height: 52px;
+  border-radius: 13px;
+  background:
+    radial-gradient(circle at 26% 22%, rgba(255, 255, 255, 0.4), transparent 45%),
+    linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #e8632c));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -6px 10px rgba(0, 0, 0, 0.12),
+    0 3px 10px color-mix(in srgb, var(--accent) 45%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #0b1220;
+  flex: none;
+}
+
+.brand-text { display: flex; flex-direction: column; gap: 1px; }
+
+.brand-grad {
+  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #e8632c));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* .theme-switch — şimdilik kapalı (sadece açık mod)
+.theme-switch {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px;
+  gap: 2px;
+  border-radius: 100px;
+  border: 1px solid var(--line);
+  background: var(--panel2);
+}
+
+.theme-switch button {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 7px 11px;
+  border-radius: 100px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+
+.theme-switch button:hover { color: var(--text); }
+
+.theme-switch button.active {
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}
+
+:host-context([data-theme='light']) .theme-switch button.active {
+  box-shadow: 0 1px 4px rgba(21, 32, 51, 0.08);
+}
+*/
+
+.brand h1 {
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  line-height: 1.15;
+}
+
+.brand small {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+  letter-spacing: 0.4px;
+}
+
+.top-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  /* Rozetler butonun üst kenarının dışına taştığı için üstte pay bırakılır. */
+  padding-top: 6px;
+  row-gap: 14px;
+}
+
+.fx-strip {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  margin-top: 8px;
+  max-width: 1280px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.fx-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text);
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+
+  b {
+    font-weight: 800;
+    font-size: 10px;
+  }
+}
+
+/* Altın chip'inin hemen altında, sağa yaslı minimalist saat — çerçevesiz,
+   kendi satırında; hiçbir öğeyi kaydırmaz. */
+.live {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 5px;
+  max-width: 1280px;
+  margin-left: auto;
+  margin-right: auto;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--up);
+  animation: pulse 1.6s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.8); }
+}
+
+.pill-btn {
+  position: relative;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text);
+  font-weight: 600;
+  font-size: 12.5px;
+  padding: 8px 14px;
+  border-radius: 9px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  transition: border-color 0.15s, background 0.15s, transform 0.15s;
+  text-decoration: none;
+
+  &:hover {
+    transform: translateY(-1px);
+    border-color: color-mix(in srgb, var(--text) 18%, var(--line));
+    background: var(--chip-hover);
+  }
+
+  &.port {
+    border-color: color-mix(in srgb, var(--up) 55%, var(--line));
+    background: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--up) 18%, transparent),
+      color-mix(in srgb, var(--up) 4%, transparent)
+    );
+  }
+
+  &.gold {
+    border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+    background: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--accent) 18%, transparent),
+      color-mix(in srgb, var(--accent) 4%, transparent)
+    );
+  }
+
+  &.prem {
+    border-color: color-mix(in srgb, var(--prem, #b388ff) 55%, var(--line));
+    background: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--prem, #b388ff) 18%, transparent),
+      color-mix(in srgb, var(--prem, #b388ff) 4%, transparent)
+    );
+  }
+
+}
+
+/* Rozetler butonun İÇİNDE yer kaplamaz; "CANLI VERİ" gibi üst kenarın üstüne
+   oturur — böylece butonlar kısalır, satırda daha az yer kaplar. */
+.edge-tag {
+  position: absolute;
+  top: -8px;
+  right: 8px;
+  z-index: 1;
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  line-height: 1;
+  padding: 3px 6px;
+  border-radius: 6px;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.16);
+}
+
+.new-tag {
+  background: var(--up);
+  color: #fff;
+}
+
+.prem-tag {
+  background: var(--prem, #b388ff);
+  color: #1a0e2e;
+}
+
+/* Giriş Yap üstündeki açıklama: rozetlerden bir kat daha yukarıda durur, aksi halde
+   uzun olduğu için soldaki butonun PREMIUM rozetinin üstüne biniyordu. */
+.login-hint {
+  top: -8px;
+  right: 8px;
+  font-weight: 700;
+  background: var(--panel2, var(--panel));
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+
+.notif-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.bell-btn {
+  position: relative;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 16px;
+  width: 38px;
+  height: 38px;
+  border-radius: 9px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s, background 0.15s, transform 0.15s;
+
+  &:hover {
+    transform: translateY(-1px);
+    border-color: color-mix(in srgb, var(--text) 18%, var(--line));
+    background: var(--chip-hover);
+  }
+}
+
+.bell-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--down);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 17px;
+  text-align: center;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+
+.notif-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+}
+
+.notif-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 41;
+  width: 330px;
+  max-width: calc(100vw - 32px);
+  max-height: 420px;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
+  overflow: hidden;
+}
+
+.notif-panel-head {
+  padding: 12px 14px;
+  font-size: 13px;
+  font-weight: 800;
+  border-bottom: 1px solid var(--line);
+}
+
+.notif-empty {
+  padding: 24px 14px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.notif-list {
+  overflow-y: auto;
+}
+
+.notif-item {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+
+  &:last-child { border-bottom: none; }
+
+  &.unread {
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+  }
+}
+
+.notif-title {
+  font-size: 12.5px;
+  font-weight: 800;
+  margin-bottom: 2px;
+}
+
+.notif-msg {
+  font-size: 12px;
+  color: var(--text);
+  opacity: 0.85;
+  margin-bottom: 4px;
+}
+
+.notif-time {
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
+.user-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.logout {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px;
+
+  &:hover { color: var(--down); }
+}
+
+/* Telefon: marka üstte tek başına, dört aksiyon butonu ALT SATIRDA yan yana.
+   Etiketler (Liderler / Sanal Portföy / …) görünür kalır; sığması için sol üçü
+   küçültülür, "Giriş" biraz daha büyük durur. */
+@media (max-width: 600px) {
+  header {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .topbar { row-gap: 8px; }
+
+  /* Telefonda butonlar bitişik (masaüstündeki 8px yerine 4px) ve kendi satırlarının
+     SAĞINA yaslı dursun — marka sola, aksiyonlar sağa. .topbar space-between olsa da
+     satır kaydığında tek başına kalan bu blok sola düşüyordu. */
+  .top-actions {
+    flex-wrap: nowrap;
+    gap: 4px;
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .pill-btn {
+    flex: 0 1 auto;
+    min-width: 0;
+    white-space: nowrap;
+    font-size: 9.5px;
+    padding: 6px 7px;
+    gap: 3px;
+  }
+
+  .btn-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Giriş Yap / kullanıcı butonu: diğerlerinden bir tık büyük ve hiç kısalmasın. */
+  .user-chip .pill-btn,
+  .login-btn {
+    flex: none;
+    font-size: 10.5px;
+    padding: 6px 9px;
+  }
+
+  /* Rozetler artık satır içinde yer kaplamadığı için telefonda da kalabilir;
+     sadece uzun açıklama metni gizlenir (butondan çok daha geniş olurdu). */
+  .edge-tag { font-size: 7px; padding: 1.5px 4px; right: 5px; }
+  .login-hint { display: none; }
+
+  .live { font-size: 10.5px; }
+  .dot { width: 6px; height: 6px; }
+
+  /* Dolar / Euro / Gram altın: üçü de sağda, tek satırda, yüzde + ok görünür. */
+  .fx-strip {
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    gap: 5px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    &::-webkit-scrollbar { display: none; }
+  }
+
+  .fx-chip {
+    flex: none;
+    font-size: 11.5px;
+    padding: 5px 8px;
+    gap: 5px;
+
+    b { font-size: 10.5px; }
+  }
+}
+
+@media (max-width: 430px) {
+  .top-actions { gap: 3px; }
+  .pill-btn { font-size: 8.5px; padding: 5px 6px; gap: 2px; }
+  .user-chip .pill-btn,
+  .login-btn {
+    font-size: 9.5px;
+    padding: 5px 8px;
+  }
+  .edge-tag { font-size: 6.5px; padding: 1px 3.5px; right: 4px; }
+  .fx-chip { font-size: 10.5px; padding: 4px 6px; gap: 4px; b { font-size: 9.5px; } }
+}

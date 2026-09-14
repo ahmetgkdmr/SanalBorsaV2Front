@@ -1,4 +1,4 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import {
   AuthUser,
@@ -25,12 +25,11 @@ export class AuthService {
 
   private readonly _session = signal<AuthSession | null>(loadSession());
 
-  readonly currentUser = this.computed_currentUser();
-  readonly isLoggedIn = () => !!this._session();
-
-  private computed_currentUser() {
-    return (() => this._session()?.user ?? null) as () => AuthUser | null;
-  }
+  // Düz ok fonksiyonu + tip cast'i yerine gerçek computed signal: sonuç memoize edilir
+  // (aynı oturumda tekrar tekrar hesaplanmaz) ve Angular'ın reaktif grafiğine düzgün
+  // katılır. Çağrı biçimi aynı kaldığı için şablonlarda değişiklik gerekmiyor.
+  readonly currentUser = computed<AuthUser | null>(() => this._session()?.user ?? null);
+  readonly isLoggedIn = computed(() => this._session() !== null);
 
   getAccessToken(): string | null {
     return this._session()?.tokens.accessToken ?? null;
@@ -116,26 +115,15 @@ export class AuthService {
   }
 
   async logout(): Promise<void> {
+    // Sunucudaki yenileme token'larını iptal et. Başarısız olsa bile (ağ yok, token zaten
+    // geçersiz) yerel oturumu kapatmaya devam ediyoruz — kullanıcı açısından çıkış her
+    // koşulda gerçekleşmeli.
+    if (this._session()) {
+      await firstValueFrom(this.api.logout()).catch(() => null);
+    }
     await this.firebase.signOut().catch(() => null);
     clearSession();
     this._session.set(null);
-  }
-
-  loginDemo(username: string): void {
-    const user = normalizeAuthUser({
-      id: crypto.randomUUID(),
-      username,
-      displayName: username,
-      provider: 'google',
-      portfolioCashTry: 1_000_000,
-      portfolioCashUsd: 100_000,
-    });
-    const session: AuthSession = {
-      user,
-      tokens: { accessToken: '', refreshToken: '', expiresAt: '' },
-    };
-    saveSession(session);
-    this._session.set(session);
   }
 
   private async exchangeToken(idToken: string): Promise<FirebaseLoginOutcome> {

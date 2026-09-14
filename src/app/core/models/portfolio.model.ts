@@ -40,9 +40,3 @@ export interface PagedTransactions {
   totalCount: number;
   totalPages: number;
 }
-
-/** @deprecated Eski local-auth için — AuthUser kullan. */
-export interface UserSession {
-  username: string;
-  createdAt: string;
-}

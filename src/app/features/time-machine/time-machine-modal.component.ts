@@ -227,13 +227,27 @@ type PickerOption = {
                   class="f-input custom-amount-input"
                   [ngModel]="customAmountDisplay()"
                   (ngModelChange)="onCustomAmountInput($event)"
-                  placeholder="Tutar girin (₺)"
+                  [placeholder]="customAmountPlaceholder()"
                 />
-                <span class="currency-badge">₺</span>
+                <span class="currency-badge">{{ isOldEra() ? 'TL' : '₺' }}</span>
               </div>
+
+              @if (customAmountContext(); as c) {
+                <div class="era-hint">
+                  @if (c.newTlLabel) {
+                    ⏳ <b>Eski TL</b> giriyorsun — {{ dateLabel() }} tarihinde tedavüldeki para buydu.
+                    Bugünkü birimle <b>{{ c.newTlLabel }} ₺</b> eder.
+                  } @else {
+                    ⏳ Bu tutar <b>o günün parası</b>dır.
+                  }
+                  · Alım gücü olarak bugünün ≈ <b>{{ c.todayLabel }} ₺</b>'si
+                  <span class="era-hint-anchor">(asgari ücrete göre kabaca)</span>
+                </div>
+              }
+
               <div class="wage-info">
                 {{ mode() === 'dca' ? 'Her ay' : 'Tek seferinde' }}
-                <b>{{ formatInteger(customAmount()) }} ₺</b> yatırılacak.
+                <b>{{ customAmountDisplay() }} {{ isOldEra() ? 'TL' : '₺' }}</b> yatırılacak.
                 @if (wageInfoView(); as w) {
                   <span class="wage-ref">
                     · {{ w.year }} asgari ücreti: <b>{{ w.wageLabel }} {{ w.oldTlNote ? 'TL' : '₺' }}</b>
@@ -404,751 +418,7 @@ type PickerOption = {
       </div>
     </app-overlay>
   `,
-  styles: `
-    .modal {
-      max-width: 760px;
-      margin: 0 auto;
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 20px;
-      padding: 20px;
-      position: relative;
-      max-height: 88vh;
-      overflow-y: auto;
-    }
-
-    .tm-scroll-target {
-      scroll-margin-top: 24px;
-    }
-
-    h2 {
-      font-size: 21px;
-      font-weight: 800;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    .m-close {
-      position: absolute;
-      top: 16px;
-      right: 16px;
-      background: var(--panel2);
-      border: 1px solid var(--line);
-      color: var(--muted);
-      width: 34px;
-      height: 34px;
-      border-radius: 10px;
-      cursor: pointer;
-    }
-
-    .tm-section {
-      margin-top: 14px;
-    }
-
-    .tm-label {
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 0.4px;
-      color: var(--muted);
-      margin-bottom: 9px;
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      gap: 8px;
-      flex-wrap: wrap;
-
-      b { color: var(--text); font-size: 13px; }
-    }
-
-    .stock-pick {
-      display: flex;
-      gap: 10px;
-      align-items: flex-start;
-    }
-
-    .sym-combo {
-      position: relative;
-      flex: 1;
-      min-width: 0;
-    }
-
-    .sym-trigger {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      text-align: left;
-      cursor: pointer;
-      width: 100%;
-
-      &:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
-    }
-
-    .sym-combo.open .sym-trigger {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
-    }
-
-    .sym-trigger-label {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      font-weight: 700;
-    }
-
-    .sym-chevron {
-      color: var(--muted);
-      font-size: 12px;
-      flex: 0 0 auto;
-      transition: transform 0.15s ease;
-    }
-
-    .sym-combo.open .sym-chevron { transform: rotate(180deg); }
-
-    .sym-panel {
-      position: absolute;
-      z-index: 40;
-      left: 0;
-      right: 0;
-      top: calc(100% + 6px);
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      overflow: hidden;
-      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
-    }
-
-    .sym-search {
-      width: 100%;
-      border: none;
-      border-bottom: 1px solid var(--line);
-      background: var(--panel2);
-      color: var(--text);
-      font-size: 13.5px;
-      font-weight: 600;
-      padding: 12px 14px;
-      outline: none;
-    }
-
-    .sym-list {
-      list-style: none;
-      margin: 0;
-      padding: 6px;
-      max-height: 260px;
-      overflow: auto;
-    }
-
-    .sym-list li {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 10px;
-      border-radius: 10px;
-      cursor: pointer;
-      color: var(--text);
-
-      &:hover,
-      &.active {
-        background: color-mix(in srgb, var(--accent) 16%, var(--panel2));
-      }
-
-      &.selected {
-        background: color-mix(in srgb, var(--accent) 22%, transparent);
-      }
-    }
-
-    .opt-logo {
-      width: 32px;
-      height: 32px;
-      border-radius: 9px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #fff;
-      font-size: 11px;
-      font-weight: 800;
-      flex: 0 0 auto;
-    }
-
-    .opt-main {
-      flex: 1;
-      min-width: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 1px;
-
-      b {
-        font-size: 13.5px;
-        font-weight: 700;
-      }
-    }
-
-    .opt-sub {
-      font-size: 11.5px;
-      color: var(--muted);
-      font-weight: 600;
-    }
-
-    .opt-check {
-      color: var(--accent);
-      font-weight: 800;
-      font-size: 14px;
-    }
-
-    .sym-empty {
-      justify-content: center;
-      color: var(--muted);
-      font-size: 13px;
-      cursor: default !important;
-      &:hover { background: transparent !important; }
-    }
-
-    .pick-logo {
-      width: 44px;
-      height: 44px;
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 800;
-      color: #fff;
-      font-size: 14px;
-      flex: 0 0 auto;
-    }
-
-    .stock-pick app-stock-logo {
-      flex: 0 0 auto;
-    }
-
-    .wage-note {
-      opacity: 0.7;
-    }
-
-    /* Tarih seçici host genişliği */
-    app-date-picker { display: block; }
-
-    /* ── Segment butonlar ─────────────────────────────────── */
-    .seg {
-      display: flex;
-      gap: 6px;
-      background: var(--panel2);
-      border: 1px solid var(--line);
-      padding: 5px;
-      border-radius: 12px;
-      width: fit-content;
-      max-width: 100%;
-      flex-wrap: wrap;
-
-      button {
-        border: none;
-        background: transparent;
-        color: var(--muted);
-        font-weight: 700;
-        font-size: 12px;
-        padding: 7px 12px;
-        border-radius: 8px;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        transition: 0.18s;
-
-        &:hover { color: var(--text); }
-        &.active { background: var(--accent); color: #1a1206; }
-      }
-    }
-
-    .invest-mode-seg { margin-bottom: 10px; }
-
-    /* ── Wage block ──────────────────────────────────────── */
-    .wage-block { margin-top: 2px; }
-
-    .pct-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 8px;
-    }
-
-    .pct-val {
-      font-size: 20px;
-      font-weight: 700;
-      color: var(--text);
-    }
-
-    /* Native tutamak gerçek (value-min)/(max-min) pozisyonunda kalır — min=1 iken bu hep sol uçtur.
-       Sahte tutamak (.slider-fake-thumb) doluluk yüzdesiyle aynı noktada durur, en düşük değerde
-       bile "boşta" değil "dolu kısmın sonunda" görünsün diye — native tutamak burada tamamen
-       şeffaf, sadece sürükleme/tıklama alanı olarak kalıyor. */
-    .slider-wrap {
-      position: relative;
-      display: flex;
-      align-items: center;
-    }
-
-    input[type='range'] {
-      width: 100%;
-      -webkit-appearance: none;
-      appearance: none;
-      height: 6px;
-      border-radius: 6px;
-      background: linear-gradient(90deg, var(--accent) var(--fill, 50%), var(--line) var(--fill, 50%));
-      outline: none;
-      cursor: pointer;
-
-      &::-webkit-slider-thumb {
-        -webkit-appearance: none;
-        width: 18px;
-        height: 18px;
-        border-radius: 50%;
-        background: transparent;
-        border: none;
-        cursor: pointer;
-      }
-
-      &::-moz-range-thumb {
-        width: 18px;
-        height: 18px;
-        border-radius: 50%;
-        background: transparent;
-        border: none;
-        cursor: pointer;
-      }
-    }
-
-    .slider-fake-thumb {
-      position: absolute;
-      top: 50%;
-      width: 18px;
-      height: 18px;
-      border-radius: 50%;
-      background: var(--accent);
-      border: 2px solid var(--bg);
-      transform: translate(-50%, -50%);
-      pointer-events: none;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-    }
-
-    /* ── Custom amount block ─────────────────────────────── */
-    .custom-block { margin-top: 2px; }
-
-    .custom-input-wrap {
-      position: relative;
-      display: flex;
-      align-items: center;
-    }
-
-    .custom-amount-input {
-      width: 100%;
-      font-size: 19px;
-      font-weight: 700;
-      padding: 11px 48px 11px 16px;
-      border-radius: 14px;
-      letter-spacing: 0.5px;
-
-      &::-webkit-inner-spin-button,
-      &::-webkit-outer-spin-button { -webkit-appearance: none; }
-    }
-
-    .currency-badge {
-      position: absolute;
-      right: 16px;
-      font-size: 16px;
-      font-weight: 700;
-      color: var(--muted);
-      pointer-events: none;
-    }
-
-    /* ── Wage info ────────────────────────────────────────── */
-    .wage-info {
-      margin-top: 7px;
-      font-size: 11.5px;
-      color: var(--muted);
-      line-height: 1.5;
-
-      b { color: var(--text); }
-    }
-
-    /* ── Actions ─────────────────────────────────────────── */
-    .tm-actions {
-      display: flex;
-      gap: 10px;
-      margin-top: 16px;
-      flex-wrap: wrap;
-    }
-
-    /* .btn global (styles.scss) — burada sadece bu modale özel, daha kompakt boyut. */
-    .btn-main, .btn-prem {
-      flex: 1;
-      justify-content: center;
-      min-width: 140px;
-      padding: 11px 18px;
-      font-size: 13px;
-    }
-
-    .btn-prem:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-      transform: none;
-    }
-
-    /* ── Sonuç ───────────────────────────────────────────── */
-    .result {
-      margin-top: 16px;
-      border-top: 1px dashed var(--line);
-      padding-top: 14px;
-
-      &.show { animation: tmIn 0.3s; }
-    }
-
-    .headline {
-      font-size: 14px;
-      line-height: 1.5;
-
-      &.err { color: var(--down); font-size: 13px; }
-
-      .big { font-size: 32px; font-weight: 800; color: var(--up); }
-      .big.neg { color: var(--down); }
-
-      .pct-badge { font-size: 14px; font-weight: 700; color: var(--up); }
-      .pct-badge.neg { color: var(--down); }
-    }
-
-    .story {
-      margin: 10px 0 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .story-line {
-      margin: 0;
-      padding: 7px 10px;
-      border-left: 3px solid var(--accent);
-      background: color-mix(in srgb, var(--accent) 8%, transparent);
-      border-radius: 0 10px 10px 0;
-      font-size: 11.5px;
-      line-height: 1.45;
-      color: var(--text);
-    }
-
-    .story-tl {
-      color: var(--up);
-      font-weight: 800;
-    }
-    .story-tl.neg {
-      color: color-mix(in srgb, var(--down) 85%, black);
-    }
-
-    /* .stat-grid/.stat global (styles.scss, portföy/hisse detayı da kullanıyor) — burada SADECE
-       bu modal içinde geçerli yerel bir override: fiyat/rakam öne çıksın, etiket minimalist
-       kalsın. Global dosyaya dokunulmuyor. */
-    .stat { padding: 10px 12px; }
-    .stat .k {
-      font-size: 9.5px;
-      letter-spacing: 0.2px;
-      opacity: 0.7;
-    }
-    .stat .v {
-      font-size: 20px;
-      font-weight: 800;
-      margin-top: 3px;
-    }
-    .stat .v.accent { color: var(--accent); }
-
-    .lot-growth { color: var(--prem); }
-
-    .stat .k.sub {
-      margin-top: 4px;
-      font-size: 9px;
-      opacity: 0.75;
-    }
-
-    @keyframes tmIn {
-      from { opacity: 0; transform: translateY(14px); }
-      to   { opacity: 1; transform: none; }
-    }
-
-    /* ── "Aynı gün başka ne alsaydın?" paneli ─────────────── */
-    .alt-panel {
-      margin-top: 14px;
-      padding: 12px;
-      border: 1px solid var(--line);
-      border-radius: 16px;
-      background: var(--panel2);
-      animation: tmIn 0.35s ease both;
-    }
-
-    .alt-head {
-      display: flex;
-      align-items: baseline;
-      justify-content: space-between;
-      gap: 10px;
-      flex-wrap: wrap;
-      margin-bottom: 10px;
-    }
-
-    .alt-title { font-size: 13px; font-weight: 800; }
-
-    .alt-when {
-      font-size: 10.5px;
-      color: color-mix(in srgb, var(--text) 72%, var(--muted));
-      font-weight: 650;
-      letter-spacing: 0.01em;
-    }
-
-    .parity-row {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 8px;
-      margin-bottom: 10px;
-    }
-
-    .parity-chip {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      padding: 8px 9px;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      background: var(--panel);
-      min-width: 0;
-    }
-
-    .parity-chip.clickable,
-    .alt-item.clickable {
-      cursor: pointer;
-      transition: border-color 0.15s, transform 0.15s;
-
-      &:hover {
-        border-color: var(--accent);
-        transform: translateY(-1px);
-      }
-      &:active { transform: translateY(0); }
-    }
-
-    .chip-top {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      min-width: 0;
-    }
-
-    .chip-ico { font-size: 15px; flex: none; }
-
-    .chip-name {
-      font-size: 12px;
-      font-weight: 800;
-      flex: 1;
-      min-width: 0;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .chip-sub {
-      font-size: 10px;
-      opacity: 0.65;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    /* Yüzde artık ikincil — isme bitişik, küçük. Asıl vurgu aşağıdaki TL sonucunda. */
-    .chip-ret {
-      font-size: 10px;
-      font-weight: 700;
-      opacity: 0.85;
-      color: var(--up);
-      white-space: nowrap;
-      flex: none;
-      margin-left: auto;
-    }
-
-    .chip-ret.neg, .alt-ret.neg { color: var(--down); }
-
-    /* Fiyat/sonuç — kartın en belirgin öğesi: büyük, kalın, renkli. */
-    .chip-result {
-      display: block;
-      margin-top: 2px;
-      font-size: 17px;
-      font-weight: 800;
-      color: var(--up);
-      letter-spacing: -0.02em;
-      white-space: nowrap;
-    }
-    .chip-result.neg { color: var(--down); }
-
-    /* Doğrulama amaçlı: o günkü/bugünkü birim fiyat — ana rakamdan küçük ama okunaklı. */
-    .chip-hist {
-      display: block;
-      margin-top: 1px;
-      font-size: 10.5px;
-      color: var(--muted);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .parity-chip.miss {
-      opacity: 0.55;
-    }
-
-    .alt-body {
-      position: relative;
-    }
-
-    .alt-body.blurred > *:not(.alt-lock-btn) {
-      filter: blur(5px);
-      pointer-events: none;
-      user-select: none;
-    }
-
-    .alt-lock-btn {
-      position: absolute;
-      inset: 0;
-      z-index: 2;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      gap: 6px;
-      margin: auto;
-      max-width: 220px;
-      max-height: 70px;
-      padding: 10px 16px;
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      background: var(--panel);
-      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
-      color: var(--text);
-      font-size: 11.5px;
-      font-weight: 700;
-      line-height: 1.4;
-      cursor: pointer;
-      transition: transform 0.15s, border-color 0.15s;
-
-      &:hover { border-color: var(--accent); transform: translateY(-1px); }
-      &:active { transform: translateY(0); }
-    }
-
-    .alt-seg { margin-bottom: 8px; }
-
-    .alt-list {
-      list-style: none;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .alt-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 8px 10px;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      background: var(--panel);
-    }
-
-    .alt-item[data-rank='1'] {
-      border-color: var(--crown-border, #e8a317);
-      background: var(--crown-bg, var(--panel));
-    }
-
-    .alt-rank {
-      width: 20px;
-      text-align: center;
-      font-size: 11px;
-      font-weight: 800;
-      opacity: 0.6;
-      flex: none;
-    }
-
-    .alt-item[data-rank='1'] .alt-rank { opacity: 1; color: #e8a317; }
-
-    .alt-logo {
-      width: 28px;
-      height: 28px;
-      border-radius: 8px;
-      display: grid;
-      place-items: center;
-      color: #fff;
-      font-size: 10px;
-      font-weight: 800;
-      flex: none;
-    }
-
-    /* İsim + yüzde (üst satır) + doğrulama amaçlı o günkü/bugünkü fiyat (alt satır, soluk);
-       asıl vurgu sağdaki TL sonucunda (.alt-result) kalmaya devam ediyor. */
-    .alt-main {
-      display: flex;
-      flex-direction: column;
-      gap: 1px;
-      min-width: 0;
-      flex: 1;
-    }
-
-    .alt-top {
-      display: flex;
-      align-items: baseline;
-      gap: 6px;
-      min-width: 0;
-    }
-
-    .alt-main b {
-      font-size: 13px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .alt-hist {
-      font-size: 10.5px;
-      color: var(--muted);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .alt-hist-tl {
-      opacity: 0.65;
-    }
-
-    .alt-ret {
-      font-size: 10.5px;
-      font-weight: 700;
-      opacity: 0.85;
-      color: var(--up);
-      white-space: nowrap;
-      flex: none;
-    }
-
-    .alt-result {
-      flex: none;
-      font-size: 15px;
-      font-weight: 800;
-      color: var(--up);
-      letter-spacing: -0.02em;
-      white-space: nowrap;
-    }
-    .alt-result.neg { color: var(--down); }
-
-    .alt-empty {
-      margin: 10px 0 0;
-      font-size: 10.5px;
-      line-height: 1.5;
-      opacity: 0.62;
-    }
-
-    @media (max-width: 560px) {
-      .parity-row { grid-template-columns: 1fr; }
-    }
-  `,
+  styleUrl: './time-machine-modal.component.css',
 })
 export class TimeMachineModalComponent {
   readonly modals = inject(ModalService);
@@ -1405,6 +675,71 @@ export class TimeMachineModalComponent {
       modeSuffix: lump ? '' : ` × ~${Math.max(totalMonths, 1)} ay`,
     };
   });
+
+  /**
+   * Özel tutar, SEÇİLEN TARİHİN parasıdır (bkz. resolveInvestAmountTry — tutar doğrudan o
+   * tarihin fiyatına bölünür). Yakın tarihlerde bu sezgisel ("2016'da 1.000 ₺"), ama 2005
+   * öncesinde redenominasyon + hiperenflasyon üst üste binince 1.000 ₺ = 1 milyar eski TL =
+   * bugünün ~19 milyon ₺'si oluyor ve kullanıcı bunu girerken fark etmiyor. Bu yüzden yazdığı
+   * tutarın bugünkü karşılığını canlı gösteriyoruz.
+   *
+   * Çıpa olarak asgari ücret kullanılıyor: repoda 1990'a kadar mevcut, ürünün diline uygun
+   * ("kaç asgari ücret") ve gram altınla uyumlu — sapan tek çıpa dolar (1989 için ~10× fark).
+   * SADECE bilgilendirme amaçlı; hesaba hiç girmiyor, dolayısıyla tartışmalı bir çıpa sonucu
+   * etkilemiyor.
+   */
+  /**
+   * 2005 öncesi tarihlerde girdi alanı ESKİ TL kabul eder — 1993'ü seçip "100.000 ₺" yazmak
+   * anlamsız, çünkü yeni TL o tarihte yoktu ve 100.000 yeni TL = 100 milyar eski TL gibi
+   * gerçek dışı bir tutara denk geliyordu. Kullanıcı o dönemin gerçek rakamlarıyla düşünsün
+   * (asgari ücret 1.563.473 TL gibi). İçeride `customAmount` HER ZAMAN yeni TL tutulur
+   * (÷ 1.000.000), böylece hesaplama ve API tarafı hiç değişmez.
+   */
+  readonly isOldEra = computed(() => {
+    const iso = this.dateStr();
+    return !!iso && iso.length >= 10 && iso < '2005-01-01';
+  });
+
+  readonly customAmountContext = computed(() => {
+    const iso = this.dateStr();
+    const amount = this.customAmount();
+    if (!iso || iso.length < 7 || amount <= 0) return null;
+
+    const wageThen = getMinimumWage(iso);
+    const wageNow = getMinimumWage(new Date().toISOString().slice(0, 10));
+    if (wageThen <= 0 || wageNow <= 0) return null;
+
+    const isOld = iso < '2005-01-01';
+    return {
+      todayLabel: formatInteger((amount / wageThen) * wageNow),
+      // Eski dönemde girdi zaten eski TL — burada yeni TL karşılığını gösteririz (tersi).
+      newTlLabel: isOld ? amount.toLocaleString('tr-TR', { maximumFractionDigits: 4 }) : null,
+    };
+  });
+
+  /** Placeholder tarihi de söylesin — "Tutar girin" tek başına hangi dönemin parası olduğunu
+   *  belirsiz bırakıyordu. */
+  readonly customAmountPlaceholder = computed(() => {
+    const iso = this.dateStr();
+    if (!iso || iso.length < 10) return 'Tutar girin (₺)';
+    const unit = this.isOldEra() ? 'TL — o günün lirası' : '₺';
+    return `${formatTurkishDate(iso)} tarihinde yatıracağın tutar (${unit})`;
+  });
+
+  /** Özel tutara geçildiğinde alanı boş bırakmak yerine, bugünün 1.000 ₺'sinin o tarihteki
+   *  karşılığıyla doldurmak için (1993 → ~0,05 ₺, 2016 → ~43 ₺). */
+  private suggestedCustomAmount(): number {
+    const iso = this.dateStr();
+    if (!iso || iso.length < 7) return 0;
+    const wageThen = getMinimumWage(iso);
+    const wageNow = getMinimumWage(new Date().toISOString().slice(0, 10));
+    if (wageThen <= 0 || wageNow <= 0) return 0;
+    const raw = (1000 / wageNow) * wageThen;
+    // Eski dönemde girdi eski TL gösterildiği için küçük yeni-TL değerleri sorun değil
+    // (0,052116 ₺ → alanda "52.116 TL" olarak görünür). Modern dönemde alan tam sayı.
+    if (this.isOldEra()) return Math.round(raw * 1_000_000) / 1_000_000;
+    return Math.max(1, Math.round(raw));
+  }
 
   readonly canSimulate = computed(
     () => !!this.calc() && !this.calc()!.error && this.calc()!.valueSeries.length > 0,
@@ -1765,7 +1100,13 @@ export class TimeMachineModalComponent {
   }
 
   onDateChange(iso: string): void {
+    const eraChanged = this.isOldEra() !== (!!iso && iso.length >= 10 && iso < '2005-01-01');
     this.dateStr.set(iso);
+    // Eski/yeni TL dönemleri arasında geçişte alan farklı bir birime döner; eldeki tutar
+    // o birimde saçma bir rakama dönüşeceği için (ör. 52.116 eski TL → "0 ₺") yeniden önerilir.
+    if (eraChanged && this.investMode() === 'custom' && this.customAmount() > 0) {
+      this.customAmount.set(this.suggestedCustomAmount());
+    }
     this.resetCalc();
   }
 
@@ -1781,13 +1122,17 @@ export class TimeMachineModalComponent {
 
   /** Yazarken 3 hanede bir otomatik nokta göstermek için — girilen metinden noktaları/harfleri
    * atıp saf sayıyı çıkarıyoruz, gösterim `customAmountDisplay` ile ayrıca formatlanıyor. */
-  readonly customAmountDisplay = computed(() =>
-    this.customAmount() > 0 ? formatInteger(this.customAmount()) : '',
-  );
+  readonly customAmountDisplay = computed(() => {
+    const v = this.customAmount();
+    if (v <= 0) return '';
+    // 2005 öncesinde kullanıcı eski TL görür/yazar; içeride yeni TL tutuluyor.
+    return formatInteger(this.isOldEra() ? v * 1_000_000 : v);
+  });
 
   onCustomAmountInput(raw: string): void {
     const digits = (raw || '').replace(/[^\d]/g, '');
-    this.customAmount.set(digits ? +digits : 0);
+    const typed = digits ? +digits : 0;
+    this.customAmount.set(this.isOldEra() ? typed / 1_000_000 : typed);
     this.resetCalc();
   }
 
@@ -1798,6 +1143,12 @@ export class TimeMachineModalComponent {
 
   setInvestMode(m: InvestMode): void {
     this.investMode.set(m);
+    // Özel tutara ilk geçişte alan boş kalıp "Hesapla"yı pasif bırakıyordu; seçili tarihe göre
+    // makul bir başlangıç (bugünün 1.000 ₺'sinin o günkü karşılığı) yazılır — kullanıcı hiç
+    // düşünmeden hesaplasa bile anlamlı bir sonuç görür.
+    if (m === 'custom' && this.customAmount() <= 0) {
+      this.customAmount.set(this.suggestedCustomAmount());
+    }
     this.resetCalc();
   }
 

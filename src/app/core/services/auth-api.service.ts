@@ -52,6 +52,11 @@ export class AuthApiService {
     });
   }
 
+  /** Sunucudaki yenileme token'larını iptal eder. İstemci tarafı temizlik tek başına yetmiyordu. */
+  logout(): Observable<void> {
+    return this.http.post<void>(`${this.base}/logout`, {});
+  }
+
   refresh(refreshToken: string): Observable<LoginResult> {
     return this.http.post<LoginResult>(`${this.base}/refresh`, { refreshToken });
   }
