@@ -54,7 +54,10 @@ import { StockLogoComponent } from '../../shared/components/stock-logo/stock-log
             </div>
             <div class="stat">
               <div class="k">HACİM</div>
-              <div class="v mono">{{ formatNumber(d.volume) }} mn {{ currencySymbol() }}</div>
+              <!-- Kaynak veri İŞLEM ADEDİdir, ciro değil. Önceden "mn ₺" yazıyordu;
+                   BRSAN gibi pahalı hisselerde bu "günde 2.200 lot işlem görmüş" gibi
+                   imkânsız bir okumaya yol açıyordu. -->
+              <div class="v mono">{{ formatNumber(d.volume) }} mn adet</div>
             </div>
           </div>
 

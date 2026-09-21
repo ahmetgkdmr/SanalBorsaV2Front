@@ -216,3 +216,10 @@
 }
 
 .sec-note b { color: var(--text); }
+
+/* Kur beklenirken: sayı uydurmak yerine belirsizlik açıkça gösterilir. */
+.pending {
+  color: var(--muted);
+  font-weight: 700;
+  cursor: help;
+}

@@ -59,7 +59,13 @@ interface HoldingRow {
           <div class="totals">
             <div class="total">
               <div class="k">TOPLAM VARLIK</div>
-              <div class="v mono">{{ formatInteger(totalTry()) }} ₺</div>
+              <div class="v mono">
+                @if (totalTry() !== null) {
+                  {{ formatInteger(totalTry()!) }} ₺
+                } @else {
+                  <span class="pending" title="Kur bilgisi bekleniyor">—</span>
+                }
+              </div>
             </div>
           </div>
         </div>
@@ -71,8 +77,15 @@ interface HoldingRow {
           </div>
           <div class="stat">
             <div class="k">TOPLAM K/Z</div>
-            <div class="v mono" [style.color]="pnlTry() >= 0 ? 'var(--up)' : 'var(--down)'">
-              {{ pnlTry() >= 0 ? '+' : '' }}{{ formatInteger(pnlTry()) }} ₺
+            <div
+              class="v mono"
+              [style.color]="pnlTry() === null ? null : pnlTry()! >= 0 ? 'var(--up)' : 'var(--down)'"
+            >
+              @if (pnlTry() !== null) {
+                {{ pnlTry()! >= 0 ? '+' : '' }}{{ formatInteger(pnlTry()!) }} ₺
+              } @else {
+                <span class="pending" title="Kur bilgisi bekleniyor">—</span>
+              }
             </div>
           </div>
         </div>
@@ -562,16 +575,36 @@ export class PortfolioPageComponent implements OnInit, OnDestroy {
   readonly stockValueUsd = computed(() => this.cryptoHoldings().reduce((s, h) => s + h.value, 0));
   readonly stockValueUs = computed(() => this.usHoldings().reduce((s, h) => s + h.value, 0));
 
+  /** Dolar bazlı (kripto + ABD) varlıkların toplamı — TL'ye çevrilmeden önce. */
+  readonly usdDenominatedValue = computed(() => this.stockValueUsd() + this.stockValueUs());
+
+  /**
+   * Kur henüz gelmediyse (SignalR akışı bağlanana kadar geçen ilk saniyeler, ya da akış
+   * kopmuşsa) dolar bazlı varlıklar değerlenemez.
+   *
+   * Önceden bu durumda kur `?? 0` ile sıfır alınıyordu: kripto/ABD pozisyonları bir anlığına
+   * 0 ₺ sayılıyor, toplam varlık düşüyor ve kâr/zarar sahte bir dev ZARAR gösteriyordu.
+   * Artık değer hesaplanamıyorsa sayı uydurmak yerine "—" gösteriliyor.
+   */
+  readonly valuationReady = computed(
+    () => this.usdTryRate() !== null || this.usdDenominatedValue() === 0,
+  );
+
   /** Tek TL havuzu: BIST zaten TL, kripto/ABD değeri anlık kurla TL'ye çevrilir. */
   readonly totalTry = computed(() => {
-    const rate = this.usdTryRate() ?? 0;
+    const rate = this.usdTryRate();
+    if (rate === null && this.usdDenominatedValue() > 0) return null;
     return (
       this.stockValueTry() +
-      (this.stockValueUsd() + this.stockValueUs()) * rate +
+      this.usdDenominatedValue() * (rate ?? 0) +
       this.portfolio.cash()
     );
   });
-  readonly pnlTry = computed(() => this.totalTry() - 1_000_000);
+
+  readonly pnlTry = computed(() => {
+    const total = this.totalTry();
+    return total === null ? null : total - 1_000_000;
+  });
 
   /** Bölüm başlığındaki seans rozetini besler; dakikada bir tazelenir. */
   private readonly clockTick = signal(0);

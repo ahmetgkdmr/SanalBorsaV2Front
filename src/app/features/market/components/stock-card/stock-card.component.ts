@@ -55,7 +55,8 @@ import { StockLogoComponent } from '../../../../shared/components/stock-logo/sto
 
       <div class="vol mono">
         <span>Hacim</span>
-        <span>{{ formatNumber(stock().volume) }} mn {{ currencySymbol() }}</span>
+        <!-- Kripto hacmi USD cirosu (para birimi doğru); BIST/ABD hacmi işlem adedi. -->
+        <span>{{ formatNumber(stock().volume) }} mn {{ volumeUnit() }}</span>
       </div>
 
       <!-- Köşe pulse noktası -->
@@ -338,6 +339,15 @@ export class StockCardComponent {
   });
   readonly currencySymbol = computed(() =>
     this.stock().currency === 'USD' ? '$' : '₺',
+  );
+
+  /**
+   * Hacim birimi. Kripto tarafında değer Binance'in `quoteVolume24h`'i yani USD cinsinden
+   * CİRO — para birimiyle gösterilmesi doğru. BIST/ABD tarafında ise TradingView'in `v`
+   * alanı, yani işlem gören PAY ADEDİ; onu "₺" ile etiketlemek yanlış bilgi veriyordu.
+   */
+  readonly volumeUnit = computed(() =>
+    this.stock().exchange === 'CRYPTO' ? this.currencySymbol() : 'adet',
   );
 
   readonly crownTitle = computed(() => {
