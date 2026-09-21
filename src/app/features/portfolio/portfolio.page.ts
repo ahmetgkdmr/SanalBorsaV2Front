@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
@@ -9,6 +9,8 @@ import { UsMarketService } from '../../core/services/us-market.service';
 import { ModalService } from '../../core/services/modal.service';
 import { PortfolioService } from '../../core/services/portfolio.service';
 import { formatInteger, formatNumber, symbolColor } from '../../core/utils/format.util';
+import { isBistTradingOpen } from '../../core/utils/bist-trading-hours';
+import { US_TRADING_ENABLED } from '../../core/utils/us-trading-hours';
 import { StockLogoComponent } from '../../shared/components/stock-logo/stock-logo.component';
 import {
   SymbolOption,
@@ -75,7 +77,30 @@ interface HoldingRow {
           </div>
         </div>
 
-        <div class="sec-h">HIZLI İŞLEM (BIST)</div>
+        <!-- K/Z neye göre hesaplanıyor ve değerleme nasıl yapılıyor — bunlar ekrandaki
+             sayılara bakarak anlaşılmıyordu. -->
+        <div class="pf-note">
+          <span>ℹ️</span>
+          <span>
+            Kâr/zarar, <b>1.000.000 ₺</b> başlangıç sermayesine göre hesaplanır.
+            Kripto ve ABD varlıkları <b>anlık USD/TRY kuruyla</b> TL'ye çevrilir; BIST ve ABD
+            hisseleri <b>son kapanış</b> fiyatından değerlenir. Bedelsiz, bedelli ve temettü
+            gibi şirket işlemleri portföyüne <b>otomatik</b> yansıtılır.
+          </span>
+        </div>
+
+        <div class="sec-h">
+          HIZLI İŞLEM (BIST)
+          <span class="sec-tag" [class.open]="bistOpen()" [class.closed]="!bistOpen()">
+            {{ bistOpen() ? 'seans açık' : 'seans kapalı' }}
+          </span>
+        </div>
+        @if (!bistOpen()) {
+          <p class="sec-note">
+            BIST işlemleri her gün <b>19:00 – ertesi sabah 09:30</b> arası açıktır; gün içinde
+            fiyatlar henüz kesinleşmediği için emir alınmaz.
+          </p>
+        }
         <div class="trade">
           <app-symbol-select
             [(value)]="tradeSymbol"
@@ -98,7 +123,10 @@ interface HoldingRow {
           <div class="trade-msg" [style.color]="tradeMsgColor()">{{ tradeMsg() }}</div>
         }
 
-        <div class="sec-h">HIZLI İŞLEM (KRİPTO)</div>
+        <div class="sec-h">
+          HIZLI İŞLEM (KRİPTO)
+          <span class="sec-tag open">7/24 açık</span>
+        </div>
         <div class="trade">
           <app-symbol-select
             [(value)]="cryptoSymbol"
@@ -121,7 +149,15 @@ interface HoldingRow {
           <div class="trade-msg" [style.color]="cryptoMsgColor()">{{ cryptoMsg() }}</div>
         }
 
-        <div class="sec-h">HIZLI İŞLEM (ABD)</div>
+        <div class="sec-h">
+          HIZLI İŞLEM (ABD)
+          <span class="sec-tag closed">kapalı</span>
+        </div>
+        <p class="sec-note">
+          ABD hisselerinde alım-satım şimdilik kapalı — kurumsal işlem verisini tek kaynaktan
+          aldığımız için bölünme ve birleşme gibi olaylar gözden kaçabiliyor. Bu piyasayı
+          izleyebilir, Zaman Makinesi'nde geçmişe dönük deneyebilirsin.
+        </p>
         <div class="trade">
           <app-symbol-select
             [(value)]="usSymbol"
@@ -137,8 +173,20 @@ interface HoldingRow {
             [(ngModel)]="usTry"
             placeholder="TL tutar"
           />
-          <button class="btn btn-buy" type="button" [disabled]="busyUs()" (click)="buyUs()">AL</button>
-          <button class="btn btn-sell" type="button" [disabled]="busyUs()" (click)="sellUs()">SAT</button>
+          <button
+            class="btn btn-buy"
+            type="button"
+            [disabled]="busyUs() || !usTradingOpen"
+            title="ABD hisselerinde alım-satım şimdilik kapalı"
+            (click)="buyUs()"
+          >AL</button>
+          <button
+            class="btn btn-sell"
+            type="button"
+            [disabled]="busyUs() || !usTradingOpen"
+            title="ABD hisselerinde alım-satım şimdilik kapalı"
+            (click)="sellUs()"
+          >SAT</button>
         </div>
         @if (usMsg()) {
           <div class="trade-msg" [style.color]="usMsgColor()">{{ usMsg() }}</div>
@@ -391,7 +439,7 @@ interface HoldingRow {
   `,
   styleUrl: './portfolio.page.css',
 })
-export class PortfolioPageComponent implements OnInit {
+export class PortfolioPageComponent implements OnInit, OnDestroy {
   readonly auth = inject(AuthService);
   readonly portfolio = inject(PortfolioService);
   readonly modals = inject(ModalService);
@@ -524,6 +572,22 @@ export class PortfolioPageComponent implements OnInit {
     );
   });
   readonly pnlTry = computed(() => this.totalTry() - 1_000_000);
+
+  /** Bölüm başlığındaki seans rozetini besler; dakikada bir tazelenir. */
+  private readonly clockTick = signal(0);
+  readonly bistOpen = computed(() => {
+    this.clockTick();
+    return isBistTradingOpen();
+  });
+
+  /** ABD alım-satımı ürün kararıyla kapalı (bkz. us-trading-hours.ts). */
+  readonly usTradingOpen = US_TRADING_ENABLED;
+
+  private readonly statusTimer = setInterval(() => this.clockTick.update((n) => n + 1), 60_000);
+
+  ngOnDestroy(): void {
+    clearInterval(this.statusTimer);
+  }
 
   ngOnInit(): void {
     void this.portfolio.reload();

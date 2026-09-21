@@ -416,3 +416,20 @@
 @media (max-width: 380px) {
   .ms-btn { font-size: 8.5px; padding: 8px 3px; }
 }
+
+/* Veri kaynağına erişilemediğinde: arama sonucu boşluğundan görsel olarak ayrışsın. */
+.status-warn {
+  background: color-mix(in srgb, #f5a524 10%, transparent);
+  border: 1px solid color-mix(in srgb, #f5a524 34%, transparent);
+  border-radius: 12px;
+  padding: 16px 18px;
+  color: var(--text);
+}
+
+.status-detail {
+  display: block;
+  margin-top: 5px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--muted);
+}

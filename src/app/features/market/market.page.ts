@@ -272,9 +272,19 @@ const SORT_OPTIONS: { key: MarketSortKey & CryptoSortKey & UsSortKey; label: str
         </div>
 
         @if (!displayCards().length) {
-          <p class="status">
-            {{ marketType.type() === 'crypto' ? 'Eşleşen coin yok.' : 'Bu sayfada gösterilecek kayıt yok.' }}
-          </p>
+          <!-- "Arama sonucu boş" ile "veri akışı gelmiyor" aynı şey değil; ikisini aynı
+               cümleyle göstermek, kaynak erişilemezken listeyi boşmuş gibi gösteriyordu. -->
+          @if (emptyState(); as e) {
+            <p class="status" [class.status-warn]="e.isOutage">
+              {{ e.title }}
+              @if (e.detail) {
+                <span class="status-detail">{{ e.detail }}</span>
+              }
+              @if (e.isOutage) {
+                <button class="retry" type="button" (click)="reload()">Tekrar dene</button>
+              }
+            </p>
+          }
         }
 
         <nav class="pager" [attr.aria-label]="marketType.type() === 'crypto' ? 'Coin sayfaları' : 'Hisse sayfaları'">
@@ -395,6 +405,41 @@ export class MarketPageComponent implements OnInit, OnDestroy {
     if (kind === 'crypto') return this.crypto.totalPages();
     if (kind === 'us') return this.us.totalPages();
     return this.market.totalPages();
+  });
+
+  /**
+   * Liste boşken NEDEN boş olduğunu ayırt eder. Kripto verisi dış bir kaynaktan (Binance)
+   * canlı akışla geliyor; kaynağa erişilemediğinde liste boş kalıyordu ve ekran bunu
+   * "eşleşen coin yok" diye gösteriyordu — kullanıcı arama sorunu sanıyordu.
+   */
+  readonly emptyState = computed(() => {
+    const kind = this.marketType.type();
+    // Arama kutusu üç piyasa için ortak; ham girdi yeterli (servise gecikmeli yazılıyor).
+    const searching = this.searchInput.trim().length > 0;
+
+    if (searching) {
+      return {
+        isOutage: false,
+        title: kind === 'crypto' ? 'Eşleşen coin yok.' : 'Eşleşen hisse yok.',
+        detail: 'Arama terimini değiştirip tekrar dene.',
+      };
+    }
+
+    if (kind === 'crypto') {
+      return {
+        isOutage: true,
+        title: 'Kripto fiyatları şu an alınamıyor.',
+        detail:
+          'Canlı veri Binance üzerinden geliyor; bağlantı kurulamadığında liste boş kalır. ' +
+          'Bağlantı sağlanınca fiyatlar kendiliğinden akmaya başlar.',
+      };
+    }
+
+    return {
+      isOutage: false,
+      title: 'Bu sayfada gösterilecek kayıt yok.',
+      detail: null as string | null,
+    };
   });
 
   readonly activeRange = computed(() => {

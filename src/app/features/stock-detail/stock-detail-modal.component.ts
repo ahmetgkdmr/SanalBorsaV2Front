@@ -6,6 +6,7 @@ import {
   inject,
   signal,
   untracked,
+  OnDestroy,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../core/services/auth.service';
@@ -19,6 +20,7 @@ import { UsStockApiService } from '../../core/services/us-stock-api.service';
 import { StockCardView, StockDetail } from '../../core/models/stock.model';
 import { changePercent, formatNumber, symbolColor } from '../../core/utils/format.util';
 import { tierBadge } from '../../core/constants/bist-tiers';
+import { isBistTradingOpen } from '../../core/utils/bist-trading-hours';
 import { OverlayComponent } from '../../shared/components/overlay/overlay.component';
 import { StockLogoComponent } from '../../shared/components/stock-logo/stock-logo.component';
 
@@ -56,6 +58,19 @@ import { StockLogoComponent } from '../../shared/components/stock-logo/stock-log
             </div>
           </div>
 
+          <!-- İşlem durumu: kullanıcı AL'a basıp hata almadan ÖNCE neden yapabildiğini /
+               yapamadığını görsün. Önceden bu bilgi yalnızca başarısız istekten sonra
+               açılan uyarı penceresinde vardı. -->
+          @if (tradeStatus(); as st) {
+            <div class="trade-status" [class.open]="st.open" [class.closed]="!st.open">
+              <span class="ts-icon">{{ st.open ? '🟢' : '🔒' }}</span>
+              <span>
+                <b>{{ st.title }}</b>
+                <span class="ts-detail">{{ st.detail }}</span>
+              </span>
+            </div>
+          }
+
           @if (auth.isLoggedIn()) {
             <div class="trade" style="margin-top: 16px">
               <input
@@ -66,12 +81,18 @@ import { StockLogoComponent } from '../../shared/components/stock-logo/stock-log
                 [(ngModel)]="lots"
                 [placeholder]="isUsMode() ? 'TL tutar giriniz' : 'Lot miktarı giriniz'"
               />
-              <button class="btn btn-buy" type="button" [disabled]="busy()" (click)="buy()">AL</button>
+              <button
+                class="btn btn-buy"
+                type="button"
+                [disabled]="busy() || !tradeStatus()!.open"
+                [title]="tradeStatus()!.open ? '' : tradeStatus()!.title"
+                (click)="buy()"
+              >AL</button>
               <button
                 class="btn btn-sell"
                 type="button"
-                [disabled]="busy() || !canSell()"
-                [title]="canSell() ? '' : 'Bu hisseden pozisyonun yok'"
+                [disabled]="busy() || !canSell() || !tradeStatus()!.open"
+                [title]="!tradeStatus()!.open ? tradeStatus()!.title : canSell() ? '' : 'Bu hisseden pozisyonun yok'"
                 (click)="sell()"
               >SAT</button>
             </div>
@@ -141,6 +162,33 @@ import { StockLogoComponent } from '../../shared/components/stock-logo/stock-log
       font-weight: 600;
     }
 
+    /* Seans durumu — AL/SAT'ın hemen üstünde, tıklamadan önce görünsün. */
+    .trade-status {
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+      margin-top: 16px;
+      padding: 9px 11px;
+      border-radius: 9px;
+      font-size: 12.5px;
+      line-height: 1.5;
+      color: var(--muted);
+    }
+
+    .trade-status.open {
+      background: color-mix(in srgb, var(--up) 10%, transparent);
+      border: 1px solid color-mix(in srgb, var(--up) 28%, transparent);
+    }
+
+    .trade-status.closed {
+      background: var(--panel2);
+      border: 1px solid var(--line);
+    }
+
+    .trade-status b { color: var(--text); }
+    .ts-icon { flex: 0 0 auto; line-height: 1.4; }
+    .ts-detail { color: var(--muted); }
+
     .hint {
       margin-top: 14px;
       color: var(--muted);
@@ -158,7 +206,7 @@ import { StockLogoComponent } from '../../shared/components/stock-logo/stock-log
     }
   `,
 })
-export class StockDetailModalComponent {
+export class StockDetailModalComponent implements OnDestroy {
   readonly modals = inject(ModalService);
   readonly auth = inject(AuthService);
   private readonly market = inject(MarketService);
@@ -182,6 +230,51 @@ export class StockDetailModalComponent {
     () => this.modals.active() === 'stockDetail' || this.modals.active() === 'usStockDetail',
   );
   readonly currencySymbol = computed(() => (this.isUsMode() ? '$' : '₺'));
+
+  /**
+   * İşlem yapılabilir mi ve neden. Saat bilgisi istemcide hesaplanır (aynı kural backend'de
+   * de uygulanıyor — bkz. BistTradingHours / NyseTradingHours); burada amaç kullanıcıyı
+   * boşa tıklatmamak, yetki kararı değil.
+   *
+   * `clockTick` bağımlılığı sayesinde seans açılış/kapanış anı geçtiğinde metin kendiliğinden
+   * tazelenir; aksi hâlde modal açık kalırsa eski durum donup kalıyordu.
+   */
+  readonly tradeStatus = computed(() => {
+    this.clockTick();
+
+    if (this.isUsMode()) {
+      return {
+        open: false,
+        title: 'ABD hisselerinde alım-satım kapalı',
+        detail:
+          ' — kurumsal işlem verisini tek kaynaktan aldığımız için (bölünme, birleşme gibi ' +
+          'olaylar gözden kaçabilir) bu piyasa şimdilik yalnızca izlemeye açık.',
+      };
+    }
+
+    return isBistTradingOpen()
+      ? {
+          open: true,
+          title: 'Seans açık',
+          detail: ' — sabah 09:30\'a kadar işlem yapabilirsin. Fiyat, günün kesinleşmiş kapanışıdır.',
+        }
+      : {
+          open: false,
+          title: 'Seans kapalı',
+          detail:
+            ' — BIST işlemleri her gün 19:00 ile ertesi sabah 09:30 arası açıktır. ' +
+            'Gün içinde fiyatlar henüz kesinleşmediği için işlem alınmaz.',
+        };
+  });
+
+  /** Dakikada bir artar — seans durumu metni kendiliğinden tazelensin diye. */
+  private readonly clockTick = signal(0);
+
+  private readonly statusTimer = setInterval(() => this.clockTick.update((n) => n + 1), 60_000);
+
+  ngOnDestroy(): void {
+    clearInterval(this.statusTimer);
+  }
 
   readonly ownedLots = computed(() => {
     const sym = this.card()?.symbol;

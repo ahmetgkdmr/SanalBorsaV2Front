@@ -18,10 +18,22 @@ const DETAIL_PAGE_SIZE = 5;
       <a class="btn back-btn" routerLink="/">← Piyasa Ekranı</a>
 
       <h2 style="margin-top: 22px">
-        🏆 Haftanın En Çok Kazananları <span class="new-tag">YENİ</span>
+        🏆 En Çok Kazananlar <span class="new-tag">YENİ</span>
       </h2>
       <p class="sub">
-        Bu hafta sanal portföyünü en çok büyüten yatırımcılar. {{ weekLabel }}
+        Sanal portföyünü başlangıçtan bugüne en çok büyüten yatırımcılar.
+      </p>
+
+      <!-- Sıralamanın neye göre yapıldığı ekrandaki sayılardan anlaşılmıyordu; başlık da
+           "haftanın" diyordu ama hesap başlangıçtan bugüne toplam getiri üzerinden. -->
+      <p class="lb-note">
+        <span>ℹ️</span>
+        <span>
+          Sıralama, <b>1.000.000 ₺</b> başlangıç sermayesine göre toplam getiriye dayanır.
+          Portföy değeri <b>canlı fiyatlarla</b> hesaplanır; kripto ve ABD varlıkları anlık
+          USD/TRY kuruyla TL'ye çevrilir. İşlem geçmişi yalnızca <b>paylaşmayı seçen</b>
+          kullanıcılarda görünür.
+        </span>
       </p>
 
 
@@ -168,11 +180,6 @@ export class LeaderboardPageComponent implements OnInit {
   readonly detailTrades = signal<PublicTrade[]>([]);
   readonly detailLoading = signal(false);
 
-  readonly weekLabel = new Date().toLocaleDateString('tr-TR', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
 
   readonly totalPages = computed(() =>
     Math.max(1, Math.ceil(this.entries().length / this.pageSize)),

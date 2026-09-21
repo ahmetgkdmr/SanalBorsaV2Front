@@ -96,6 +96,15 @@ import { StockLogoComponent } from '../../shared/components/stock-logo/stock-log
             <button class="preview-btn" type="button" [disabled]="busy()" (click)="preview()">
               Emir önizle
             </button>
+
+            <!-- Kullanıcı, gerçekleşen ortalama fiyatın ekrandaki fiyattan neden farklı
+                 olabileceğini önceden görsün. Emir defterinden kademe kademe erime,
+                 önizleme kutusunda zaten kalem kalem gösteriliyor. -->
+            <p class="trade-note">
+              🟢 Kripto işlemleri <b>7/24 açık</b>. Emir, Binance emir defterinde
+              <b>kademe kademe</b> karşılanır — bu yüzden gerçekleşen ortalama fiyat ekrandaki
+              son fiyattan biraz farklı olabilir. Defterdeki derinlik yetmezse işlem alınmaz.
+            </p>
             @if (msg()) {
               <div class="trade-msg" [style.color]="msg().startsWith('✓') ? 'var(--up)' : 'var(--down)'">
                 {{ msg() }}
@@ -197,6 +206,19 @@ import { StockLogoComponent } from '../../shared/components/stock-logo/stock-log
     }
     .fill-h { font-weight: 700; margin-bottom: 6px; }
     .fill-row { color: var(--muted); padding: 2px 0; }
+    .trade-note {
+      margin: 10px 0 0;
+      padding: 9px 11px;
+      border-radius: 9px;
+      background: var(--panel2);
+      border: 1px solid var(--line);
+      font-size: 12px;
+      line-height: 1.5;
+      color: var(--muted);
+
+      b { color: var(--text); }
+    }
+
     .hint { margin-top: 14px; color: var(--muted); font-size: 13px; }
     .actions { margin-top: 16px; }
     .btn-prem {
