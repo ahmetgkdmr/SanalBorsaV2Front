@@ -276,7 +276,7 @@ export class CryptoMarketService {
     }
   }
 
-  private mergeTickers(incoming: CryptoTicker[]): void {
+  private mergeTickers(incoming: PartialTicker[]): void {
     const prev = this.tickers();
     const map = new Map(prev.map((t) => [t.symbol, t]));
     const nextDirs = { ...this.tickDir() };
@@ -287,23 +287,23 @@ export class CryptoMarketService {
       if (!t.symbol) continue;
       if (!t.symbol.endsWith('USDT') && !FX_SYMBOLS.has(t.symbol)) continue;
       const old = map.get(t.symbol);
-      if (old && old.price !== t.price) {
-        nextDirs[t.symbol] = t.price > old.price ? 1 : -1;
-        changed = true;
-      } else if (!old) {
-        changed = true;
-      } else if (
-        old.changePercent24h !== t.changePercent24h ||
-        old.quoteVolume24h !== t.quoteVolume24h
-      ) {
-        changed = true;
-      }
 
-      const next = {
-        ...old,
-        ...t,
+      // Kısmi güncelleme güvenli birleştirme: alan gelmediyse (undefined) eldeki değer korunur.
+      const next: CryptoTicker = {
+        symbol: t.symbol,
+        baseAsset: t.baseAsset || old?.baseAsset || t.symbol,
+        price: t.price ?? old?.price ?? 0,
+        changePercent24h: t.changePercent24h ?? old?.changePercent24h ?? 0,
+        quoteVolume24h: t.quoteVolume24h ?? old?.quoteVolume24h ?? 0,
+        high24h: t.high24h ?? old?.high24h ?? 0,
+        low24h: t.low24h ?? old?.low24h ?? 0,
         priceDecimals: t.priceDecimals || old?.priceDecimals || 8,
       };
+
+      if (old && old.price !== next.price) {
+        nextDirs[t.symbol] = next.price > old.price ? 1 : -1;
+      }
+
       if (
         !old ||
         old.price !== next.price ||
@@ -375,17 +375,40 @@ function toCard(
   };
 }
 
-function normalizeBatch(batch: unknown): CryptoTicker[] {
+function normalizeBatch(batch: unknown): PartialTicker[] {
   if (!Array.isArray(batch)) return [];
   return batch.map(normalizeTicker);
 }
 
-function normalizeTicker(raw: unknown): CryptoTicker {
+/**
+ * Akıştan gelen tek bir kayıt. Sayısal alanlar opsiyoneldir: yayıncı kısmi güncelleme
+ * gönderebiliyor ve "alan yok" ile "değer sıfır" ayrımı korunmalı.
+ */
+interface PartialTicker {
+  symbol: string;
+  baseAsset: string;
+  price?: number;
+  changePercent24h?: number;
+  quoteVolume24h?: number;
+  high24h?: number;
+  low24h?: number;
+  priceDecimals?: number;
+}
+
+/**
+ * Akıştan gelen ham kaydı ayrıştırır. Sayısal alanlar **eksikse `undefined`** döner —
+ * 0 DEĞİL. Aradaki fark kritik: yayıncı kısmi güncelleme gönderdiğinde (ör. sadece fiyat,
+ * değişim yüzdesi yok) eksik alanı 0'a çevirmek, birleştirme sırasında eldeki gerçek değeri
+ * sıfırla ezip göstergenin anlık "%0,00" göstermesine yol açıyordu. `undefined` olunca
+ * mergeTickers o alana hiç dokunmuyor.
+ */
+function normalizeTicker(raw: unknown): PartialTicker {
   const t = raw as Record<string, unknown>;
   const symbol = String(t['symbol'] ?? t['Symbol'] ?? '').toUpperCase();
   const baseAsset = String(
     t['baseAsset'] ?? t['BaseAsset'] ?? (symbol.endsWith('USDT') ? symbol.slice(0, -4) : symbol),
   );
+  const decimals = num(t['priceDecimals'] ?? t['PriceDecimals']);
   return {
     symbol,
     baseAsset,
@@ -394,11 +417,13 @@ function normalizeTicker(raw: unknown): CryptoTicker {
     quoteVolume24h: num(t['quoteVolume24h'] ?? t['QuoteVolume24h']),
     high24h: num(t['high24h'] ?? t['High24h']),
     low24h: num(t['low24h'] ?? t['Low24h']),
-    priceDecimals: Math.floor(num(t['priceDecimals'] ?? t['PriceDecimals'] ?? 8)),
+    priceDecimals: decimals === undefined ? undefined : Math.floor(decimals),
   };
 }
 
-function num(v: unknown): number {
+/** Sayı olarak yorumlanamıyorsa (alan yok / null / bozuk) undefined. */
+function num(v: unknown): number | undefined {
+  if (v === null || v === undefined || v === '') return undefined;
   const n = Number(v);
-  return Number.isFinite(n) ? n : 0;
+  return Number.isFinite(n) ? n : undefined;
 }

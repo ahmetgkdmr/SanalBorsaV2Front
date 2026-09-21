@@ -12,6 +12,7 @@ export type LogoMarket = 'bist' | 'crypto' | 'us' | 'auto';
 type LogoCatalog = {
   bist: Record<string, string[]>;
   crypto: Record<string, string[]>;
+  us: Record<string, string[]>;
 };
 
 let catalogPromise: Promise<LogoCatalog | null> | null = null;
@@ -159,15 +160,15 @@ export class StockLogoComponent {
   /** Katalogdan bilinen uzantı; katalog yoksa / yüklenmediyse harf göster (404 önle) */
   readonly logoExt = computed<'svg' | 'png' | null>(() => {
     if (this.imgFailed()) return null;
-    const market = this.resolvedMarket();
-    // ABD hisseleri için henüz bir logo kataloğu yok — harflerle göster, 404 denemesi yapma.
-    if (market === 'us') return null;
-    const key = this.logoKey();
     const cat = catalogSignal();
     if (!cat) return null;
 
+    const market = this.resolvedMarket();
+    const key = this.logoKey();
+    const exts = cat[market]?.[key] ?? [];
+
+    // Kripto logoları PNG, hisse logoları SVG olarak indiriliyor — önce beklenen biçim denenir.
     const prefer = market === 'crypto' ? (['png', 'svg'] as const) : (['svg', 'png'] as const);
-    const exts = (market === 'crypto' ? cat.crypto[key] : cat.bist[key]) ?? [];
     for (const p of prefer) {
       if (exts.includes(p)) return p;
     }
@@ -177,8 +178,7 @@ export class StockLogoComponent {
   readonly imgSrc = computed(() => {
     const ext = this.logoExt();
     if (!ext) return null;
-    const folder = this.resolvedMarket() === 'crypto' ? 'crypto' : 'bist';
-    return `/photos/${folder}/${this.logoKey()}.${ext}`;
+    return `/photos/${this.resolvedMarket()}/${this.logoKey()}.${ext}`;
   });
 
   readonly useImage = computed(() => !!this.imgSrc() && !this.imgFailed());

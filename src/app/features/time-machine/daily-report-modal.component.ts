@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import {
   TimeMachineCalc,
@@ -22,6 +22,8 @@ import { OverlayComponent } from '../../shared/components/overlay/overlay.compon
 import { DatePickerComponent } from '../../shared/components/date-picker/date-picker.component';
 import { StockLogoComponent } from '../../shared/components/stock-logo/stock-logo.component';
 import { downloadBlob, roundRectPath, wrapTextLines } from '../../core/utils/canvas.util';
+import { getMinimumWage } from '../../core/constants/app.constants';
+import { buildEraMoneyContext } from '../../core/utils/era-money.util';
 
 type Market = 'bist' | 'crypto' | 'us';
 
@@ -66,17 +68,34 @@ interface Hero {
           </div>
 
           <div class="tm-section amount-section">
-            <div class="tm-label">TUTAR (₺)</div>
+            <div class="tm-label">TUTAR ({{ isOldEra() ? 'TL' : '₺' }})</div>
             <input
               class="amount-input"
               type="number"
               min="1"
               step="100"
-              [ngModel]="amount()"
-              (ngModelChange)="amount.set($event)"
+              [ngModel]="amountDisplay()"
+              (ngModelChange)="onAmountInput($event)"
             />
           </div>
         </div>
+
+        @if (eraContext(); as c) {
+          <div class="era-hint">
+            ⏳ Girdiğin tutar <b>o günün parası</b>dır.
+            <div class="era-hint-wage">
+              {{ wageYearLabel() }} asgari ücreti <b>{{ c.wageThenLabel }}</b> idi —
+              bu tutar <b>≈ {{ c.wageCountLabel }}</b> ediyordu.
+              @if (c.oldTlLabel) {
+                <span class="era-hint-anchor">(o gün {{ c.oldTlLabel }} eski TL)</span>
+              }
+            </div>
+            <div class="era-hint-today">
+              Aynı alım gücü bugün ≈ <b>{{ c.todayEquivalentLabel }}</b>
+              <span class="era-hint-anchor">(asgari ücret üzerinden kabaca)</span>
+            </div>
+          </div>
+        }
 
         <button class="calc-btn" type="button" (click)="onCalc()" [disabled]="loading()">
           {{ loading() ? 'Hesaplanıyor…' : 'Hesapla' }}
@@ -98,14 +117,17 @@ interface Hero {
         } @else if (report(); as r) {
           @if (hero(); as h) {
             <p class="question">
-              {{ formatTurkishDate(r.requestedDate) }} tarihinde {{ formatMoneyAmount(amount()) }} ₺ ile
+              {{ formatTurkishDate(r.requestedDate) }} tarihinde {{ amountEraLabel() }} ile
               {{ displaySymbol(h.market, h.leader.symbol) }} alsaydım ne olurdu?
             </p>
-            <p class="framing-note">
-              💡 Girdiğin tutar <b>o günün parası</b>dır — yani "{{ formatTurkishDate(r.requestedDate) }}
-              günü cebinde {{ formatMoneyAmount(amount()) }} ₺ olsaydı". O tarihte bu para bugünkünden
-              çok daha değerliydi, sonuçların bu kadar büyük çıkmasının sebebi budur.
-            </p>
+            @if (eraContext(); as c) {
+              <p class="framing-note">
+                💡 Bu sonuç, <b>{{ formatTurkishDate(r.requestedDate) }} günü cebinde
+                {{ amountEraLabel() }} olsaydı</b> varsayımına dayanıyor — o gün bu para
+                <b>≈ {{ c.wageCountLabel }}</b> ediyordu (bugünün parasıyla
+                ≈ {{ c.todayEquivalentLabel }}). Sonuçların büyük çıkmasının sebebi budur.
+              </p>
+            }
 
             <div class="hero">
               <div class="hero-tag">🏆 KAZANAN</div>
@@ -121,7 +143,7 @@ interface Hero {
               </div>
               <div class="hero-bottom">
                 <div class="hero-result">
-                  <span class="hero-result-label">{{ formatMoneyAmount(amount()) }} ₺ →</span>
+                  <span class="hero-result-label">{{ amountEraLabel() }} →</span>
                   <span class="hero-result-value">{{ formatMoneyAmount(heroVerified()?.currentValue ?? resultAmount(h.leader.returnPct)) }} ₺</span>
                 </div>
 
@@ -137,7 +159,7 @@ interface Hero {
                             <span class="hero-price-line-tl mono">o günkü kurla {{ formatMoneyAmount(buyTry) }} ₺ → bugün {{ formatMoneyAmount(curTry) }} ₺</span>
                           }
                         }
-                        <span class="hero-lots-line">o günün {{ formatMoneyAmount(amount()) }} ₺'siyle {{ formatLots(hc.lots) }} hissen olurdu</span>
+                        <span class="hero-lots-line">o günün {{ amountEraLabel() }}'siyle {{ formatLots(hc.lots) }} hissen olurdu</span>
                       </div>
                       <ul class="hero-story">
                         @for (line of hc.storyLines; track $index) {
@@ -387,11 +409,73 @@ export class DailyReportModalComponent {
     return candidates.reduce((best, c) => (c.leader.returnPct > best.leader.returnPct ? c : best));
   }
 
+  /**
+   * 2005 öncesi tarihlerde girdi ESKİ TL kabul eder — o dönem yeni TL yoktu ve "1.000 ₺"
+   * yazmak 1 milyar eski TL demek oluyordu. `amount()` içeride HER ZAMAN yeni TL tutulur
+   * (÷ 1.000.000), böylece tüm hesaplar ve API çağrıları değişmez.
+   * Aynı kural time-machine-modal'da da geçerli — iki ekran aynı sayıyı aynı şekilde yorumlar.
+   */
+  readonly isOldEra = computed(() => {
+    const iso = this.dateStr();
+    return !!iso && iso.length >= 10 && iso < '2005-01-01';
+  });
+
+  readonly amountDisplay = computed(() => {
+    const v = this.amount();
+    if (!Number.isFinite(v) || v <= 0) return v;
+    return this.isOldEra() ? Math.round(v * 1_000_000) : v;
+  });
+
+  /** Tutarı doğru birim ve simgeyle yazar — ekranda ve paylaşım görselinde ortak kullanılır. */
+  readonly amountEraLabel = computed(() => {
+    const v = this.amount();
+    return this.isOldEra()
+      ? `${formatInteger(v * 1_000_000)} TL`
+      : `${formatMoneyAmount(v)} ₺`;
+  });
+
+  /**
+   * Seçilen döneme uygun başlangıç tutarı: bugünün 1.000 ₺'sinin o günkü karşılığı
+   * (asgari ücret çıpasıyla). Yeni TL biriminde döner — `amount` her zaman yeni TL tutar.
+   */
+  private suggestedAmount(): number {
+    const iso = this.dateStr();
+    if (!iso || iso.length < 7) return 1000;
+    const wageThen = getMinimumWage(iso);
+    const wageNow = getMinimumWage(new Date().toISOString().slice(0, 10));
+    if (wageThen <= 0 || wageNow <= 0) return 1000;
+    const raw = (1000 / wageNow) * wageThen;
+    // Eski dönemde alan eski TL gösterdiği için küçük yeni-TL değerleri sorun değil.
+    return this.isOldEra() ? Math.round(raw * 1_000_000) / 1_000_000 : Math.max(1, Math.round(raw));
+  }
+
+  /** Girilen tutarın seçilen tarihteki asgari ücret karşılığı — sadece bilgilendirme. */
+  readonly eraContext = computed(() => buildEraMoneyContext(this.dateStr(), this.amount()));
+
+  readonly wageYearLabel = computed(() => {
+    const iso = this.dateStr();
+    return iso && iso.length >= 4 ? iso.slice(0, 4) : '';
+  });
+
   /** Takvimde gerçekten veri olan en erken tarih — stats gelene kadar geniş bir üst sınır. */
   readonly minAvailableDate = signal<string>('1985-01-01');
   private statsRequested = false;
 
+  /** Son görülen dönem — 2005'in iki yakası arasında geçiş yakalanır. */
+  private lastEraWasOld: boolean | null = null;
+
   constructor() {
+    // Dönem değişince tutarı o döneme uygun bir başlangıca çeker. Aksi hâlde içerideki
+    // değer sabit kalıp ekranda anlamsız görünüyordu (2016 için 1.000 ₺ iken 1993'e
+    // geçince "1.000.000.000 TL", ya da tersi yönde "0,05 ₺").
+    effect(() => {
+      const isOld = this.isOldEra();
+      const prev = this.lastEraWasOld;
+      this.lastEraWasOld = isOld;
+      if (prev === null || prev === isOld) return;
+      untracked(() => this.amount.set(this.suggestedAmount()));
+    });
+
     effect(() => {
       const open = this.modals.active() === 'dailyReport';
       if (!open) return;
@@ -417,6 +501,16 @@ export class DailyReportModalComponent {
         });
       }
     });
+  }
+
+  /** Girdi eski TL ise içeriye yeni TL olarak yazılır — hesaplar tek birimde kalsın. */
+  onAmountInput(value: number | null): void {
+    const v = Number(value);
+    if (!Number.isFinite(v) || v <= 0) {
+      this.amount.set(0);
+      return;
+    }
+    this.amount.set(this.isOldEra() ? v / 1_000_000 : v);
   }
 
   onCalc(): void {
@@ -649,7 +743,7 @@ export class DailyReportModalComponent {
     return {
       fileName: `sanalportfoy-zengin-testi-${displaySym}.png`,
       text:
-        `${this.formatTurkishDate(this.dateStr())} tarihinde ${this.formatMoneyAmount(this.amount())} ₺ ile ` +
+        `${this.formatTurkishDate(this.dateStr())} tarihinde ${this.amountEraLabel()} ile ` +
         `${displaySym} alsaydım ne olurdu? 🏆 sanalportfoy.com`,
     };
   }
@@ -811,7 +905,7 @@ export class DailyReportModalComponent {
     y += logoSize + 96;
 
     // Soru başlığı — vurgulu.
-    const amountLabel = this.formatMoneyAmount(this.amount());
+    const amountLabel = this.amountEraLabel();
     const dateLabel = this.formatTurkishDate(this.dateStr());
     ctx.fillStyle = '#f5f7fb';
     ctx.font = `800 54px ${FONT}`;

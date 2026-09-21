@@ -105,6 +105,35 @@ h2 {
   color: var(--text);
 }
 
+/* Tutar girişinin altındaki canlı bağlam: girilen paranın o dönemdeki karşılığı.
+   Kullanıcı "o günün parası" olduğunu sonuçtan ÖNCE görsün diye girdinin hemen altında. */
+.era-hint {
+  margin: 0 0 14px;
+  padding: 9px 12px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--muted);
+
+  b { color: var(--text); }
+}
+
+.era-hint-wage {
+  margin-top: 5px;
+}
+
+.era-hint-today {
+  margin-top: 2px;
+  opacity: 0.9;
+}
+
+.era-hint-anchor {
+  opacity: 0.75;
+  font-size: 11px;
+}
+
 .framing-note {
   font-size: 12px;
   line-height: 1.5;

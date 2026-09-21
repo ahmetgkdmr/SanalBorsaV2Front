@@ -11,6 +11,7 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { getMinimumWage } from '../../core/constants/app.constants';
+import { buildEraMoneyContext } from '../../core/utils/era-money.util';
 import {
   TimeMachineCalc,
   TimeMachineLeader,
@@ -235,13 +236,19 @@ type PickerOption = {
               @if (customAmountContext(); as c) {
                 <div class="era-hint">
                   @if (c.newTlLabel) {
-                    ⏳ <b>Eski TL</b> giriyorsun — {{ dateLabel() }} tarihinde tedavüldeki para buydu.
-                    Bugünkü birimle <b>{{ c.newTlLabel }} ₺</b> eder.
+                    ⏳ <b>Eski TL</b> giriyorsun — {{ dateLabel() }} tarihinde tedavüldeki para buydu
+                    (bugünkü birimle {{ c.newTlLabel }} ₺).
                   } @else {
-                    ⏳ Bu tutar <b>o günün parası</b>dır.
+                    ⏳ Girdiğin tutar <b>o günün parası</b>dır.
                   }
-                  · Alım gücü olarak bugünün ≈ <b>{{ c.todayLabel }} ₺</b>'si
-                  <span class="era-hint-anchor">(asgari ücrete göre kabaca)</span>
+                  <div class="era-hint-wage">
+                    {{ wageYearLabel() }} asgari ücreti <b>{{ c.wageThenLabel }}</b> idi —
+                    bu tutar <b>≈ {{ c.wageCountLabel }}</b> ediyordu.
+                  </div>
+                  <div class="era-hint-today">
+                    Aynı alım gücü bugün ≈ <b>{{ c.todayEquivalentLabel }}</b>
+                    <span class="era-hint-anchor">(asgari ücret üzerinden kabaca)</span>
+                  </div>
                 </div>
               }
 
@@ -700,20 +707,21 @@ export class TimeMachineModalComponent {
     return !!iso && iso.length >= 10 && iso < '2005-01-01';
   });
 
-  readonly customAmountContext = computed(() => {
+  /** İpucu metninde "2010 asgari ücreti …" derken kullanılan yıl. */
+  readonly wageYearLabel = computed(() => {
     const iso = this.dateStr();
-    const amount = this.customAmount();
-    if (!iso || iso.length < 7 || amount <= 0) return null;
+    return iso && iso.length >= 4 ? iso.slice(0, 4) : '';
+  });
 
-    const wageThen = getMinimumWage(iso);
-    const wageNow = getMinimumWage(new Date().toISOString().slice(0, 10));
-    if (wageThen <= 0 || wageNow <= 0) return null;
-
-    const isOld = iso < '2005-01-01';
+  readonly customAmountContext = computed(() => {
+    const ctx = buildEraMoneyContext(this.dateStr(), this.customAmount());
+    if (!ctx) return null;
     return {
-      todayLabel: formatInteger((amount / wageThen) * wageNow),
+      ...ctx,
       // Eski dönemde girdi zaten eski TL — burada yeni TL karşılığını gösteririz (tersi).
-      newTlLabel: isOld ? amount.toLocaleString('tr-TR', { maximumFractionDigits: 4 }) : null,
+      newTlLabel: ctx.isOldEra
+        ? this.customAmount().toLocaleString('tr-TR', { maximumFractionDigits: 4 })
+        : null,
     };
   });
 
